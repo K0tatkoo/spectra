@@ -12,7 +12,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.n3d.spectra.dsp.WindowFunction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,12 +54,25 @@ class SettingsStore private constructor(context: Context) {
             .also { _state.value = it }
     }
 
+    private var writeJob: Job? = null
+
+    /**
+     * Updates immediately in memory and persists lazily.
+     *
+     * Dragging a slider produces sixty of these a second, and every DataStore
+     * write rewrites the whole preferences file. Coalescing them behind a single
+     * in-flight job means at most one write per 250 ms, and the last update of a
+     * gesture still schedules the write that captures its final value.
+     */
     fun update(transform: (Settings) -> Settings) {
         val next = transform(_state.value)
         if (next == _state.value) return
         _state.value = next
-        scope.launch {
-            runCatching { appContext.dataStore.edit { encode(next, it) } }
+        if (writeJob?.isActive == true) return
+        writeJob = scope.launch {
+            delay(WRITE_DEBOUNCE_MS)
+            val snapshot = _state.value
+            runCatching { appContext.dataStore.edit { encode(snapshot, it) } }
         }
     }
 
@@ -207,6 +222,8 @@ class SettingsStore private constructor(context: Context) {
     }.ifEmpty { Settings.DEFAULT_BANDS }
 
     companion object {
+        private const val WRITE_DEBOUNCE_MS = 250L
+
         @Volatile private var instance: SettingsStore? = null
 
         fun get(context: Context): SettingsStore =

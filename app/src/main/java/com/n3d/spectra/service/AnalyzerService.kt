@@ -31,7 +31,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -107,20 +106,47 @@ class AnalyzerService : Service() {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
 
+        lastSurfaceKey = surfaceKey(settings)
         scope.launch {
-            settingsStore.state.collectLatest { next ->
+            settingsStore.state.collect { next ->
                 val needsRestart = AudioEngine.updateSettings(next)
-                val overlayChanged = next.overlayEnabled != settings.overlayEnabled
                 settings = next
                 if (needsRestart && AudioEngine.isRunning()) restartCapture()
-                syncOverlay(force = overlayChanged)
-                scheduleNotification(0)
+
+                // Dragging a slider emits sixty of these a second. The render
+                // loops already read `settings` fresh on their own tick, so only
+                // a change that turns a surface on or off — or changes its rate —
+                // is worth forcing a rebuild for.
+                val key = surfaceKey(next)
+                if (key != lastSurfaceKey) {
+                    lastSurfaceKey = key
+                    syncOverlay(force = true)
+                    scheduleNotification(0)
+                    scheduleWidget(0)
+                }
             }
         }
     }
 
+    private var lastSurfaceKey: List<Any> = emptyList()
+
+    private fun surfaceKey(s: Settings): List<Any> = listOf(
+        s.notificationEnabled, s.notificationFps,
+        s.overlayEnabled, s.overlayFps, s.overlayOpacity, s.overlayPage,
+        s.widgetEnabled, s.widgetFps,
+        s.theme,
+    )
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action
+        // A service that is started and never calls startForeground is killed
+        // with an ANR after five seconds. That can only happen if a notification
+        // button outlives its own service, so bail out rather than crash.
+        if (!startedForeground && action != ACTION_START_MIC && action != ACTION_START_PLAYBACK) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        when (action) {
             ACTION_START_MIC -> startMicrophone()
             ACTION_START_PLAYBACK -> startPlayback(intent)
             ACTION_STOP -> {
