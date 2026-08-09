@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Dark neumorphism has to sit on a mid grey (#22252c), not on near-black: with
+    no headroom below the surface there is nothing for the dark shadow to be
+    darker than, and every control flattens out. Same reasoning as the website.
+-->
+<resources>
+    <color name="n_bg">#22252C</color>
+    <color name="n_bg_deep">#1B1E24</color>
+    <color name="n_dark">#171920</color>
+    <color name="n_light">#2D313A</color>
+    <color name="n_line">#33373F</color>
+
+    <color name="n_text">#EEF1F7</color>
+    <color name="n_text_dim">#A3ABBD</color>
+    <color name="n_text_faint">#737B8C</color>
+
+    <color name="n_accent">#9B7CFF</color>
+    <color name="n_accent_2">#34E3FF</color>
+    <color name="n_grad_a">#6A45FF</color>
+    <color name="n_grad_b">#9A6BFF</color>
+
+    <color name="n_good">#4ADE80</color>
+    <color name="n_warn">#F5C451</color>
+    <color name="n_bad">#FF6B6B</color>
+</resources>

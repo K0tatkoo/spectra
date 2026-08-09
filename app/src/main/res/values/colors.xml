@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The Nebula 3D palette (n3d-store.com), light half. These values exist for the
+    parts of the app that are NOT Compose — the window background and the
+    RemoteViews used by the notification and the widget. Splitting them across
+    values/ and values-night/ is what makes those surfaces follow the system
+    theme without a single line of code.
+-->
+<resources>
+    <color name="n_bg">#E7EAF1</color>
+    <color name="n_bg_deep">#DDE1EA</color>
+    <color name="n_dark">#C1C6D1</color>
+    <color name="n_light">#FFFFFF</color>
+    <color name="n_line">#D2D7E1</color>
+
+    <color name="n_text">#1C2029</color>
+    <color name="n_text_dim">#545C6C</color>
+    <color name="n_text_faint">#7B8394</color>
+
+    <color name="n_accent">#5F43E8</color>
+    <color name="n_accent_2">#0A9FBD</color>
+    <color name="n_grad_a">#5734DB</color>
+    <color name="n_grad_b">#7D54EF</color>
+
+    <color name="n_good">#17914D</color>
+    <color name="n_warn">#A06F04</color>
+    <color name="n_bad">#CF3535</color>
+</resources>

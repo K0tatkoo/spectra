@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Spectra</string>
+    <string name="widget_label">Spectra Analyzer</string>
+    <string name="widget_description">Live band meters on the home screen.</string>
+
+    <string name="notif_channel_analyzer">Live analyzer</string>
+    <string name="notif_channel_analyzer_desc">The ongoing notification that carries the live graphs onto the lock screen.</string>
+
+    <string name="cd_spectrum">Live spectrum</string>
+    <string name="cd_toggle">Pause or resume analysis</string>
+    <string name="cd_cycle">Switch visualisation</string>
+    <string name="cd_stop">Stop analyser</string>
+</resources>

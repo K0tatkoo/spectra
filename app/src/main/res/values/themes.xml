@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Compose owns everything inside the window, so this theme only has to get
+        the frame right: the background colour behind the first frame (otherwise
+        launch flashes white) and edge-to-edge system bars.
+    -->
+    <style name="Theme.Spectra" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/n_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

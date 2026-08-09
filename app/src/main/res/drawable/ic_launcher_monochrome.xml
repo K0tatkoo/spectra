@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One UI themed icons tint this flat, so no gradients here. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#FFFFFF">
+    <path android:fillColor="#FFFFFF" android:pathData="M35,58 h5 a2.5,2.5 0 0 1 2.5,2.5 v13 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-13 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M45,44 h5 a2.5,2.5 0 0 1 2.5,2.5 v27 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-27 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M55,32 h5 a2.5,2.5 0 0 1 2.5,2.5 v39 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-39 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M65,50 h5 a2.5,2.5 0 0 1 2.5,2.5 v21 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-21 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+</vector>

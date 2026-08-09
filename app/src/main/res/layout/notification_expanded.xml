@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Buttons have to be real views — a bitmap cannot receive a tap on the lock
+    screen — so only the graph area is drawn, and the controls sit under it as
+    ImageButtons with their own neumorphic backgrounds.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/notif_image"
+        android:layout_width="match_parent"
+        android:layout_height="132dp"
+        android:scaleType="fitXY"
+        android:contentDescription="@string/cd_spectrum" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingTop="6dp"
+        android:paddingBottom="2dp">
+
+        <ImageButton
+            android:id="@+id/notif_btn_toggle"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginEnd="18dp"
+            android:padding="10dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_pause"
+            android:contentDescription="@string/cd_toggle" />
+
+        <ImageButton
+            android:id="@+id/notif_btn_cycle"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginEnd="18dp"
+            android:padding="10dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_cycle"
+            android:contentDescription="@string/cd_cycle" />
+
+        <ImageButton
+            android:id="@+id/notif_btn_stop"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:padding="10dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_stop"
+            android:contentDescription="@string/cd_stop" />
+    </LinearLayout>
+</LinearLayout>

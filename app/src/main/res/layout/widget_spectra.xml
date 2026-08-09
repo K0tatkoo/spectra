@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The whole widget is one bitmap. Drawing the neumorphic surface, the wells and
+    the meters in Canvas rather than in RemoteViews is what keeps the widget,
+    the notification, the overlay and the in-app UI pixel-identical: there is
+    exactly one painter and four places that blit its output.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:contentDescription="@string/cd_spectrum" />
+</FrameLayout>

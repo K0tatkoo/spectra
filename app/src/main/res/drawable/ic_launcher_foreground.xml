@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive-icon foregrounds are 108x108 with only the middle 72x72 guaranteed
+    visible, so every bar lives inside x 34..74 / y 30..78.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group android:name="bars">
+        <path android:pathData="M35,58 h5 a2.5,2.5 0 0 1 2.5,2.5 v13 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-13 a2.5,2.5 0 0 1 2.5,-2.5 z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
+                    <item android:offset="0" android:color="#FF9B7CFF" />
+                    <item android:offset="1" android:color="#FF34E3FF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M45,44 h5 a2.5,2.5 0 0 1 2.5,2.5 v27 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-27 a2.5,2.5 0 0 1 2.5,-2.5 z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
+                    <item android:offset="0" android:color="#FF9B7CFF" />
+                    <item android:offset="1" android:color="#FF34E3FF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M55,32 h5 a2.5,2.5 0 0 1 2.5,2.5 v39 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-39 a2.5,2.5 0 0 1 2.5,-2.5 z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
+                    <item android:offset="0" android:color="#FF9B7CFF" />
+                    <item android:offset="1" android:color="#FF34E3FF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M65,50 h5 a2.5,2.5 0 0 1 2.5,2.5 v21 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-21 a2.5,2.5 0 0 1 2.5,-2.5 z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
+                    <item android:offset="0" android:color="#FF9B7CFF" />
+                    <item android:offset="1" android:color="#FF34E3FF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>
