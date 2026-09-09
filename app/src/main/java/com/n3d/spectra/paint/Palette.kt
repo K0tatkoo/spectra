@@ -1,6 +1,5 @@
 package com.n3d.spectra.paint
 
-import android.graphics.Color
 import com.n3d.spectra.settings.ColorMap
 
 /**
@@ -15,6 +14,11 @@ import com.n3d.spectra.settings.ColorMap
  * The rule the whole look depends on: a control is the same colour as the
  * surface behind it, and only two shadows separate them — a dark one away from
  * the light and a light one facing it, with the light fixed at the top-left.
+ *
+ * The channel arithmetic is written out rather than taken from
+ * `android.graphics.Color` so this file compiles on a plain JVM too: Spectra for
+ * Windows draws the same graphs with Java2D and has to be the same colours, and
+ * a second copy of these numbers is exactly how two products stop matching.
  */
 class Palette(
     val isDark: Boolean,
@@ -98,18 +102,26 @@ class Palette(
 
         fun of(dark: Boolean) = if (dark) DARK else LIGHT
 
+        fun alpha(c: Int): Int = c ushr 24 and 0xFF
+        fun red(c: Int): Int = c ushr 16 and 0xFF
+        fun green(c: Int): Int = c ushr 8 and 0xFF
+        fun blue(c: Int): Int = c and 0xFF
+
+        fun argb(a: Int, r: Int, g: Int, b: Int): Int =
+            (a and 0xFF shl 24) or (r and 0xFF shl 16) or (g and 0xFF shl 8) or (b and 0xFF)
+
         fun mix(a: Int, b: Int, t: Float): Int {
             val inv = 1f - t
-            return Color.argb(
-                (Color.alpha(a) * inv + Color.alpha(b) * t).toInt(),
-                (Color.red(a) * inv + Color.red(b) * t).toInt(),
-                (Color.green(a) * inv + Color.green(b) * t).toInt(),
-                (Color.blue(a) * inv + Color.blue(b) * t).toInt(),
+            return argb(
+                (alpha(a) * inv + alpha(b) * t).toInt(),
+                (red(a) * inv + red(b) * t).toInt(),
+                (green(a) * inv + green(b) * t).toInt(),
+                (blue(a) * inv + blue(b) * t).toInt(),
             )
         }
 
         fun withAlpha(color: Int, alpha: Float): Int =
-            Color.argb((alpha.coerceIn(0f, 1f) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
+            argb((alpha.coerceIn(0f, 1f) * 255).toInt(), red(color), green(color), blue(color))
 
         /**
          * Builds a 256-entry lookup by walking evenly through the given anchor

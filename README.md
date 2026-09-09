@@ -1,9 +1,19 @@
 # Spectra
 
-A real-time audio analyser for Android, in the Nebula 3D neumorphic look.
+A real-time audio analyser, in the Nebula 3D neumorphic look. Two products, one
+analysis engine:
 
-Kotlin + Jetpack Compose, no native code, no third-party libraries beyond
-AndroidX. Built for the Galaxy S24 Ultra but nothing in it is device-specific.
+- **`app/`** — Android. Kotlin + Jetpack Compose, no native code, no third-party
+  libraries beyond AndroidX. Built for the Galaxy S24 Ultra but nothing in it is
+  device-specific.
+- **`desktop/`** — Windows. Kotlin + Swing/Java2D, one dependency (the Kotlin
+  stdlib), shipped as a self-contained `.exe`. It carries one feature the phone
+  build does not: [a waveform mode for the NES 2A03's triangle
+  channel](#the-nes-2a03-triangle-mode-windows-only).
+
+The desktop module compiles the whole `com.n3d.spectra.dsp` package, `Settings`
+and `Palette` straight out of `app/src/main/java` rather than copying them, so
+the two can never disagree about what a dB, an LUFS or an accent colour is.
 
 ---
 
@@ -180,6 +190,26 @@ app/src/main/java/com/n3d/spectra/
   ui/                      Compose theme, neumorphic controls, screens
 ```
 
+```
+desktop/src/main/kotlin/com/n3d/spectra/desktop/
+  Main.kt                  entry point
+  audio/
+    LineCapture.kt         javax.sound.sampled, format negotiation, device list
+    SyntheticCapture.kt    a 2A03 rendered in software, as an input
+    DesktopEngine.kt       the analysis loop — a port of AudioEngine
+  nes/
+    Nes2A03.kt             the chip as arithmetic: sequence, timers, clocks
+    TriangleTracker.kt     period detection, timer quantisation, phase lock, fold
+    PitchPreFilter.kt      the low-pass that keeps the melody out of the lock
+  paint/
+    G2.kt                  geometry and Graphics2D helpers
+    Neu2D.kt               neumorphic shadows, blurred and cached
+    VizPainter2D.kt        every graph, ported from VizPainter, plus the 2A03 page
+  state/                   settings model + a properties file
+  ui/                      the window, the custom-painted controls
+  dev/                     harnesses: checks, headless renders, the icon
+```
+
 ### Design system
 
 Ported one-for-one from `public/css/style.css` on n3d-store.com: same neutrals
@@ -199,9 +229,115 @@ the overlay via an explicit cache.
 
 ---
 
+## Spectra for Windows
+
+`desktop/` builds a self-contained Windows application: `Spectra.exe`, a jlinked
+Java runtime and one jar. 49 MB unpacked, nothing to install on the target
+machine.
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+desktop/package-windows.sh
+```
+
+It cross-builds **from a Mac**, which needs three tricks and the script explains
+each where it uses it:
+
+- `jlink` will link a runtime image for another platform if it is given that
+  platform's `jmods` and the versions match, so the script fetches a Temurin
+  Windows JDK and links against it.
+- `jpackage` will *not* cross-build — but the Windows `jpackage.exe` runs under
+  Wine, and it is the only thing that stamps the icon and version resources into
+  the launcher correctly. `rcedit` under Wine does not: Wine does not implement
+  growing a PE resource section, and it fails silently and successfully.
+- The `.ico` is rendered from `app/src/main/res/drawable/ic_launcher_*.xml` by
+  `:desktop:appIcon`, so the Windows icon *is* the Android launcher icon rather
+  than a redrawing of it. VectorDrawable `pathData` is SVG path syntax; the
+  parser handles the subset the icon uses and throws on anything else.
+
+To run it on the Mac during development: `./gradlew :desktop:runApp`.
+
+Checks, none of which need a display:
+
+| Task | What it does |
+|---|---|
+| `:desktop:trackerCheck` | Synthesises 2A03 audio and asserts the tracker's behaviour, including stationarity and the limits it cannot beat |
+| `:desktop:uiShots` | Renders every page of the real window to PNGs |
+| `:desktop:appIcon` | Rasterises the launcher icon into PNGs and an `.ico` |
+
+`trackerCheck` also runs against the cross-built Windows runtime under Wine,
+which is how the Windows build gets verified before it is on a Windows machine:
+
+```bash
+wine desktop/build/windows/image/Spectra/runtime/bin/java.exe \
+  -cp desktop/build/libs/spectra-dev.jar \
+  com.n3d.spectra.desktop.dev.TrackerCheckKt
+```
+
+### The NES 2A03 triangle mode (Windows only)
+
+Waveform page → Mode → **NES 2A03 triangle**.
+
+The NES triangle channel is not a triangle wave: it is a 4-bit DAC walking a
+fixed 32-step sequence clocked straight off the CPU, so its output is a staircase
+with sixteen levels and a flat top and bottom. This mode shows that staircase
+rather than smoothing it away, and holds it still.
+
+Three problems, solved in this order (`TriangleTracker`):
+
+1. **What is the period?** An FFT-based normalised square difference (McLeod)
+   over a copy of the input low-passed to just above the hunt range. The filter
+   is what stops the pulse channels winning — two pulses a fourth apart share a
+   common subharmonic, and the detector will find it, confidently and wrongly.
+2. **What period would the chip have used?** The measurement is rounded to the
+   nearest 11-bit timer value and the *exact* frequency of that timer drives the
+   display. This is the single thing that makes the picture stand still: a
+   measured period wanders by a fraction of a sample per frame and the wave
+   crawls; a timer value is a constant while a note is held.
+3. **Where does a period start?** The argument of one DFT bin at the fundamental,
+   then a search against the ideal wave for the playback chain's phase shift and
+   a polarity flip — and then a second correction taken from the *folded*
+   period's own fundamental. That last step matters more than it sounds: one
+   degree of error at the fundamental is forty degrees at the 31st harmonic,
+   which is exactly where the staircase's corners live. Aligning on the
+   fundamental alone scores 0.87 against the chip's wave; correcting from the
+   fold scores 0.996, with every harmonic within a hundredth of a degree.
+
+Whole periods are then folded together, which is a comb filter with teeth on the
+note's harmonics: it cancels the pulse channels, noise and DMC while leaving the
+staircase intact, because the staircase repeats exactly. Depth is capped at the
+periods elapsed since the timer changed, so a moving bass line does not average
+two notes into one picture.
+
+**What it will not do, by construction:**
+
+- A melody note that is an exact harmonic of the bass repeats at the bass period,
+  so no period-domain method separates them. The display shows the sum, and says
+  so.
+- The staircase is a bass phenomenon. Each DAC step lasts `timer + 1` CPU cycles,
+  so at 55 Hz a step covers 27 captured samples and every corner survives, while
+  at 440 Hz it covers three and the whole thing arrives as a smooth triangle. The
+  readout says how many samples a step is worth, and warns when it is too few.
+- "It sits on the 2A03 grid" is not evidence in the bass: at 55 Hz consecutive
+  timers are 1.7 cents apart, so any frequency lands on some timer. The grid step
+  is reported next to the error so the claim cannot imply more than it has. The
+  evidence that something is a 2A03 is the *shape* — the correlation with the
+  chip's wave after the fundamental is removed, which a plain sine fails (a sine
+  correlates 0.991 with a triangle before that subtraction, and −0.32 after).
+
+---
+
 ## Known limits
 
-- **Never compiled.** No Android SDK on the machine it was written on.
+- **`:app:lintDebug` fails on a pre-existing `MissingPermission` error** in
+  `PlaybackCapture.kt`. It predates the desktop work; `assembleDebug` is clean.
+- The Windows build cannot capture system audio on its own. The JDK has no
+  WASAPI loopback, so it can only open the recording endpoints the driver
+  exposes — "Stereo Mix" or a virtual cable. A small JNI DLL around `IAudioClient`
+  would fix it and is not in this build; the app says so rather than sitting on a
+  silent input.
+- The Windows `.exe` is not code-signed, so SmartScreen warns on first run.
+- **Never compiled on Android.** No Android SDK on the machine it was written on.
 - Notification graphs are ~10 fps and cannot be faster. Platform limit.
 - The overlay cannot appear on the lock screen. Platform limit.
 - No Now Bar / Live Update integration. Platform limit.
