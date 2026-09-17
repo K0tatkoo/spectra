@@ -10,6 +10,21 @@
     <!-- The floating overlay. Granted through a Settings screen, never a dialog. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!--
+      The only reason this app touches the network at all: asking
+      n3d-store.com whether there is a newer version and fetching it.
+      No audio and nothing measured from it is ever transmitted.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Installing an update the app downloaded itself. This is not a licence to
+      install silently: Android still shows its own confirmation, and the user
+      has to switch this app on under "Install unknown apps" before the prompt
+      will even appear. See update/Updater.kt.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application

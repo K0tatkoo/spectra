@@ -6,6 +6,7 @@ import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.util.Log
+import androidx.annotation.RequiresPermission
 
 /**
  * Captures what other apps are playing, through MediaProjection.
@@ -30,6 +31,12 @@ class PlaybackCapture(
     override val describe: String
         get() = "Device audio · ${sampleRate / 1000f} kHz · ${if (channelCount == 2) "stereo" else "mono"}"
 
+    /* RECORD_AUDIO is what gates the capture API here, not the microphone: the
+       permission is requested and confirmed before the service that owns this
+       ever starts, and a revocation between then and now arrives as the
+       SecurityException the catch below already turns into "unavailable for
+       this format". Annotated rather than re-checked so lint can see that. */
+    @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     override fun build(rate: Int, channelMask: Int, encoding: Int, bufferBytes: Int): AudioRecord? {
         val config = try {
             AudioPlaybackCaptureConfiguration.Builder(projection)

@@ -685,6 +685,9 @@ fun SettingsScreen(
                 }
             }
 
+            SectionTitle("Updates")
+            UpdateCard(viewModel.updates)
+
             Spacer(Modifier.height(24.dp))
             NeuButton(
                 onClick = viewModel::resetSettings,

@@ -26,8 +26,8 @@ android {
         // 29 is the floor for AudioPlaybackCapture (MediaProjection audio).
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     signingConfigs {

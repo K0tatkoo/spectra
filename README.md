@@ -46,6 +46,31 @@ From the command line instead:
 | Notifications | First launch | Without it the foreground-service notification is invisible, which is the entire lock-screen feature |
 | Screen capture consent | Each time device audio starts | How `MediaProjection` works. Nothing is written to disk |
 | Display over other apps | Only if you enable the overlay | Settings screen, not a dialog |
+| Install unknown apps | Only if you install an update from Settings | Settings screen, not a dialog. Android still confirms the install itself |
+
+The app also holds `INTERNET`, and uses it for exactly one thing: asking
+n3d-store.com whether there is a newer version, and fetching it if you say so.
+No audio and nothing measured from it is ever transmitted.
+
+---
+
+## Updating itself
+
+Not being on Play means nothing would otherwise tell anybody a new version
+exists. `update/Updater.kt` — the same file in all five published apps, differing
+only in the slug and the package name — asks
+`n3d-store.com/api/apps/<slug>/update` what the newest build is, downloads
+`/apk/<slug>.apk` if it is newer, checks it against the SHA-256 the store
+published *and* against this app's own signing certificate, and hands it to
+Android's `PackageInstaller`, which shows its own confirmation.
+
+The checksum is what makes it safe: the store hashes the APK on disk at boot and
+serves that digest beside the URL, the download is hashed as it streams, and a
+file that does not match is deleted rather than offered. A truncated download
+and a substituted one fail identically.
+
+It also looks by itself, at most once a day, silently — no spinner, and a
+failed check at launch leaves nothing on the screen. That is switchable.
 
 ---
 
@@ -329,8 +354,12 @@ two notes into one picture.
 
 ## Known limits
 
-- **`:app:lintDebug` fails on a pre-existing `MissingPermission` error** in
-  `PlaybackCapture.kt`. It predates the desktop work; `assembleDebug` is clean.
+- ~~`:app:lintDebug` fails on a `MissingPermission` error in
+  `PlaybackCapture.kt`.~~ Fixed 2026-09-17: `build()` is annotated
+  `@RequiresPermission(RECORD_AUDIO)`, which is the truth — the permission is
+  confirmed before the service that owns the capture ever starts, and a
+  revocation in between arrives as the `SecurityException` the surrounding catch
+  already handles.
 - The Windows build cannot capture system audio on its own. The JDK has no
   WASAPI loopback, so it can only open the recording endpoints the driver
   exposes — "Stereo Mix" or a virtual cable. A small JNI DLL around `IAudioClient`

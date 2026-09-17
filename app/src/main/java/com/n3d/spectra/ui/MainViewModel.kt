@@ -7,6 +7,7 @@ import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SettingsStore
+import com.n3d.spectra.update.UpdateManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +21,12 @@ import kotlinx.coroutines.flow.stateIn
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = SettingsStore.get(app)
+
+    /**
+     * The app looking after its own version. See update/Updater.kt — and note
+     * that this is the only thing in Spectra that opens a connection at all.
+     */
+    val updates = UpdateManager(app).also { it.checkOnLaunch() }
 
     val settings: StateFlow<Settings> = store.state
 
