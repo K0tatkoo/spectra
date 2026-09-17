@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.horizontalDrag
@@ -309,8 +310,8 @@ fun NeuSlider(
 @Composable
 fun NeuSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
     val palette = LocalPalette.current
     val width = 52.dp
@@ -577,7 +578,7 @@ private fun Modifier.clickableNoRipple(
     interaction: MutableInteractionSource,
     enabled: Boolean,
     onClick: () -> Unit,
-): Modifier = androidx.compose.foundation.clickable(
+): Modifier = clickable(
     interactionSource = interaction,
     indication = null,
     enabled = enabled,
