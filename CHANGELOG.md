@@ -5,6 +5,12 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 1.2.1 — 2026-09-23
+
+Sliders no longer change when a scroll passes over them; double-tap one to reset it.
+
+- Stop sliders changing when a scroll passes over them
+
 ## 1.2.0 — 2026-09-23
 
 Stems page: vocals, other, bass and drums separated live on the phone, each held still like a chiptune channel scope. Waveform page: Hold still and NES 2A03 triangle modes.
