@@ -379,3 +379,7 @@ two notes into one picture.
 - Band histories, the spectrogram and the loudness trace are shared ring buffers
   read without a lock. Worst case is one torn column in one frame; a lock there
   would put the audio thread at the mercy of a painter's scheduling.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps.html).
