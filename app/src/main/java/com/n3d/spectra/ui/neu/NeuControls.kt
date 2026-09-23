@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -30,8 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +43,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
@@ -178,6 +182,15 @@ fun NeuIconButton(
  * itself updates immediately (so the DSP reacts on the next block), while the
  * drawn thumb eases in over 140 ms. That is the difference between a control
  * that feels sprung and one that feels like a pixel readout.
+ *
+ * Touching it does nothing. Almost every slider lives on a scrolling settings
+ * page, and a finger that lands on one on its way down the page is a scroll,
+ * not a setting — the old version set the value on touch-down and then held
+ * the gesture, so scrolling past a slider quietly changed it. Now only a
+ * sideways drag moves it, and relatively: the knob travels as far as the
+ * finger does, from where it was, never jumping to where the finger landed.
+ * With a [default], a double tap puts it back, and a small mark on the track
+ * shows where that is.
  */
 @Composable
 fun NeuSlider(
@@ -189,6 +202,8 @@ fun NeuSlider(
     label: String? = null,
     valueText: String? = null,
     enabled: Boolean = true,
+    /** Where a double tap puts it back to, in the same units as [value]. */
+    default: Float? = null,
 ) {
     val palette = LocalPalette.current
     val density = LocalDensity.current
@@ -196,9 +211,14 @@ fun NeuSlider(
     val thumbSize = 26.dp
     var widthPx by remember { mutableIntStateOf(0) }
     var dragging by remember { mutableStateOf(false) }
+    var lastTapAt by remember { mutableLongStateOf(0L) }
 
     val span = (valueRange.endInclusive - valueRange.start).takeIf { it > 0f } ?: 1f
     val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
+    // Read inside the gesture, which outlives any one recomposition.
+    val currentFraction by rememberUpdatedState(fraction)
+    val report by rememberUpdatedState(onValueChange)
+    val resetTo by rememberUpdatedState(default)
     val animatedFraction by animateFloatAsState(
         targetValue = fraction,
         animationSpec = tween(Motion.FAST, easing = Motion.Out),
@@ -238,16 +258,38 @@ fun NeuSlider(
                     awaitEachGesture {
                         val thumbPx = with(density) { thumbSize.toPx() }
                         val usable = (widthPx - thumbPx).coerceAtLeast(1f)
-                        fun report(x: Float) {
-                            var t = ((x - thumbPx / 2f) / usable).coerceIn(0f, 1f)
-                            if (steps > 0) t = (t * steps).roundToInt() / steps.toFloat()
-                            onValueChange(valueRange.start + t * span)
+                        fun emit(t: Float) {
+                            var f = t.coerceIn(0f, 1f)
+                            if (steps > 0) f = (f * steps).roundToInt() / steps.toFloat()
+                            report(valueRange.start + f * span)
                         }
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        // Sideways past the touch slop makes this a drag. The page's
+                        // scroll claims vertical movement past the same slop, so
+                        // whichever direction the finger really goes wins.
+                        val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
+                            change.consume()
+                        }
+                        if (drag == null) {
+                            // Lifted without moving (a tap), or the page took it.
+                            val up = currentEvent.changes.firstOrNull { it.id == down.id }
+                            val target = resetTo
+                            if (up != null && !up.pressed && !up.isConsumed && target != null) {
+                                if (up.uptimeMillis - lastTapAt <= DOUBLE_TAP_MS) {
+                                    report(target)
+                                    lastTapAt = 0L
+                                } else {
+                                    lastTapAt = up.uptimeMillis
+                                }
+                            }
+                            return@awaitEachGesture
+                        }
                         dragging = true
-                        report(down.position.x)
-                        horizontalDrag(down.id) { change ->
-                            report(change.position.x)
+                        var t = (currentFraction + (drag.position.x - down.position.x) / usable).coerceIn(0f, 1f)
+                        emit(t)
+                        horizontalDrag(drag.id) { change ->
+                            t = (t + change.positionChange().x / usable).coerceIn(0f, 1f)
+                            emit(t)
                             change.consume()
                         }
                         dragging = false
@@ -274,6 +316,21 @@ fun NeuSlider(
                                 listOf(palette.gradA.toComposeColor(), palette.accent.toComposeColor()),
                             ),
                         ),
+                )
+            }
+
+            // Where the default is: a small mark under the knob's path.
+            if (default != null) {
+                val defaultFraction = ((default - valueRange.start) / span).coerceIn(0f, 1f)
+                val markOffset = with(density) {
+                    ((widthPx - thumbSize.toPx()) * defaultFraction + thumbSize.toPx() / 2f - 1.dp.toPx()).toDp()
+                }
+                Box(
+                    Modifier
+                        .offset(x = markOffset)
+                        .size(width = 2.dp, height = 12.dp)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(palette.text.toComposeColor().copy(alpha = 0.35f)),
                 )
             }
 
@@ -584,3 +641,6 @@ private fun Modifier.clickableNoRipple(
     enabled = enabled,
     onClick = onClick,
 )
+
+/** Two taps closer together than this reset a slider to its default. */
+private const val DOUBLE_TAP_MS = 350L

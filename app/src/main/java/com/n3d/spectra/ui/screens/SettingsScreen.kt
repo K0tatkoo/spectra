@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +68,8 @@ fun SettingsScreen(
     val palette = LocalPalette.current
     val s by viewModel.settings.collectAsStateWithLifecycle()
     val scroll = rememberScrollState()
+    // What each slider's double tap goes back to, and where its mark sits.
+    val defaults = remember { Settings() }
     fun edit(block: (Settings) -> Settings) = viewModel.update(block)
 
     Column(
@@ -96,6 +99,15 @@ fun SettingsScreen(
                 .verticalScroll(scroll)
                 .padding(horizontal = 16.dp),
         ) {
+            Text(
+                "Sliders move only when dragged sideways. Double-tap one to put it back to " +
+                    "its default — the small mark on its track.",
+                color = palette.textFaint.toComposeColor(),
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+
             // ---- source ----------------------------------------------------
             SectionTitle("Input")
             NeuCard {
@@ -158,6 +170,7 @@ fun SettingsScreen(
                 }
                 NeuSlider(
                     value = s.inputGainDb,
+                    default = defaults.inputGainDb,
                     onValueChange = { v -> edit { it.copy(inputGainDb = v.round(1)) } },
                     valueRange = -24f..24f,
                     label = "Input trim",
@@ -170,6 +183,7 @@ fun SettingsScreen(
                 if (s.showSpl) {
                     NeuSlider(
                         value = s.splOffsetDb,
+                        default = defaults.splOffsetDb,
                         onValueChange = { v -> edit { it.copy(splOffsetDb = v.round(0)) } },
                         valueRange = 0f..140f,
                         label = "dBFS → dB SPL offset",
@@ -235,6 +249,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 NeuSlider(
                     value = freqToSlider(s.minHz),
+                    default = freqToSlider(defaults.minHz),
                     onValueChange = { v ->
                         val hz = sliderToFreq(v)
                         edit { it.copy(minHz = hz.coerceAtMost(it.maxHz - 50f)) }
@@ -246,6 +261,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = freqToSlider(s.maxHz),
+                    default = freqToSlider(defaults.maxHz),
                     onValueChange = { v ->
                         val hz = sliderToFreq(v)
                         edit { it.copy(maxHz = hz.coerceAtLeast(it.minHz + 50f)) }
@@ -257,6 +273,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.floorDb,
+                    default = defaults.floorDb,
                     onValueChange = { v -> edit { it.copy(floorDb = v.round(0).coerceAtMost(it.ceilingDb - 20f)) } },
                     valueRange = -140f..-40f,
                     label = "Display floor",
@@ -265,6 +282,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.ceilingDb,
+                    default = defaults.ceilingDb,
                     onValueChange = { v -> edit { it.copy(ceilingDb = v.round(0).coerceAtLeast(it.floorDb + 20f)) } },
                     valueRange = -40f..20f,
                     label = "Display ceiling",
@@ -273,6 +291,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.tiltDbPerOct,
+                    default = defaults.tiltDbPerOct,
                     onValueChange = { v -> edit { it.copy(tiltDbPerOct = v.round(1)) } },
                     valueRange = -6f..9f,
                     label = "Slope tilt",
@@ -303,6 +322,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(12.dp))
                 NeuSlider(
                     value = s.attackMs,
+                    default = defaults.attackMs,
                     onValueChange = { v -> edit { it.copy(attackMs = v.round(0)) } },
                     valueRange = 0f..200f,
                     label = "Attack",
@@ -311,6 +331,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.releaseMs,
+                    default = defaults.releaseMs,
                     onValueChange = { v -> edit { it.copy(releaseMs = v.round(0)) } },
                     valueRange = 20f..2000f,
                     label = "Release",
@@ -323,6 +344,7 @@ fun SettingsScreen(
                 if (s.peakHold) {
                     NeuSlider(
                         value = s.peakHoldMs,
+                        default = defaults.peakHoldMs,
                         onValueChange = { v -> edit { it.copy(peakHoldMs = v.round(0)) } },
                         valueRange = 100f..5000f,
                         label = "Hold time",
@@ -331,6 +353,7 @@ fun SettingsScreen(
                     )
                     NeuSlider(
                         value = s.peakFallDbPerSec,
+                        default = defaults.peakFallDbPerSec,
                         onValueChange = { v -> edit { it.copy(peakFallDbPerSec = v.round(0)) } },
                         valueRange = 2f..120f,
                         label = "Fall rate",
@@ -362,6 +385,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(12.dp))
                 NeuSlider(
                     value = s.bandAttackMs,
+                    default = defaults.bandAttackMs,
                     onValueChange = { v -> edit { it.copy(bandAttackMs = v.round(0)) } },
                     valueRange = 0f..100f,
                     label = "Band attack",
@@ -370,6 +394,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.bandReleaseMs,
+                    default = defaults.bandReleaseMs,
                     onValueChange = { v -> edit { it.copy(bandReleaseMs = v.round(0)) } },
                     valueRange = 20f..1500f,
                     label = "Band release",
@@ -395,6 +420,7 @@ fun SettingsScreen(
                     }
                     NeuSlider(
                         value = freqToSlider(band.lowHz),
+                        default = Settings.DEFAULT_BANDS.getOrNull(index)?.let { freqToSlider(it.lowHz) },
                         onValueChange = { v ->
                             val hz = sliderToFreq(v)
                             edit { st ->
@@ -412,6 +438,7 @@ fun SettingsScreen(
                     )
                     NeuSlider(
                         value = freqToSlider(band.highHz),
+                        default = Settings.DEFAULT_BANDS.getOrNull(index)?.let { freqToSlider(it.highHz) },
                         onValueChange = { v ->
                             val hz = sliderToFreq(v)
                             edit { st ->
@@ -449,6 +476,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.spectrogramFloorDb,
+                    default = defaults.spectrogramFloorDb,
                     onValueChange = { v ->
                         edit { it.copy(spectrogramFloorDb = v.round(0).coerceAtMost(it.spectrogramCeilingDb - 10f)) }
                     },
@@ -459,6 +487,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.spectrogramCeilingDb,
+                    default = defaults.spectrogramCeilingDb,
                     onValueChange = { v ->
                         edit { it.copy(spectrogramCeilingDb = v.round(0).coerceAtLeast(it.spectrogramFloorDb + 10f)) }
                     },
@@ -501,6 +530,7 @@ fun SettingsScreen(
                 }
                 NeuSlider(
                     value = s.loudnessTargetLufs,
+                    default = defaults.loudnessTargetLufs,
                     onValueChange = { v -> edit { it.copy(loudnessTargetLufs = v.round(0)) } },
                     valueRange = -30f..-5f,
                     label = "Target",
@@ -519,6 +549,7 @@ fun SettingsScreen(
             NeuCard {
                 NeuSlider(
                     value = s.goniometerPersistence,
+                    default = defaults.goniometerPersistence,
                     onValueChange = { v -> edit { it.copy(goniometerPersistence = v) } },
                     valueRange = 0f..0.95f,
                     label = "Goniometer persistence",
@@ -527,6 +558,7 @@ fun SettingsScreen(
                 )
                 NeuSlider(
                     value = s.correlationWindowMs,
+                    default = defaults.correlationWindowMs,
                     onValueChange = { v -> edit { it.copy(correlationWindowMs = v.round(0)) } },
                     valueRange = 20f..2000f,
                     label = "Correlation window",
@@ -540,6 +572,7 @@ fun SettingsScreen(
             NeuCard {
                 NeuSlider(
                     value = s.scopeWindowMs,
+                    default = defaults.scopeWindowMs,
                     onValueChange = { v -> edit { it.copy(scopeWindowMs = v.round(0)) } },
                     valueRange = 10f..100f,
                     label = "Time window",
@@ -673,6 +706,7 @@ fun SettingsScreen(
                     )
                     NeuSlider(
                         value = s.notificationFps.toFloat(),
+                        default = defaults.notificationFps.toFloat(),
                         onValueChange = { v -> edit { it.copy(notificationFps = v.roundToInt()) } },
                         valueRange = 1f..15f,
                         steps = 14,
@@ -719,6 +753,7 @@ fun SettingsScreen(
                     )
                     NeuSlider(
                         value = s.overlayFps.toFloat(),
+                        default = defaults.overlayFps.toFloat(),
                         onValueChange = { v -> edit { it.copy(overlayFps = v.roundToInt()) } },
                         valueRange = 10f..120f,
                         label = "Update rate",
@@ -727,6 +762,7 @@ fun SettingsScreen(
                     )
                     NeuSlider(
                         value = s.overlayOpacity,
+                        default = defaults.overlayOpacity,
                         onValueChange = { v -> edit { it.copy(overlayOpacity = v) } },
                         valueRange = 0.25f..1f,
                         label = "Opacity",
@@ -760,6 +796,7 @@ fun SettingsScreen(
                     )
                     NeuSlider(
                         value = s.widgetFps.toFloat(),
+                        default = defaults.widgetFps.toFloat(),
                         onValueChange = { v -> edit { it.copy(widgetFps = v.roundToInt()) } },
                         valueRange = 1f..4f,
                         steps = 3,
