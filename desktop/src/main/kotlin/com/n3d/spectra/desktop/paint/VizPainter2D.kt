@@ -2,9 +2,9 @@ package com.n3d.spectra.desktop.paint
 
 import com.n3d.spectra.desktop.audio.DesktopEngine
 import com.n3d.spectra.desktop.audio.DesktopFrame
-import com.n3d.spectra.desktop.nes.Nes2A03
-import com.n3d.spectra.desktop.nes.NesOptions
-import com.n3d.spectra.desktop.nes.NesReading
+import com.n3d.spectra.dsp.nes.Nes2A03
+import com.n3d.spectra.dsp.nes.NesOptions
+import com.n3d.spectra.dsp.nes.NesReading
 import com.n3d.spectra.desktop.state.WaveMode
 import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.dsp.PeakHold
@@ -37,8 +37,8 @@ import kotlin.math.roundToInt
  * `Bitmap` becomes `BufferedImage`, and text is measured through `FontMetrics`
  * instead of a `Paint.Align`.
  *
- * The one thing that is not a port is [drawNesTriangle], which has no Android
- * counterpart yet.
+ * [drawNesTriangle] started here and was ported to Android afterwards; the two
+ * now share the tracker itself (`dsp/nes`) and should keep sharing a drawing.
  *
  * One instance per surface: it caches images and bin maps sized for that surface,
  * and it is not thread safe.
@@ -94,6 +94,9 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
                 VizPage.WAVEFORM ->
                     if (waveMode == WaveMode.NES) drawNesTriangle(g, area, frame.nes, nes, f, compact)
                     else drawWaveform(g, area, f, compact)
+                // Separation needs the ONNX runtime and a device-audio capture,
+                // and this build has neither. The desktop never offers the page.
+                VizPage.STEMS -> drawIdleText(g, area, "stems run in the Android app", compact)
             }
             if (f.clipped) drawClipFlag(g, area, compact)
         }

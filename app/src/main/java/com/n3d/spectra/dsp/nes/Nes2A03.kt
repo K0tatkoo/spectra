@@ -1,4 +1,4 @@
-package com.n3d.spectra.desktop.nes
+package com.n3d.spectra.dsp.nes
 
 import kotlin.math.ln
 import kotlin.math.roundToInt

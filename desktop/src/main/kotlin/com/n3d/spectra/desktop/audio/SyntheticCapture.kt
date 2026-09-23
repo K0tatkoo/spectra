@@ -1,7 +1,7 @@
 package com.n3d.spectra.desktop.audio
 
 import com.n3d.spectra.audio.AudioCapture
-import com.n3d.spectra.desktop.nes.Nes2A03
+import com.n3d.spectra.dsp.nes.Nes2A03
 import kotlin.math.max
 import kotlin.random.Random
 

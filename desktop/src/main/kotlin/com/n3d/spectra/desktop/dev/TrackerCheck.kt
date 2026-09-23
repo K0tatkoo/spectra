@@ -1,9 +1,9 @@
 package com.n3d.spectra.desktop.dev
 
-import com.n3d.spectra.desktop.nes.Nes2A03
-import com.n3d.spectra.desktop.nes.NesOptions
-import com.n3d.spectra.desktop.nes.PitchPreFilter
-import com.n3d.spectra.desktop.nes.TriangleTracker
+import com.n3d.spectra.dsp.nes.Nes2A03
+import com.n3d.spectra.dsp.nes.NesOptions
+import com.n3d.spectra.dsp.nes.PitchPreFilter
+import com.n3d.spectra.dsp.nes.TriangleTracker
 import com.n3d.spectra.dsp.Biquad
 import kotlin.math.abs
 import kotlin.math.sin
@@ -96,7 +96,7 @@ fun main() {
 
         var prev: FloatArray? = null
         var maxDrift = 0
-        var reading: com.n3d.spectra.desktop.nes.NesReading? = null
+        var reading: com.n3d.spectra.dsp.nes.NesReading? = null
         // Advance by an awkward, non-periodic number of samples each frame, the
         // way a real capture chunk would.
         for (f in 0 until 24) {
@@ -121,7 +121,7 @@ fun main() {
             check("samples/step", abs(r.samplesPerStep - 27.3) < 0.2, "${"%.2f".format(r.samplesPerStep)}")
             check("note", r.note == "A1", r.note)
         }
-        check("stationary", maxDrift <= 1, "max drift $maxDrift/${com.n3d.spectra.desktop.nes.NesReading.GRID} of a period")
+        check("stationary", maxDrift <= 1, "max drift $maxDrift/${com.n3d.spectra.dsp.nes.NesReading.GRID} of a period")
 
         // The ceiling, for reference: the same note sampled straight off the DAC
         // with no anti-alias filter and no resampling. Whatever a real capture
@@ -132,7 +132,7 @@ fun main() {
             Nes2A03.WAVE[((cyc / (timer + 1.0)).toLong() % 32L).toInt()]
         }
         val t2 = TriangleTracker(SR)
-        var dr: com.n3d.spectra.desktop.nes.NesReading? = null
+        var dr: com.n3d.spectra.dsp.nes.NesReading? = null
         for (f in 0 until 6) {
             val win = direct.copyOfRange(f * 500, f * 500 + n)
             dr = t2.analyze(win, pitched(win, opts), 16f, opts)
@@ -153,9 +153,9 @@ fun main() {
             (tri[it] * 0.55f + p1[it] + p2[it] + (rnd.nextFloat() - 0.5f) * 0.05f) * 0.45f
         }
 
-        fun run(o: NesOptions): Pair<com.n3d.spectra.desktop.nes.NesReading?, Int> {
+        fun run(o: NesOptions): Pair<com.n3d.spectra.dsp.nes.NesReading?, Int> {
             val tracker = TriangleTracker(SR)
-            var reading: com.n3d.spectra.desktop.nes.NesReading? = null
+            var reading: com.n3d.spectra.dsp.nes.NesReading? = null
             var prev: FloatArray? = null
             var drift = 0
             for (f in 0 until 24) {
@@ -200,7 +200,7 @@ fun main() {
         val p1 = renderPulse(bassHz * 8.0, 0.5f, 0.5f, n + 8000)
         val mix = FloatArray(tri.size) { (tri[it] * 0.6f + p1[it]) * 0.5f }
         val tracker = TriangleTracker(SR)
-        var r: com.n3d.spectra.desktop.nes.NesReading? = null
+        var r: com.n3d.spectra.dsp.nes.NesReading? = null
         for (f in 0 until 10) {
             val win = mix.copyOfRange(f * 733, f * 733 + n)
             r = tracker.analyze(win, pitched(win, opts.copy(foldPeriods = 32)), 16f, opts.copy(foldPeriods = 32))
@@ -220,7 +220,7 @@ fun main() {
         val palHz = Nes2A03.frequency(Nes2A03.Region.PAL, timer)
         val audio = renderTriangle(timer, Nes2A03.Region.PAL, n + 4000)
         val tracker = TriangleTracker(SR)
-        var r: com.n3d.spectra.desktop.nes.NesReading? = null
+        var r: com.n3d.spectra.dsp.nes.NesReading? = null
         for (f in 0 until 8) {
             val win = audio.copyOfRange(f * 500, f * 500 + n)
             r = tracker.analyze(win, pitched(win, opts), 16f, opts.copy(region = Nes2A03.Region.PAL))
@@ -229,7 +229,7 @@ fun main() {
         // The same register value read as NTSC must come out as a different,
         // non-integer timer — that is the whole point of the region switch.
         val trackerN = TriangleTracker(SR)
-        var rn: com.n3d.spectra.desktop.nes.NesReading? = null
+        var rn: com.n3d.spectra.dsp.nes.NesReading? = null
         for (f in 0 until 8) {
             val win = audio.copyOfRange(f * 500, f * 500 + n)
             rn = trackerN.analyze(win, pitched(win, opts), 16f, opts)
@@ -251,7 +251,7 @@ fun main() {
         val rnd = Random(3)
         val noise = FloatArray(n) { (rnd.nextFloat() - 0.5f) * 0.5f }
         val t2 = TriangleTracker(SR)
-        var got: com.n3d.spectra.desktop.nes.NesReading? = null
+        var got: com.n3d.spectra.dsp.nes.NesReading? = null
         for (f in 0 until 3) got = t2.analyze(noise, pitched(noise, opts), 16f, opts)
         check("white noise does not lock", got == null, if (got == null) "" else "clarity ${"%.3f".format(got.clarity)}")
 
@@ -259,7 +259,7 @@ fun main() {
         // be a 2A03 — that is what `match` is for.
         val sine = FloatArray(n) { sin(2.0 * Math.PI * 55.0 * it / SR).toFloat() * 0.7f }
         val t3 = TriangleTracker(SR)
-        var sr: com.n3d.spectra.desktop.nes.NesReading? = null
+        var sr: com.n3d.spectra.dsp.nes.NesReading? = null
         for (f in 0 until 3) sr = t3.analyze(sine, pitched(sine, opts), 16f, opts)
         check("a sine still correlates", sr != null && sr.match > 0.98f, "match ${"%.4f".format(sr?.match ?: -1f)} — which is why match alone proves nothing")
         check("but has no staircase", sr != null && sr.stepMatch < 0.3f, "stepMatch ${"%.4f".format(sr?.stepMatch ?: -1f)}")
@@ -294,15 +294,15 @@ private fun checkHarmonicAlignment() {
     val timer = Nes2A03.timerFor(Nes2A03.Region.NTSC, 55.0)
     val opts = NesOptions(persistence = 0f, cycles = 2)
     val n = TriangleTracker.HISTORY
-    val idealGrid = FloatArray(com.n3d.spectra.desktop.nes.NesReading.GRID) {
-        Nes2A03.levelAt((it + 0.5f) / com.n3d.spectra.desktop.nes.NesReading.GRID)
+    val idealGrid = FloatArray(com.n3d.spectra.dsp.nes.NesReading.GRID) {
+        Nes2A03.levelAt((it + 0.5f) / com.n3d.spectra.dsp.nes.NesReading.GRID)
     }
     val direct = FloatArray(n + 4000) { i ->
         val cyc = i * Nes2A03.Region.NTSC.cpuHz / SR
         Nes2A03.WAVE[((cyc / (timer + 1.0)).toLong() % 32L).toInt()]
     }
     val tr = TriangleTracker(SR)
-    var r: com.n3d.spectra.desktop.nes.NesReading? = null
+    var r: com.n3d.spectra.dsp.nes.NesReading? = null
     for (k in 0 until 6) {
         val win = direct.copyOfRange(k * 500, k * 500 + n)
         r = tr.analyze(win, pitched(win, opts), 16f, opts)
@@ -342,7 +342,7 @@ private fun checkThroughEngine() {
     )
     Thread.sleep(2_500)
 
-    val readings = ArrayList<com.n3d.spectra.desktop.nes.NesReading>()
+    val readings = ArrayList<com.n3d.spectra.dsp.nes.NesReading>()
     val timers = ArrayList<Int>()
     // Sample across a single held note: the demo plays quarter notes at 120 bpm,
     // so 300 ms of samples sits inside one.

@@ -12,10 +12,18 @@ import android.graphics.Typeface
 import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.dsp.PeakHold
+import com.n3d.spectra.dsp.ScopeTrace
+import com.n3d.spectra.dsp.StemsInfo
+import com.n3d.spectra.dsp.StemsState
+import com.n3d.spectra.dsp.TraceMode
+import com.n3d.spectra.dsp.nes.Nes2A03
+import com.n3d.spectra.dsp.nes.NesOptions
+import com.n3d.spectra.dsp.nes.NesReading
 import com.n3d.spectra.settings.FreqScale
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.VizPage
+import com.n3d.spectra.settings.WaveformMode
 import java.util.Locale
 import kotlin.math.exp
 import kotlin.math.ln
@@ -86,7 +94,12 @@ class VizPainter(var palette: Palette = Palette.DARK) {
                 VizPage.SPECTROGRAM -> drawSpectrogram(canvas, area, frame, s, compact)
                 VizPage.LOUDNESS -> drawLoudness(canvas, area, frame, s, compact)
                 VizPage.STEREO -> drawStereo(canvas, area, frame, s, compact)
-                VizPage.WAVEFORM -> drawWaveform(canvas, area, frame, s, compact)
+                VizPage.WAVEFORM -> when (s.waveformMode) {
+                    WaveformMode.FREE -> drawWaveform(canvas, area, frame, s, compact)
+                    WaveformMode.HOLD -> drawHold(canvas, area, frame, s, compact)
+                    WaveformMode.NES -> drawNesTriangle(canvas, area, frame.nes, NesOptions(region = s.nesRegion), frame, compact)
+                }
+                VizPage.STEMS -> drawStems(canvas, area, frame, s, compact)
             }
             if (frame.clipped) drawClipFlag(canvas, area, compact)
         }
@@ -838,6 +851,508 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         paint.color = color
         paint.strokeJoin = Paint.Join.ROUND
         canvas.drawPath(path, paint)
+    }
+
+    // ---- held-still scopes ------------------------------------------------
+
+    /**
+     * The Stems page: one held-still lane per separated stem, stacked, each in
+     * its own colour — the chiptune channel-scope look, applied to a real mix.
+     */
+    private fun drawStems(canvas: Canvas, area: RectF, f: AnalysisFrame, s: Settings, compact: Boolean) {
+        val scopes = f.scopes
+        val lanes = scopes?.stems.orEmpty()
+        val info = scopes?.stemsInfo
+        if (lanes.isEmpty()) {
+            val message = when {
+                info == null -> "starting the stem model…"
+                info.state == StemsState.FAILED -> info.message ?: "stem separation failed"
+                info.state == StemsState.LOADING -> "loading the stem model…"
+                else -> "separating…"
+            }
+            drawWrappedText(canvas, area, message, compact, info?.state == StemsState.FAILED)
+            return
+        }
+
+        val footerH = if (compact || info == null) 0f else dp(15f)
+        val body = RectF(area.left, area.top, area.right, area.bottom - footerH)
+        val gap = dp(if (compact) 2f else 6f)
+        val laneH = (body.height() - gap * (lanes.size - 1)) / lanes.size
+        var y = body.top
+        for ((i, lane) in lanes.withIndex()) {
+            val r = RectF(body.left, y, body.right, y + laneH)
+            drawScopeLane(canvas, r, lane.name, lane.trace, laneColor(i), compact)
+            if (i < lanes.size - 1 && !compact) {
+                paint.reset()
+                paint.isAntiAlias = true
+                paint.color = Palette.withAlpha(palette.line, 0.9f)
+                paint.strokeWidth = dp(0.8f)
+                canvas.drawLine(r.left, r.bottom + gap / 2f, r.right, r.bottom + gap / 2f, paint)
+            }
+            y += laneH + gap
+        }
+        if (footerH > 0f && info != null) drawStemsFooter(canvas, RectF(area.left, body.bottom, area.right, area.bottom), info, s)
+    }
+
+    /** Vocals, other, bass, drums — distinct at a glance, from the site's own tokens. */
+    private fun laneColor(index: Int): Int = when (index) {
+        0 -> palette.accent2
+        1 -> palette.accent
+        2 -> palette.warn
+        else -> palette.good
+    }
+
+    private fun drawStemsFooter(canvas: Canvas, r: RectF, info: StemsInfo, s: Settings) {
+        monoPaint.textSize = sp(8.5f)
+        monoPaint.textAlign = Paint.Align.LEFT
+        val load = String.format(Locale.US, "%.2f", info.load)
+        // Above 1 the phone separates a second of music in more than a second.
+        // It still works — the separator skips to the present — but say so,
+        // rather than let a stutter look like a bug.
+        val slow = info.load > 1f
+        val left = if (slow) {
+            "phone slower than the music — skipping to keep up"
+        } else {
+            "separated on this phone · ${String.format(Locale.US, "%.1f", info.msPerHop)} ms per 2.9 ms"
+        }
+        monoPaint.color = if (slow) palette.warn else palette.textFaint
+        canvas.drawText(left, r.left, r.bottom - dp(2f), monoPaint)
+        monoPaint.textAlign = Paint.Align.RIGHT
+        monoPaint.color = palette.textFaint
+        val right = if (slow) "load $load" else "load $load · ${s.scopeWindowMs.roundToInt()} ms"
+        canvas.drawText(right, r.right, r.bottom - dp(2f), monoPaint)
+        monoPaint.textAlign = Paint.Align.LEFT
+    }
+
+    /** The Waveform page in "hold still" mode: one lane, the mix, locked to its loudest note. */
+    private fun drawHold(canvas: Canvas, area: RectF, f: AnalysisFrame, s: Settings, compact: Boolean) {
+        val trace = f.scopes?.hold
+        if (trace == null) {
+            drawIdleText(canvas, area, "listening for a note to hold", compact)
+            return
+        }
+        drawScopeLane(canvas, area, "Mix", trace, palette.accent2, compact, large = true)
+    }
+
+    /**
+     * One held-still lane. The trace is already normalised, so the lane only
+     * has to place it: centre line, the wave, and a label saying what it is
+     * locked to — the note while there is one, the hit it froze on otherwise.
+     */
+    private fun drawScopeLane(
+        canvas: Canvas,
+        r: RectF,
+        name: String,
+        trace: ScopeTrace,
+        color: Int,
+        compact: Boolean,
+        large: Boolean = false,
+    ) {
+        if (r.height() < 4f) return
+        val labelH = if (compact) 0f else sp(if (large) 16f else 12f)
+        val plot = RectF(r.left, r.top + labelH, r.right, r.bottom)
+        val half = plot.height() / 2f * 0.92f
+
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = dp(0.7f)
+        paint.color = Palette.withAlpha(palette.line, 0.9f)
+        canvas.drawLine(plot.left, plot.centerY(), plot.right, plot.centerY(), paint)
+
+        val pts = trace.points
+        if (trace.mode != TraceMode.QUIET && pts.size > 1) {
+            path.reset()
+            for (i in pts.indices) {
+                val x = plot.left + plot.width() * i / (pts.size - 1f)
+                val y = plot.centerY() - pts[i].coerceIn(-1.1f, 1.1f) * half
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            val alpha = when {
+                trace.stale -> 0.45f
+                trace.mode == TraceMode.FREE -> 0.7f
+                else -> 1f
+            }
+            paint.color = Palette.withAlpha(color, alpha)
+            paint.strokeWidth = dp(if (compact) 1.1f else if (large) 1.8f else 1.5f)
+            paint.strokeJoin = Paint.Join.ROUND
+            paint.strokeCap = Paint.Cap.ROUND
+            canvas.drawPath(path, paint)
+        }
+
+        if (compact) return
+
+        val base = r.top + labelH - sp(3f)
+        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.textSize = sp(if (large) 13f else 10f)
+        textPaint.color = if (trace.mode == TraceMode.QUIET) palette.textFaint else color
+        canvas.drawText(name, r.left, base, textPaint)
+
+        monoPaint.textAlign = Paint.Align.RIGHT
+        monoPaint.textSize = sp(if (large) 11f else 9f)
+        monoPaint.color = if (trace.stale || trace.mode == TraceMode.QUIET) palette.textFaint else palette.textDim
+        val right = when (trace.mode) {
+            TraceMode.PITCH -> buildString {
+                append(trace.note)
+                append(" · ")
+                append(if (trace.hz >= 100f) "${trace.hz.roundToInt()}" else String.format(Locale.US, "%.1f", trace.hz))
+                append(" Hz")
+                if (trace.folded > 1) append(" · ×${trace.folded}")
+            }
+            TraceMode.HIT -> "hit"
+            TraceMode.FREE -> "free"
+            TraceMode.QUIET -> "quiet"
+        }
+        canvas.drawText(right, r.right, base, monoPaint)
+        monoPaint.textAlign = Paint.Align.LEFT
+    }
+
+    /** A message that may be a whole sentence, wrapped to the area and centred. */
+    private fun drawWrappedText(canvas: Canvas, area: RectF, message: String, compact: Boolean, bad: Boolean) {
+        textPaint.textSize = sp(if (compact) 9f else 11f)
+        textPaint.color = if (bad) palette.bad else palette.textFaint
+        textPaint.textAlign = Paint.Align.CENTER
+        val maxW = area.width() - dp(24f)
+        val lines = ArrayList<String>()
+        var line = ""
+        for (word in message.split(' ')) {
+            val candidate = if (line.isEmpty()) word else "$line $word"
+            if (textPaint.measureText(candidate) > maxW && line.isNotEmpty()) {
+                lines += line
+                line = word
+            } else {
+                line = candidate
+            }
+        }
+        if (line.isNotEmpty()) lines += line
+        val lh = textPaint.textSize * 1.35f
+        var y = area.centerY() - lh * (lines.size - 1) / 2f + textPaint.textSize / 3f
+        for (l in lines) {
+            canvas.drawText(l, area.centerX(), y, textPaint)
+            y += lh
+        }
+        textPaint.textAlign = Paint.Align.LEFT
+    }
+
+    // ---- 2A03 triangle -----------------------------------------------------
+
+    /**
+     * The NES triangle view: the captured wave, held still, against the chip's
+     * own 32-step staircase. A port of the Windows build's drawing, kept
+     * structurally identical to it.
+     *
+     * Everything difficult happens in `TriangleTracker`; by the time a
+     * [NesReading] arrives, the horizontal axis is *phase*, not time — 0 is the
+     * first DAC step of a period and the reading is normalised to the chip's own
+     * ±1. That is what lets the ideal wave be drawn as a fixed shape rather than
+     * fitted to the trace, and why the two can be compared by eye.
+     */
+    private fun drawNesTriangle(
+        canvas: Canvas,
+        area: RectF,
+        reading: NesReading?,
+        o: NesOptions,
+        f: AnalysisFrame,
+        compact: Boolean,
+    ) {
+        val headerH = if (compact) 0f else dp(26f)
+        // Two lines, not the desktop's one: a phone is too narrow for the
+        // readout and the verdict side by side.
+        val footerH = if (compact) 0f else dp(32f)
+        val axisW = if (compact) 0f else dp(22f)
+        val plot = RectF(area.left + axisW, area.top + headerH, area.right, area.bottom - footerH)
+        if (plot.width() < 8f || plot.height() < 8f) return
+
+        val cycles = (reading?.cycles ?: o.cycles).coerceIn(1, 8)
+        drawNesGrid(canvas, plot, cycles, o, compact)
+
+        if (reading == null) {
+            drawIdleText(
+                canvas, plot,
+                "listening for a triangle between ${o.huntMinHz.toInt()} and ${o.huntMaxHz.toInt()} Hz",
+                compact,
+            )
+            if (!compact) drawNesHeader(canvas, RectF(area.left, area.top, area.right, area.top + headerH), null, o)
+            return
+        }
+
+        val half = plot.height() / 2f * 0.92f
+        fun yFor(v: Float) = plot.centerY() - v.coerceIn(-1.15f, 1.15f) * half
+        fun xFor(phase: Float) = plot.left + plot.width() * phase / cycles
+
+        // Clipped to the well: the scale leaves 15 % of headroom so an overshoot
+        // still shows its shape, and without a clip it is drawn over the readouts.
+        canvas.save()
+        canvas.clipRect(plot)
+        if (o.showIdeal) drawNesIdeal(canvas, cycles, ::xFor, ::yFor, reading.stale)
+        val traceColor = if (reading.stale) Palette.withAlpha(palette.accent2, 0.35f) else palette.accent2
+        if (o.averaging && reading.cycle.isNotEmpty()) {
+            drawNesCycle(canvas, plot, reading.cycle, cycles, o, traceColor, ::xFor, ::yFor)
+        } else {
+            drawNesLive(canvas, plot, reading, cycles, o, traceColor, ::xFor, ::yFor)
+        }
+        canvas.restore()
+
+        if (!compact) {
+            drawNesHeader(canvas, RectF(area.left, area.top, area.right, area.top + headerH), reading, o)
+            drawNesFooter(canvas, RectF(area.left, area.bottom - footerH, area.right, area.bottom), reading, o)
+            drawNesLevelLabels(canvas, RectF(area.left, plot.top, area.left + axisW, plot.bottom), ::yFor)
+        }
+    }
+
+    /** The 4-bit ladder and the 32-step time grid: the chip's two quantisations, drawn. */
+    private fun drawNesGrid(canvas: Canvas, plot: RectF, cycles: Int, o: NesOptions, compact: Boolean) {
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.color = palette.bgDeep
+        canvas.drawRoundRect(plot, dp(Neu.RADIUS_SM), dp(Neu.RADIUS_SM), paint)
+
+        paint.style = Paint.Style.STROKE
+        val half = plot.height() / 2f * 0.92f
+        if (o.showLevels) {
+            for (level in 0 until Nes2A03.LEVELS) {
+                val y = plot.centerY() - Nes2A03.valueOfLevel(level) * half
+                // The chip has no zero: the two levels either side of the middle
+                // are the ones it can never straddle, so they get the stronger line.
+                val emphasis = if (level == 7 || level == 8) 0.55f else 0.24f
+                paint.color = Palette.withAlpha(palette.line, emphasis)
+                paint.strokeWidth = dp(0.7f)
+                canvas.drawLine(plot.left, y, plot.right, y, paint)
+            }
+        }
+        if (o.showSteps) {
+            val total = Nes2A03.STEPS * cycles
+            val stepW = plot.width() / total
+            // Below about three pixels a step the grid stops being information
+            // and becomes texture.
+            if (stepW >= dp(2.5f)) {
+                for (i in 0..total) {
+                    val x = plot.left + i * stepW
+                    val boundary = i % Nes2A03.STEPS == 0
+                    val mid = i % (Nes2A03.STEPS / 2) == 0
+                    paint.color = Palette.withAlpha(palette.line, if (boundary) 0.6f else if (mid) 0.35f else 0.16f)
+                    paint.strokeWidth = dp(if (boundary) 1f else 0.7f)
+                    canvas.drawLine(x, plot.top, x, plot.bottom, paint)
+                }
+            } else if (!compact) {
+                paint.color = Palette.withAlpha(palette.line, 0.6f)
+                paint.strokeWidth = dp(1f)
+                for (i in 0..cycles) {
+                    val x = plot.left + i * plot.width() / cycles
+                    canvas.drawLine(x, plot.top, x, plot.bottom, paint)
+                }
+            }
+        }
+    }
+
+    private fun drawNesIdeal(
+        canvas: Canvas,
+        cycles: Int,
+        xFor: (Float) -> Float,
+        yFor: (Float) -> Float,
+        dim: Boolean,
+    ) {
+        path.reset()
+        val total = Nes2A03.STEPS * cycles
+        for (i in 0 until total) {
+            val v = yFor(Nes2A03.WAVE[i % Nes2A03.STEPS])
+            val x0 = xFor(i.toFloat() / Nes2A03.STEPS)
+            val x1 = xFor((i + 1f) / Nes2A03.STEPS)
+            if (i == 0) path.moveTo(x0, v) else path.lineTo(x0, v)
+            path.lineTo(x1, v)
+        }
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = dp(1.4f)
+        paint.color = Palette.withAlpha(palette.accent, if (dim) 0.22f else 0.5f)
+        canvas.drawPath(path, paint)
+    }
+
+    private fun drawNesCycle(
+        canvas: Canvas,
+        plot: RectF,
+        cycle: FloatArray,
+        cycles: Int,
+        o: NesOptions,
+        color: Int,
+        xFor: (Float) -> Float,
+        yFor: (Float) -> Float,
+    ) {
+        // One point per pixel column is all a stroke can show.
+        val columns = plot.width().roundToInt().coerceAtLeast(2)
+        val perCycle = max(2, columns / cycles)
+        path.reset()
+        var first = true
+        for (c in 0 until cycles) {
+            for (i in 0..perCycle) {
+                val u = i.toFloat() / perCycle
+                var v = cycle[((u * cycle.size).toInt()).coerceIn(0, cycle.size - 1)]
+                if (o.quantizeToDac) v = quantize(v)
+                val x = xFor(c + u)
+                val y = yFor(v)
+                if (first) {
+                    path.moveTo(x, y)
+                    first = false
+                } else {
+                    path.lineTo(x, y)
+                }
+            }
+        }
+        strokeTrace(canvas, color, 1.7f)
+    }
+
+    private fun drawNesLive(
+        canvas: Canvas,
+        plot: RectF,
+        r: NesReading,
+        cycles: Int,
+        o: NesOptions,
+        color: Int,
+        xFor: (Float) -> Float,
+        yFor: (Float) -> Float,
+    ) {
+        val live = r.live
+        if (live.isEmpty()) return
+        val period = r.periodSamples.toFloat()
+        path.reset()
+        var first = true
+        for (i in live.indices) {
+            val phase = r.livePhase0 + i / period
+            if (phase < -0.02f) continue
+            if (phase > cycles + 0.02f) break
+            var v = live[i]
+            if (o.quantizeToDac) v = quantize(v)
+            val x = xFor(phase)
+            val y = yFor(v)
+            if (first) {
+                path.moveTo(x, y)
+                first = false
+            } else {
+                path.lineTo(x, y)
+            }
+        }
+        strokeTrace(canvas, color, 1.5f)
+
+        // The capture's own time grid, when the samples are far enough apart to
+        // read as samples rather than as a thicker line.
+        if (o.showSamples && plot.width() / (period * cycles) >= dp(4f)) {
+            paint.reset()
+            paint.isAntiAlias = true
+            paint.color = Palette.withAlpha(palette.text, 0.75f)
+            for (i in live.indices) {
+                val phase = r.livePhase0 + i / period
+                if (phase < 0f || phase > cycles) continue
+                var v = live[i]
+                if (o.quantizeToDac) v = quantize(v)
+                canvas.drawCircle(xFor(phase), yFor(v), dp(1.5f), paint)
+            }
+        }
+    }
+
+    private fun strokeTrace(canvas: Canvas, color: Int, widthDp: Float) {
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = dp(widthDp)
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.color = color
+        canvas.drawPath(path, paint)
+    }
+
+    /** Snaps a normalised value to the nearest of the sixteen levels the DAC has. */
+    private fun quantize(v: Float): Float {
+        val level = (v * 7.5f + 7.5f).roundToInt().coerceIn(0, Nes2A03.LEVELS - 1)
+        return Nes2A03.valueOfLevel(level)
+    }
+
+    private fun drawNesLevelLabels(canvas: Canvas, r: RectF, yFor: (Float) -> Float) {
+        monoPaint.textSize = sp(7.5f)
+        monoPaint.color = palette.textFaint
+        monoPaint.textAlign = Paint.Align.RIGHT
+        for (level in intArrayOf(0, 4, 8, 11, 15)) {
+            val y = yFor(Nes2A03.valueOfLevel(level))
+            canvas.drawText("$level", r.right - dp(3f), y + sp(2.6f), monoPaint)
+        }
+        monoPaint.textAlign = Paint.Align.LEFT
+    }
+
+    private fun drawNesHeader(canvas: Canvas, r: RectF, reading: NesReading?, o: NesOptions) {
+        val baseline = r.centerY() + sp(4f)
+        if (reading == null) {
+            textPaint.textSize = sp(11f)
+            textPaint.color = palette.textFaint
+            canvas.drawText("2A03 triangle", r.left, baseline, textPaint)
+            monoPaint.textSize = sp(9f)
+            monoPaint.color = palette.textFaint
+            monoPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(o.region.label, r.right, baseline, monoPaint)
+            monoPaint.textAlign = Paint.Align.LEFT
+            return
+        }
+        var x = r.left
+        textPaint.textSize = sp(15f)
+        textPaint.color = if (reading.stale) palette.textFaint else palette.text
+        canvas.drawText(reading.note, x, baseline, textPaint)
+        x += textPaint.measureText(reading.note) + dp(8f)
+
+        // Rounded first, then signed: %+.0f of −0.2 prints "-0 ct", which reads
+        // as a tuning error that is not there.
+        val roundedCents = reading.cents.roundToInt()
+        val cents = if (roundedCents == 0) "in tune" else String.format(Locale.US, "%+d ct", roundedCents)
+        monoPaint.textSize = sp(9f)
+        monoPaint.color = palette.textFaint
+        canvas.drawText(cents, x, baseline, monoPaint)
+        x += monoPaint.measureText(cents) + dp(12f)
+
+        // The register value is the point of the whole view: the number a tracker
+        // would have written to $400A/$400B to make this sound.
+        val timer = "\$${reading.timer.toString(16).uppercase().padStart(3, '0')}"
+        monoPaint.textSize = sp(12f)
+        monoPaint.color = palette.accent
+        canvas.drawText(timer, x, baseline, monoPaint)
+        x += monoPaint.measureText(timer) + dp(6f)
+        monoPaint.textSize = sp(9f)
+        monoPaint.color = palette.textDim
+        canvas.drawText("(${reading.timer}) · ${String.format(Locale.US, "%.2f", reading.nesHz)} Hz", x, baseline, monoPaint)
+
+        monoPaint.textAlign = Paint.Align.RIGHT
+        monoPaint.color = if (reading.stale) palette.warn else palette.textFaint
+        canvas.drawText(if (reading.stale) "${o.region.label} · holding" else o.region.label, r.right, baseline, monoPaint)
+        monoPaint.textAlign = Paint.Align.LEFT
+    }
+
+    private fun drawNesFooter(canvas: Canvas, r: RectF, reading: NesReading, o: NesOptions) {
+        monoPaint.textSize = sp(8.5f)
+        val baseline = r.bottom - dp(3f)
+        val sps = reading.samplesPerStep
+        val parts = buildString {
+            append(String.format(Locale.US, "%.1f smp/step", sps))
+            append(" · fold ")
+            append(reading.foldedPeriods)
+            if (reading.foldedPeriods < o.foldPeriods) append("/${o.foldPeriods}")
+            append(" · fit ")
+            append(String.format(Locale.US, "%.2f", reading.stepMatch))
+            append(" · grid ")
+            append(String.format(Locale.US, "%+.2f", reading.gridCents))
+            append("/")
+            append(String.format(Locale.US, "%.1f ct", reading.gridStepCents))
+        }
+        monoPaint.color = palette.textFaint
+        canvas.drawText(parts, r.left, baseline, monoPaint)
+
+        // One short verdict, because the numbers only mean something to someone
+        // who already knows what they mean.
+        val (verdict, color) = when {
+            !reading.audible -> "below audible" to palette.warn
+            sps < 4.0 -> "too high to show steps" to palette.warn
+            reading.stepMatch < 0.35f -> "buried" to palette.warn
+            reading.stepMatch < 0.7f -> "partly buried" to palette.textDim
+            else -> "clean staircase" to palette.good
+        }
+        monoPaint.color = color
+        canvas.drawText(verdict, r.left, r.top + sp(12f), monoPaint)
     }
 
     private fun drawIdleText(canvas: Canvas, area: RectF, message: String, compact: Boolean) {

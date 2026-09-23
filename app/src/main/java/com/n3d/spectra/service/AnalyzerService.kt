@@ -76,6 +76,7 @@ class AnalyzerService : Service() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            AudioEngine.screenOn = isScreenOn()
             // Kick the loops so they re-evaluate immediately rather than at the
             // end of whatever delay they are sitting in.
             scheduleNotification(0)
@@ -90,6 +91,8 @@ class AnalyzerService : Service() {
         AudioEngine.updateSettings(settings)
         notifications = NotificationRenderer(this)
         overlay = OverlayController(this)
+
+        AudioEngine.screenOn = isScreenOn()
 
         renderThread = HandlerThread("spectra-render", android.os.Process.THREAD_PRIORITY_DISPLAY)
         renderThread.start()

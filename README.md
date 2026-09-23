@@ -3,30 +3,26 @@
 A real-time audio analyser, in the Nebula 3D neumorphic look. Two products, one
 analysis engine:
 
-- **`app/`** — Android. Kotlin + Jetpack Compose, no native code, no third-party
-  libraries beyond AndroidX. Built for the Galaxy S24 Ultra but nothing in it is
-  device-specific.
+- **`app/`** — Android. Kotlin + Jetpack Compose. One native dependency, ONNX
+  Runtime, and only for the [Stems page](#stems--live-source-separation);
+  everything else is plain Kotlin on AndroidX. Built for the Galaxy S24 Ultra but
+  nothing in it is device-specific.
 - **`desktop/`** — Windows. Kotlin + Swing/Java2D, one dependency (the Kotlin
-  stdlib), shipped as a self-contained `.exe`. It carries one feature the phone
-  build does not: [a waveform mode for the NES 2A03's triangle
-  channel](#the-nes-2a03-triangle-mode-windows-only).
+  stdlib), shipped as a self-contained `.exe`.
 
-The desktop module compiles the whole `com.n3d.spectra.dsp` package, `Settings`
-and `Palette` straight out of `app/src/main/java` rather than copying them, so
-the two can never disagree about what a dB, an LUFS or an accent colour is.
+The desktop module compiles the whole `com.n3d.spectra.dsp` package — the 2A03
+tracker and the held-still scopes included — `Settings` and `Palette` straight
+out of `app/src/main/java` rather than copying them, so the two can never
+disagree about what a dB, an LUFS or an accent colour is.
 
 ---
 
 ## Build and install
 
-This project was written on a Mac with **no Android SDK**, so it has never been
-compiled. Expect to fix a stray import or two on the first build; the logic is
-what took the time, not the ceremony.
-
-1. Unzip anywhere, then in Android Studio: **File → Open** and pick the
-   `Spectra` folder (the one with `settings.gradle.kts`).
-2. Let it sync. It targets **AGP 8.7.3 / Gradle 8.9 / Kotlin 2.0.21**,
-   `compileSdk 35`, `minSdk 29`, JDK 17.
+1. In Android Studio: **File → Open** and pick the `Spectra` folder (the one
+   with `settings.gradle.kts`).
+2. Let it sync. It targets **AGP 8.13 / Kotlin 2.0.21**, `compileSdk 35`,
+   `minSdk 29`, JDK 17.
 3. Plug in the phone with USB debugging on, pick it in the device dropdown, hit
    **Run**.
 
@@ -37,6 +33,19 @@ From the command line instead:
 ```
 
 `minSdk` is 29 because that is the floor for `AudioPlaybackCapture`.
+
+**The first build downloads the stem model** — 37.5 MB, from the exact URL
+StemgenRT pins, into Gradle's cache — and refuses it unless its size and SHA-256
+match the ones in `app/build.gradle.kts`. It is not in git; every later build
+copies it from the cache.
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+runs the resampler, the held-still scopes and the **real separator against the
+real model**, on the desktop JVM: the unit tests swap the Android build of ONNX
+Runtime for the desktop one, which has the same Java API.
 
 ### Permissions it will ask for
 
@@ -50,7 +59,8 @@ From the command line instead:
 
 The app also holds `INTERNET`, and uses it for exactly one thing: asking
 n3d-store.com whether there is a newer version, and fetching it if you say so.
-No audio and nothing measured from it is ever transmitted.
+No audio and nothing measured from it is ever transmitted — the stem model runs
+on the phone and ships inside the APK, which is why that is about 51 MB.
 
 ---
 
@@ -109,7 +119,13 @@ creeping.
 exponentially-decaying sums (so it settles instead of flickering), and stereo
 width.
 
-**Waveform** — decimated dual-channel scope.
+**Waveform** — three modes: a decimated dual-channel scope (**Free-running**),
+the mix locked to its loudest note so it stands still (**Hold still**, see
+[held-still scopes](#held-still-scopes)), and the [NES 2A03
+triangle](#the-nes-2a03-triangle-mode) staircase.
+
+**Stems** — vocals, other, bass and drums separated live on the phone, each
+held still in its own lane. See [Stems](#stems--live-source-separation).
 
 ---
 
@@ -299,9 +315,15 @@ wine desktop/build/windows/image/Spectra/runtime/bin/java.exe \
   com.n3d.spectra.desktop.dev.TrackerCheckKt
 ```
 
-### The NES 2A03 triangle mode (Windows only)
+### The NES 2A03 triangle mode
 
-Waveform page → Mode → **NES 2A03 triangle**.
+Waveform page → **2A03 triangle** on the phone, Waveform page → Mode → **NES
+2A03 triangle** on Windows. Same tracker on both (`dsp/nes`).
+
+On the phone it has the one thing the desktop lacks: device audio. Played
+through a speaker into a microphone the staircase arrives smeared by the room
+and the speaker's own phase, and the lock never settles; captured digitally it
+locks at a fit of 1.00.
 
 The NES triangle channel is not a triangle wave: it is a 4-bit DAC walking a
 fixed 32-step sequence clocked straight off the CPU, so its output is a staircase
@@ -352,6 +374,53 @@ two notes into one picture.
 
 ---
 
+## Stems — live source separation
+
+The **Stems** page splits whatever is playing into **vocals, other, bass and
+drums**, on the phone, as it plays, and draws each one as a held-still scope —
+the channel-scope look of chiptune videos, applied to a real mix.
+
+- **The model** is StemgenRT's release of HS-TasNet (MIT): a recurrent network
+  that takes 128 stereo samples at 44.1 kHz per call, carries eight state tensors
+  from call to call, and emits the four stems one call later — 2.9 ms. That
+  latency is the whole reason this can be live; the better-known separators
+  need seconds of audio either side of the moment they separate.
+- **The pipeline:** capture (usually 48 kHz) → `Resampler` (polyphase sinc, to
+  the 44.1 kHz the model is trained at) → `StemSeparator` on its own thread →
+  one ring per stem → a `ScopeLock` per stem on the analysis thread.
+- **It is not a clean separation.** About 4.5 dB SDR: every stem carries some of
+  the others. The scopes are built for that — see below — and hold still anyway.
+- **It has to keep up.** 345 calls a second, each about 1.6 ms on an M1 core and
+  2.4 ms in the Android build on the same core. The page's footer shows the load
+  (compute time ÷ audio time). Above 1 the worker skips to the present instead
+  of falling further behind, and says so; the model is back to full quality a
+  fraction of a second after each skip. An Android 12+ performance-hint session
+  tells the scheduler the thread has a 2.9 ms deadline, so it can move it to the
+  big core or raise the clock rather than guess.
+- **It only runs while something shows it** — the page in the app, or the
+  overlay, notification or widget set to Stems — and the model is unloaded 20 s
+  after the last of those goes away.
+
+## Held-still scopes
+
+The Stems lanes and the Waveform page's **Hold still** mode share `ScopeLock`:
+
+- **A fixed time window, not a fixed number of cycles.** A higher note shows
+  more, narrower cycles; a lower one fewer, wider ones. The picture squeezes and
+  stretches with the melody instead of scrolling.
+- **Anchored to the note's own phase.** McLeod's NSDF finds the period; the
+  argument of one DFT bin at the fundamental, over several whole periods, puts
+  the centre of the window on the same point of the cycle every frame.
+  Continuous, so it adds no jitter of its own, which a threshold trigger would.
+- **Clean-up** stacks the last 30/60/120 ms of whole periods on top of each
+  other — a comb filter with its teeth on the note's harmonics. The note stays
+  sharp, corners and all; bleed from other stems, not being locked to it,
+  averages away. Measured in time, so a high note and a low one are cleaned
+  alike, and it ramps back up after every note change.
+- **Drums have no period**, so their lane freezes on each hit — an energy jump
+  marks it — until the next one.
+- A lane below −62 dBFS says *quiet* rather than amplifying noise to full height.
+
 ## Known limits
 
 - ~~`:app:lintDebug` fails on a `MissingPermission` error in
@@ -366,7 +435,15 @@ two notes into one picture.
   would fix it and is not in this build; the app says so rather than sitting on a
   silent input.
 - The Windows `.exe` is not code-signed, so SmartScreen warns on first run.
-- **Never compiled on Android.** No Android SDK on the machine it was written on.
+- Stems are separated at about 4.5 dB SDR — good enough to hold a bass line or a
+  voice still, not to hear as a clean stem. Four stems only: two guitars are one
+  "other", and "other" is by construction whatever the first three left.
+- A phone that cannot run the model in real time gets a stem picture that skips
+  to keep up, and says so in the footer. Measured on an emulator, not yet on the
+  S24 Ultra itself.
+- The APK is ~51 MB, of which the model is 30 MB and ONNX Runtime ~10 MB per CPU
+  architecture (arm64 and 32-bit ARM ship; x86 does not — Chromebooks translate
+  ARM apps).
 - Notification graphs are ~10 fps and cannot be faster. Platform limit.
 - The overlay cannot appear on the lock screen. Platform limit.
 - No Now Bar / Live Update integration. Platform limit.
@@ -382,4 +459,9 @@ two notes into one picture.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps.html).
+MIT — see [LICENSE](LICENSE). The Stems page ships two MIT-licensed third-party
+pieces inside the APK: the [StemgenRT](https://github.com/sweetspotsoundsystem/stemgen-rt)
+model (Axel Delafosse), trained with the [HS-TasNet](https://github.com/sweetspotsoundsystem/HS-TasNet)
+implementation (Phil Wang) of L-Acoustics' paper, and
+[ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft). Their
+notices are in `app/src/main/assets/licenses/`, and so in every build. Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps.html).

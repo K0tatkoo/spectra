@@ -128,6 +128,12 @@ class SettingsStore private constructor(context: Context) {
         p[K_GONIO_PERSIST] = s.goniometerPersistence
         p[K_CORR_WINDOW] = s.correlationWindowMs
 
+        p[K_WAVE_MODE] = s.waveformMode.name
+        p[K_SCOPE_WINDOW] = s.scopeWindowMs
+        p[K_SCOPE_CLEAN] = s.scopeCleanMs
+        p[K_STEM_THREADS] = s.stemThreads
+        p[K_NES_REGION] = s.nesRegion.name
+
         p[K_THEME] = s.theme.name
         p[K_PAGE] = s.page.name
         p[K_UI_FPS] = s.uiFps
@@ -194,6 +200,12 @@ class SettingsStore private constructor(context: Context) {
 
             goniometerPersistence = p[K_GONIO_PERSIST] ?: d.goniometerPersistence,
             correlationWindowMs = p[K_CORR_WINDOW] ?: d.correlationWindowMs,
+
+            waveformMode = p.enum(K_WAVE_MODE, d.waveformMode),
+            scopeWindowMs = p[K_SCOPE_WINDOW] ?: d.scopeWindowMs,
+            scopeCleanMs = p[K_SCOPE_CLEAN] ?: d.scopeCleanMs,
+            stemThreads = p[K_STEM_THREADS] ?: d.stemThreads,
+            nesRegion = p.enum(K_NES_REGION, d.nesRegion),
 
             theme = p.enum(K_THEME, d.theme),
             page = p.enum(K_PAGE, d.page),
@@ -277,6 +289,12 @@ class SettingsStore private constructor(context: Context) {
 
         private val K_GONIO_PERSIST = floatPreferencesKey("gonio_persist")
         private val K_CORR_WINDOW = floatPreferencesKey("corr_window")
+
+        private val K_WAVE_MODE = stringPreferencesKey("waveform_mode")
+        private val K_SCOPE_WINDOW = floatPreferencesKey("scope_window_ms")
+        private val K_SCOPE_CLEAN = floatPreferencesKey("scope_clean_ms")
+        private val K_STEM_THREADS = intPreferencesKey("stem_threads")
+        private val K_NES_REGION = stringPreferencesKey("nes_region")
 
         private val K_THEME = stringPreferencesKey("theme")
         private val K_PAGE = stringPreferencesKey("page")

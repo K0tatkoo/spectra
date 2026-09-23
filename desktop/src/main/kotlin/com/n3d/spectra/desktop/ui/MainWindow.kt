@@ -5,7 +5,7 @@ import com.n3d.spectra.desktop.audio.Devices
 import com.n3d.spectra.desktop.audio.InputDevice
 import com.n3d.spectra.desktop.audio.LineCapture
 import com.n3d.spectra.desktop.audio.SyntheticCapture
-import com.n3d.spectra.desktop.nes.Nes2A03
+import com.n3d.spectra.dsp.nes.Nes2A03
 import com.n3d.spectra.desktop.paint.Align
 import com.n3d.spectra.desktop.paint.Box
 import com.n3d.spectra.desktop.paint.Colors

@@ -1,5 +1,7 @@
 package com.n3d.spectra.dsp
 
+import com.n3d.spectra.dsp.nes.NesReading
+
 /**
  * One immutable snapshot of everything the four surfaces might want to draw.
  *
@@ -46,6 +48,11 @@ class AnalysisFrame(
     val silent: Boolean,
 
     val spectrogram: SpectrogramBuffer,
+
+    /** Held-still scopes and stems, when a page that shows them is on screen. */
+    val scopes: ScopeFrame? = null,
+    /** The 2A03 triangle reading, when that waveform mode is on screen. */
+    val nes: NesReading? = null,
 ) {
     val binCount: Int get() = magnitudesDb.size
 

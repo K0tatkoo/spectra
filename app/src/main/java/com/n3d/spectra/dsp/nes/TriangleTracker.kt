@@ -1,4 +1,4 @@
-package com.n3d.spectra.desktop.nes
+package com.n3d.spectra.dsp.nes
 
 import com.n3d.spectra.dsp.Fft
 import kotlin.math.abs

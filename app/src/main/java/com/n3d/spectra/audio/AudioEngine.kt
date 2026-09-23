@@ -12,6 +12,11 @@ import com.n3d.spectra.dsp.SpectrumAnalyzer
 import com.n3d.spectra.dsp.StereoAnalyzer
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SourceKind
+import com.n3d.spectra.settings.VizPage
+import com.n3d.spectra.settings.WaveformMode
+import com.n3d.spectra.stems.ScopeRunner
+import com.n3d.spectra.stems.StemWorkerHooks
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,7 +63,13 @@ object AudioEngine {
     const val BAND_HISTORY = 256
     private const val SCOPE_SPAN = 4096
     private const val SCOPE_POINTS = 512
-    private const val READ_FRAMES = 2048
+    /**
+     * Frames per capture read. Every frame the surfaces see is published from
+     * inside one read, so this — not the hop — is what sets how often the
+     * picture can change: 1024 is about 47 updates a second, which the
+     * held-still scopes need to look still rather than to step.
+     */
+    private const val READ_FRAMES = 1024
 
     /** Shared history, referenced (never copied) by every published frame. */
     val spectrogram = SpectrogramBuffer(SPECTROGRAM_ROWS, SPECTROGRAM_COLUMNS)
@@ -73,6 +84,22 @@ object AudioEngine {
     private var capture: AudioCapture? = null
 
     fun currentSettings(): Settings = settings
+
+    /**
+     * The page the app itself is showing, or null while it is not on screen.
+     * The stem model and the held-still scopes only run for pages somebody can
+     * see — they are the two most expensive things in the app.
+     */
+    @Volatile var inAppPage: VizPage? = null
+
+    /** Kept up to date by the service, so background surfaces stop costing when the screen is off. */
+    @Volatile var screenOn: Boolean = true
+
+    /** Where the stem model is on disk. Set once by the Application. */
+    @Volatile var stemModel: (() -> File)? = null
+
+    /** Priority and performance hints for the stem worker. Set once by the Application. */
+    @Volatile var stemHooks: () -> StemWorkerHooks = { StemWorkerHooks.NONE }
 
     /**
      * Applies new settings to the running analysis. Safe from any thread: the
@@ -163,6 +190,11 @@ object AudioEngine {
         var ring = MonoRing(s.fftSize)
         var block = FloatArray(s.fftSize)
         var hop = s.hopSize
+        val scopes = ScopeRunner(
+            rate,
+            modelFile = { stemModel?.invoke() ?: error("no model provider") },
+            hooks = { stemHooks() },
+        )
         val scopeL = MonoRing(SCOPE_SPAN)
         val scopeR = MonoRing(SCOPE_SPAN)
         val column = ByteArray(SPECTROGRAM_ROWS)
@@ -221,6 +253,7 @@ object AudioEngine {
                 analyzer.peaks.reset()
                 spectrogram.clear()
                 loudnessHistory.clear()
+                scopes.reset()
             }
 
             val frames = read / channels
@@ -263,6 +296,8 @@ object AudioEngine {
             bands.tick(blockMs)
             loudness.process(left, rightOrNull, frames)
             stereo.process(left, rightOrNull, frames)
+
+            scopes.process(left, rightOrNull, frames, wants(s), s, blockMs)
 
             scopeL.write(left, 0, frames)
             if (rightOrNull != null) scopeR.write(rightOrNull, 0, frames)
@@ -310,12 +345,32 @@ object AudioEngine {
                     clipped = clipHoldMs > 0f,
                     silent = silentMs > SILENCE_HINT_MS,
                     spectrogram = spectrogram,
+                    scopes = scopes.latest,
+                    nes = scopes.latestNes,
                 )
             }
         }
 
+        scopes.release()
         cap.release()
         running = false
+    }
+
+    /** Which of the expensive analyses a visible surface is actually showing. */
+    private fun wants(s: Settings): ScopeRunner.Wants {
+        val app = inAppPage
+        val background = screenOn || !s.pauseRenderWhenScreenOff
+        fun shows(page: VizPage) = app == page || (background && (
+            (s.overlayEnabled && s.overlayPage == page) ||
+                (s.notificationEnabled && s.notificationPage == page) ||
+                (s.widgetEnabled && s.widgetPage == page)
+            ))
+        val wave = shows(VizPage.WAVEFORM)
+        return ScopeRunner.Wants(
+            stems = shows(VizPage.STEMS),
+            hold = wave && s.waveformMode == WaveformMode.HOLD,
+            nes = wave && s.waveformMode == WaveformMode.NES,
+        )
     }
 
     /**

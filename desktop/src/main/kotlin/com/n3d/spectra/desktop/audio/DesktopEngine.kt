@@ -3,10 +3,10 @@ package com.n3d.spectra.desktop.audio
 import com.n3d.spectra.audio.AudioCapture
 import com.n3d.spectra.audio.CaptureException
 import com.n3d.spectra.audio.MonoRing
-import com.n3d.spectra.desktop.nes.NesOptions
-import com.n3d.spectra.desktop.nes.NesReading
-import com.n3d.spectra.desktop.nes.PitchPreFilter
-import com.n3d.spectra.desktop.nes.TriangleTracker
+import com.n3d.spectra.dsp.nes.NesOptions
+import com.n3d.spectra.dsp.nes.NesReading
+import com.n3d.spectra.dsp.nes.PitchPreFilter
+import com.n3d.spectra.dsp.nes.TriangleTracker
 import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.dsp.BandSplitter
 import com.n3d.spectra.dsp.LoudnessMeter

@@ -1,6 +1,7 @@
 package com.n3d.spectra.settings
 
 import com.n3d.spectra.dsp.WindowFunction
+import com.n3d.spectra.dsp.nes.Nes2A03
 
 enum class SourceKind(val label: String) {
     MICROPHONE("Microphone"),
@@ -47,6 +48,17 @@ enum class VizPage(val label: String) {
     LOUDNESS("Loudness"),
     STEREO("Stereo"),
     WAVEFORM("Waveform"),
+    STEMS("Stems"),
+}
+
+/** What the Waveform page draws. */
+enum class WaveformMode(val label: String) {
+    /** The newest audio, scrolling — the classic scope. */
+    FREE("Free-running"),
+    /** Locked to the loudest note, standing still while it is held. */
+    HOLD("Hold still"),
+    /** The NES triangle channel against the chip's own 32-step staircase. */
+    NES("2A03 triangle"),
 }
 
 data class BandDef(
@@ -122,6 +134,24 @@ data class Settings(
     val goniometerPersistence: Float = 0.55f,
     val correlationWindowMs: Float = 300f,
 
+    // ---- held-still scopes and stems ------------------------------------
+    val waveformMode: WaveformMode = WaveformMode.FREE,
+    /**
+     * Width of every held-still picture. Fixed in time rather than in cycles,
+     * so a higher note shows more, narrower cycles — the picture squeezes and
+     * stretches with the melody the way chiptune channel scopes do.
+     */
+    val scopeWindowMs: Float = 35f,
+    /**
+     * How much of a held note's recent past is averaged into the picture, in
+     * ms. Time rather than a count of cycles, so a high note and a low one are
+     * cleaned by the same amount and follow a melody equally fast. 0 = off.
+     */
+    val scopeCleanMs: Float = 60f,
+    /** CPU threads for the stem model. One is usually fastest: the work per call is tiny. */
+    val stemThreads: Int = 1,
+    val nesRegion: Nes2A03.Region = Nes2A03.Region.NTSC,
+
     // ---- display ---------------------------------------------------------
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val page: VizPage = VizPage.SPECTRUM,
@@ -159,6 +189,9 @@ data class Settings(
             BandDef("Presence", 4000f, 10000f),
             BandDef("Air", 10000f, 20000f),
         )
+
+        /** Off, light, medium, strong. */
+        val SCOPE_CLEANS = listOf(0f, 30f, 60f, 120f)
 
         val FFT_SIZES = listOf(512, 1024, 2048, 4096, 8192, 16384)
         val SAMPLE_RATES = listOf(44100, 48000)

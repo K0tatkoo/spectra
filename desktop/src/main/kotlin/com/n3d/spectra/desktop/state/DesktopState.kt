@@ -1,6 +1,6 @@
 package com.n3d.spectra.desktop.state
 
-import com.n3d.spectra.desktop.nes.NesOptions
+import com.n3d.spectra.dsp.nes.NesOptions
 import com.n3d.spectra.dsp.WindowFunction
 import com.n3d.spectra.settings.BandDef
 import com.n3d.spectra.settings.BandSlope

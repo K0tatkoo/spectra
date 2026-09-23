@@ -2,7 +2,7 @@ package com.n3d.spectra.desktop.dev
 
 import com.n3d.spectra.desktop.audio.DesktopEngine
 import com.n3d.spectra.desktop.audio.SyntheticCapture
-import com.n3d.spectra.desktop.nes.NesOptions
+import com.n3d.spectra.dsp.nes.NesOptions
 import com.n3d.spectra.desktop.paint.Box
 import com.n3d.spectra.desktop.paint.Fonts
 import com.n3d.spectra.desktop.paint.Neu2D
@@ -47,7 +47,8 @@ fun main(args: Array<String>) {
     val w = 1000
     val h = 620
 
-    for (page in VizPage.entries) {
+    // STEMS is Android-only (it needs the ONNX runtime); the desktop never shows it.
+    for (page in VizPage.entries.filter { it != VizPage.STEMS }) {
         val image = BufferedImage(w, h, BufferedImage.TYPE_INT_RGB)
         val g = image.createGraphics().quality()
         g.useColor(Palette.DARK.bg)

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.n3d.spectra.dsp.WindowFunction
+import com.n3d.spectra.dsp.nes.Nes2A03
 import com.n3d.spectra.settings.BandSlope
 import com.n3d.spectra.settings.ColorMap
 import com.n3d.spectra.settings.FreqScale
@@ -531,6 +532,98 @@ fun SettingsScreen(
                     label = "Correlation window",
                     valueText = "${s.correlationWindowMs.fmt(0)} ms",
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            // ---- held-still scopes and stems -------------------------------------
+            SectionTitle("Held-still scopes & stems")
+            NeuCard {
+                NeuSlider(
+                    value = s.scopeWindowMs,
+                    onValueChange = { v -> edit { it.copy(scopeWindowMs = v.round(0)) } },
+                    valueRange = 10f..100f,
+                    label = "Time window",
+                    valueText = "${s.scopeWindowMs.fmt(0)} ms",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "How much time each held-still picture spans. Fixed in time, so a higher " +
+                        "note shows more, narrower cycles and a lower one fewer, wider ones.",
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("Clean-up", color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                NeuSegmented(
+                    options = Settings.SCOPE_CLEANS,
+                    selected = Settings.SCOPE_CLEANS.minBy { kotlin.math.abs(it - s.scopeCleanMs) },
+                    onSelect = { v -> edit { it.copy(scopeCleanMs = v) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    labelOf = {
+                        when (it) {
+                            0f -> "Off"
+                            30f -> "Light"
+                            60f -> "Medium"
+                            else -> "Strong"
+                        }
+                    },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Stacks the last few cycles of a held note on top of each other. What " +
+                        "belongs to the note stays sharp; leftovers of other instruments fade. " +
+                        "Stronger is cleaner and slower to follow a fast melody.",
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("Stem model threads", color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                NeuSegmented(
+                    options = listOf(1, 2),
+                    selected = s.stemThreads,
+                    onSelect = { v -> edit { it.copy(stemThreads = v) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    labelOf = { if (it == 1) "1 core" else "$it cores" },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "The Stems page splits the music into vocals, other, bass and drums with a " +
+                        "neural network running on this phone — nothing is uploaded. It only runs " +
+                        "while that page is on screen. If its footer says the phone is slower than " +
+                        "the music, try 2 cores.",
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Separation model: StemgenRT (HS-TasNet), MIT. Runtime: ONNX Runtime, MIT. " +
+                        "Their licence texts ship inside the app.",
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("2A03 region", color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                NeuSegmented(
+                    options = Nes2A03.Region.entries.toList(),
+                    selected = s.nesRegion,
+                    onSelect = { v -> edit { it.copy(nesRegion = v) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    labelOf = { it.label },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "For the Waveform page's 2A03 triangle mode. PAL runs the chip slower, so " +
+                        "the same register plays about 7.6 % flat.",
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
                 )
             }
 

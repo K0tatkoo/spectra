@@ -23,12 +23,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.dsp.PeakHold
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.settings.VizPage
+import com.n3d.spectra.settings.WaveformMode
 import com.n3d.spectra.ui.MainViewModel
 import com.n3d.spectra.ui.VizSurface
 import com.n3d.spectra.ui.neu.NeuButton
@@ -57,6 +59,14 @@ fun HomeScreen(
     val paused by viewModel.paused.collectAsStateWithLifecycle()
 
     val running = state is AudioEngine.State.Running || state is AudioEngine.State.Starting
+
+    // Tell the engine which page is actually on screen. The stem model and the
+    // held-still scopes cost real battery, and only run for a page someone can
+    // see — so this has to go back to null the moment the app is not visible.
+    LifecycleResumeEffect(settings.page) {
+        AudioEngine.inAppPage = settings.page
+        onPauseOrDispose { AudioEngine.inAppPage = null }
+    }
 
     Column(
         Modifier
@@ -112,6 +122,17 @@ fun HomeScreen(
             selected = settings.page,
             onSelect = { page -> viewModel.update { it.copy(page = page) } },
         )
+
+        if (settings.page == VizPage.WAVEFORM) {
+            Spacer(Modifier.height(12.dp))
+            NeuSegmented(
+                options = WaveformMode.entries.toList(),
+                selected = settings.waveformMode,
+                onSelect = { mode -> viewModel.update { it.copy(waveformMode = mode) } },
+                modifier = Modifier.fillMaxWidth(),
+                labelOf = { it.label },
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
         Readouts(frame)
