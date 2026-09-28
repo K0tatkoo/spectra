@@ -1,14 +1,10 @@
 package com.n3d.spectra.stems
 
-import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import com.n3d.spectra.dsp.Biquad
 import com.n3d.spectra.dsp.HistoryRing
 import com.n3d.spectra.dsp.StereoFeed
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.concurrent.locks.LockSupport
 
 /** The four outputs, in the model's own order. */
@@ -36,9 +32,9 @@ enum class Stem(val label: String) {
  * bleed that is not locked to the note averages away.
  *
  * Threading: [push] is called by the analysis thread and never blocks. A single
- * worker thread owns the ONNX session and does nothing else. If the phone cannot
+ * worker thread owns the [StemSession] and does nothing else. If the phone cannot
  * keep up, the worker does not queue audio forever — it skips to the present,
- * resets the model's memory, and counts the skip, so the picture is late by at
+ * keeping the model's memory, and counts the skip, so the picture is late by at
  * most [MAX_BACKLOG_FRAMES] rather than by more every second.
  *
  * No Android types, deliberately: the unit tests run this exact class on the
@@ -76,10 +72,11 @@ class StemSeparator(
     val pitched: Array<HistoryRing> = Array(Stem.entries.size) { HistoryRing(HISTORY) }
 
     /**
-     * Absolute stem index from which the output can be trusted: just past the
-     * model's warm-up after its latest reset. Everything before it is either a
-     * different moment of the song or the model re-learning it from silence,
-     * and a scope that measures a period across that seam gets it wrong.
+     * Absolute stem index from which the output can be trusted: past the
+     * model's warm-up when it starts, then past the seam of its latest skip.
+     * Before it is either the model learning the song from silence or audio
+     * from both sides of a jump, and a scope that measures a period across that
+     * seam gets it wrong.
      */
     @Volatile var cleanFrom: Long = WARMUP_FRAMES.toLong()
         private set
@@ -135,41 +132,30 @@ class StemSeparator(
             return
         }
         val session = try {
-            OrtSession.SessionOptions().use { o ->
-                o.setIntraOpNumThreads(threads.coerceIn(1, 4))
-                o.setInterOpNumThreads(1)
-                o.setExecutionMode(OrtSession.SessionOptions.ExecutionMode.SEQUENTIAL)
-                o.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                // Workers that spin between calls burn a core for nothing: there
-                // is a gap after every block while the next one is captured.
-                o.addConfigEntry("session.intra_op.allow_spinning", "0")
-                env.createSession(modelFile.absolutePath, o)
-            }
+            StemSession.open(env, modelFile, threads)
         } catch (t: Throwable) {
             fail("The stem model could not be loaded: ${t.message ?: t.javaClass.simpleName}")
             return
         }
 
         try {
-            loop(env, session)
+            loop(session)
         } catch (t: Throwable) {
             fail("Stem separation stopped: ${t.message ?: t.javaClass.simpleName}")
         } finally {
-            runCatching { session.close() }
+            session.close()
             running = false
         }
     }
 
-    private fun loop(env: OrtEnvironment, session: OrtSession) {
-        val audioBuffer = ByteBuffer.allocateDirect(HOP * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+    private fun loop(session: StemSession) {
         val hopPlanar = FloatArray(HOP * 2)
-        val separated = FloatArray(Stem.entries.size * 2 * HOP)
+        val separated = FloatArray(StemSession.OUT_SIZE)
         val mono = FloatArray(HOP)
         val low = FloatArray(HOP)
         val filters = Array(Stem.entries.size) { i -> pitchFilter(Stem.entries[i]) }
 
-        var states = zeroStates(env)
-        var previous: OrtSession.Result? = null
+        // The first call carries nothing but the zero history.
         var skipNext = true
         var readPos = input.written
         var skips = 0
@@ -186,21 +172,16 @@ class StemSeparator(
         while (running) {
             var backlog = input.written - readPos
             if (backlog > MAX_BACKLOG_FRAMES) {
-                // Behind by more than we are willing to show late. Jump to the
-                // present and let the model re-learn the song from silence —
-                // the attention and recurrent memories are only a few hundred
-                // milliseconds deep, so the picture recovers quickly.
+                // Behind by more than we are willing to show late: jump to the
+                // present, and keep the model's memory across the jump. What is
+                // on the far side is nearly always the song it was just hearing.
+                // Measured against a run that never skipped, it is back within
+                // 10–20 ms; starting over from silence, which this used to do,
+                // left loud garbage in drums and other for a third of a second,
+                // and a skip every 2.5 s cost 10–50× the error over a whole run.
                 readPos = input.written - HOP
-                // The live states belong to `previous` once a call has run;
-                // only the initial zero set is ours to close directly.
-                val owner = previous
-                if (owner != null) owner.close() else states.values.forEach { it.close() }
-                previous = null
-                states = zeroStates(env)
-                filters.forEach { f -> f.forEach { it.reset() } }
-                skipNext = true
                 skips++
-                cleanFrom = stems[0].written + WARMUP_FRAMES
+                cleanFrom = stems[0].written + SPLICE_GUARD_FRAMES
                 status = Status.Running(load, skips, msPerHop)
                 backlog = input.written - readPos
             }
@@ -215,36 +196,12 @@ class StemSeparator(
             readPos += HOP
 
             val t0 = System.nanoTime()
-            audioBuffer.clear()
-            audioBuffer.put(hopPlanar)
-            audioBuffer.flip()
-            val audio = OnnxTensor.createTensor(env, audioBuffer, AUDIO_SHAPE)
-            val feeds = HashMap<String, OnnxTensor>(states.size + 1)
-            feeds[IN_AUDIO] = audio
-            feeds.putAll(states)
-            val result = session.run(feeds)
-            audio.close()
-
-            // The next call's state is this call's output. The tensors belong to
-            // `result`, so the previous result is only closed once nothing reads
-            // from it any more — and the initial zero states are closed by hand.
-            val next = HashMap<String, OnnxTensor>(states.size)
-            for ((name, _) in states) {
-                next[name] = result.get(NEXT_PREFIX + name).get() as OnnxTensor
-            }
-            if (previous == null) states.values.forEach { it.close() }
-            previous?.close()
-            previous = result
-            states = next
-
-            val out = (result.get(OUT_SEPARATED).get() as OnnxTensor).floatBuffer
-            out.get(separated)
+            session.separate(hopPlanar, separated)
             val work = System.nanoTime() - t0
             busyNs += work.toDouble()
             hops++
             hooks.onWork(work, HOP_NANOS)
 
-            // The first call after a reset carries nothing but the zero history.
             if (skipNext) {
                 skipNext = false
             } else {
@@ -274,19 +231,6 @@ class StemSeparator(
                 lastReport = now
             }
         }
-
-        previous?.close()
-        if (previous == null) states.values.forEach { it.close() }
-    }
-
-    private fun zeroStates(env: OrtEnvironment): HashMap<String, OnnxTensor> {
-        val map = HashMap<String, OnnxTensor>(STATE_SHAPES.size)
-        for ((name, shape) in STATE_SHAPES) {
-            val size = shape.fold(1L) { a, b -> a * b }.toInt()
-            val buf = ByteBuffer.allocateDirect(size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
-            map[name] = OnnxTensor.createTensor(env, buf, shape)
-        }
-        return map
     }
 
     private fun fail(message: String) {
@@ -310,34 +254,21 @@ class StemSeparator(
         private const val FEED_FRAMES = 131_072
         /**
          * How late the picture may fall before the worker skips to the present.
-         * Short on purpose: the model is back to full quality within a fraction
-         * of a second of a reset (measured: skipping 30 ms in every 150 costs
-         * the bass stem 0.94 → 0.93 correlation with its source), so a phone
-         * that is slightly too slow does better resetting often than lagging.
+         * Short on purpose: the model keeps its memory across a skip and is back
+         * on track within 10–20 ms, so a phone that is slightly too slow does
+         * better skipping now and then than showing everything late.
          */
         const val MAX_BACKLOG_FRAMES = 6_615 // 150 ms
-        /** Output after a reset not yet worth measuring: 100 ms. */
+        /** Output after the model starts from silence not yet worth measuring: 100 ms. */
         const val WARMUP_FRAMES = 4_410
+        /**
+         * Output after a skip not yet worth measuring: one analysis window of the
+         * model, 23 ms. Until then what it is looking at still straddles the jump.
+         */
+        const val SPLICE_GUARD_FRAMES = 1_024
         private const val PARK_NS = 1_500_000L
         private const val HOP_NANOS = HOP * 1_000_000_000L / SAMPLE_RATE
         private const val REPORT_NS = 500_000_000L
-
-        private const val IN_AUDIO = "audio_chunk"
-        private const val OUT_SEPARATED = "separated_chunk"
-        private const val NEXT_PREFIX = "next_"
-        private val AUDIO_SHAPE = longArrayOf(1, 2, HOP.toLong())
-
-        /** The eight carried states, as the model's contract names them. */
-        private val STATE_SHAPES: List<Pair<String, LongArray>> = listOf(
-            "audio_history" to longArrayOf(1, 2, 896),
-            "fusion_hidden" to longArrayOf(2, 1, 1000),
-            "spectral_numerator_tail" to longArrayOf(1, 4, 2, 128),
-            "waveform_tail" to longArrayOf(1, 4, 2, 128),
-            "attention_keys" to longArrayOf(1, 31, 64),
-            "attention_values" to longArrayOf(1, 31, 128),
-            "spec_memory_hidden" to longArrayOf(1, 1, 500),
-            "waveform_memory_hidden" to longArrayOf(1, 1, 500),
-        )
 
         /**
          * The low-pass in front of each stem's pitch detector: just above the

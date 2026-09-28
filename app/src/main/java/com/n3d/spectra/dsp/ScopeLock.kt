@@ -137,7 +137,7 @@ class ScopeLock(private val sampleRate: Int, val spec: ScopeLaneSpec) {
      * @param points  resolution of the trace handed to the painter.
      * @param dtMs    time since the previous call.
      * @param validFrom absolute index of the first sample worth measuring. The
-     *                stem separator moves it forward whenever it resets, so a
+     *                stem separator moves it forward whenever it skips, so a
      *                period is never measured across the seam.
      */
     fun analyze(
@@ -169,7 +169,7 @@ class ScopeLock(private val sampleRate: Int, val spec: ScopeLaneSpec) {
         }
 
         if (spec.trigger == LaneTrigger.PITCH) {
-            // Too little clean audio since a reset to measure a period on: keep
+            // Too little clean audio since a skip to measure a period on: keep
             // the last good picture a while longer instead of guessing.
             if (n - firstValid < spec.pitchWindow + EDGE) {
                 heldMs += dtMs
@@ -434,7 +434,7 @@ class ScopeLock(private val sampleRate: Int, val spec: ScopeLaneSpec) {
         const val CLARITY = 0.6f
         const val QUIET_DB = -62f
         const val HOLD_MS = 220f
-        /** How long to keep a picture while the separator re-learns after a reset. */
+        /** How long to keep a picture while the separator's output settles after a skip. */
         const val SETTLE_HOLD_MS = 600f
         /** A period change bigger than this is a new note: restart the fold ramp. */
         const val NOTE_CHANGE = 0.03
