@@ -627,9 +627,10 @@ fun SettingsScreen(
                 Text(
                     "The Stems page splits the music into vocals, other, bass and drums with a " +
                         "neural network running on this phone — nothing is uploaded. It only runs " +
-                        "while that page is on screen. The chips under it choose which stems stand " +
-                        "still; the rest scroll like a plain scope. If its footer says the phone is " +
-                        "slower than the music, try 2 cores.",
+                        "while that page is on screen, on the phone's fastest core. The chips under it " +
+                        "choose which stems stand still; the rest scroll like a plain scope. 1 core is " +
+                        "quickest on most phones: a second one is usually a slower core, and the fast " +
+                        "one ends up waiting for it.",
                     color = palette.textFaint.toComposeColor(),
                     fontSize = 11.sp,
                     lineHeight = 15.sp,

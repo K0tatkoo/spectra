@@ -88,6 +88,9 @@ val fetchStemModel = tasks.register<FetchStemModel>("fetchStemModel") {
 android {
     namespace = "com.n3d.spectra"
     compileSdk = 35
+    // For the one native file the app builds itself (src/main/cpp), which
+    // keeps the stem worker on the fastest core. r27 LTS, pinned.
+    ndkVersion = "27.3.13750724"
 
     defaultConfig {
         applicationId = "com.n3d.spectra"
@@ -141,6 +144,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     packaging {

@@ -20,9 +20,12 @@ import androidx.annotation.RequiresApi
  *
  * Android 12 added a way to say it out loud: a performance hint session. The
  * worker reports how long each batch of hops took against a target of three
- * quarters of the audio they cover, and the system raises the clock or moves
- * the thread to a bigger core when it misses. Older versions just get the
- * thread priority.
+ * quarters of the audio they cover, and the system raises the clock when it
+ * misses. Older versions just get the thread priority.
+ *
+ * Which core it runs on is not left to the scheduler, though: measured on the
+ * S24 Ultra, the hint alone let the worker drift between the fast core and
+ * the ones that cannot keep up. [CpuAffinity] pins it.
  */
 class AndroidStemHooks(private val context: Context) : StemWorkerHooks {
 
@@ -30,6 +33,7 @@ class AndroidStemHooks(private val context: Context) : StemWorkerHooks {
     private var batchWork = 0L
     private var batchAudio = 0L
     private var reportEvery = 0L
+    private var repinIn = 0L
 
     override fun onStart() {
         // Above normal: the worker feeds a display, and at normal priority a
@@ -51,6 +55,16 @@ class AndroidStemHooks(private val context: Context) : StemWorkerHooks {
     }
 
     override fun onWork(workNanos: Long, audioNanos: Long) {
+        // Pinned on the first call rather than in onStart: that is after the
+        // model loaded, so the extra ONNX Runtime thread of the 2-core setting
+        // was created unpinned and can take another core. Then again every
+        // second, because the kernel resets affinity whenever the app changes
+        // cpuset, as it does going to the background and back.
+        repinIn -= audioNanos
+        if (repinIn <= 0L) {
+            CpuAffinity.pinToFastest()
+            repinIn = REPIN_AUDIO_NANOS
+        }
         if (session == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         batchWork += workNanos
         batchAudio += audioNanos
@@ -81,5 +95,6 @@ class AndroidStemHooks(private val context: Context) : StemWorkerHooks {
         const val HOP_NANOS = 128L * 1_000_000_000L / StemSeparator.SAMPLE_RATE
         /** Aim to finish in three quarters of real time, leaving room for a hiccup. */
         const val TARGET_SHARE = 0.75
+        const val REPIN_AUDIO_NANOS = 1_000_000_000L
     }
 }

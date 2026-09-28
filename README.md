@@ -22,7 +22,9 @@ disagree about what a dB, an LUFS or an accent colour is.
 1. In Android Studio: **File → Open** and pick the `Spectra` folder (the one
    with `settings.gradle.kts`).
 2. Let it sync. It targets **AGP 8.13 / Kotlin 2.0.21**, `compileSdk 35`,
-   `minSdk 29`, JDK 17.
+   `minSdk 29`, JDK 17. The one native file the app builds itself needs the
+   **NDK 27.3.13750724** and **CMake 3.22.1** from the SDK Manager (Android
+   Studio offers to install both).
 3. Plug in the phone with USB debugging on, pick it in the device dropdown, hit
    **Run**.
 
@@ -400,10 +402,25 @@ channel-scope look of chiptune videos, applied to a real mix.
 - **It has to keep up.** 345 calls a second, each about 1.6 ms on an M1 core and
   2.4 ms in the Android build on the same core. The page's footer shows the load
   (compute time ÷ audio time). Above 1 the worker skips to the present instead
-  of falling further behind, and says so; the model is back to full quality a
-  fraction of a second after each skip. An Android 12+ performance-hint session
-  tells the scheduler the thread has a 2.9 ms deadline, so it can move it to the
-  big core or raise the clock rather than guess.
+  of falling further behind, and says so.
+- **A skip keeps the model's memory.** Held against a run that never skipped,
+  the stems are back within 10–20 ms of a 150 ms jump. Starting over from
+  silence, which it did until 1.3.1, left drums and other badly wrong for a
+  third of a second, and a skip every 2.5 s cost 10–50× the error over a run.
+- **Every tensor is allocated once** (`StemSession`): a fixed input, a fixed
+  output and two sets of the eight states that ONNX Runtime writes into in
+  turn. Bit-identical to a fresh result every call, and about 5 % faster.
+- **On the fastest core.** Measured on an S24 Ultra (Snapdragon 8 Gen 3), a hop
+  takes 1.9–2.3 ms on the Cortex-X4, 3.4–3.5 ms on an A720 and 18 ms on an A520,
+  and a second model thread is slower in every combination — the fast core ends
+  up waiting for a slow one. So the worker pins itself to the fastest tier of
+  cores (`CpuAffinity`, the app's one native file of its own) and re-applies it
+  every second, because the kernel resets affinity when the app changes cpuset.
+  An Android 12+ performance-hint session tells the system the thread has a
+  2.9 ms deadline, so it can raise the clock rather than guess.
+- **Heat is the real ceiling.** On that phone, after 20–30 s of this load while
+  charging, the X4 is capped at 1.6–1.8 GHz — about half its 3.4 GHz — and the
+  load climbs from 0.66–0.82 to about 1.0.
 - **Scrolling lanes are cheaper, but not by much.** A free lane skips the pitch
   detector, the phase and the fold. On an M1 all four held lanes together cost
   about 33 ms of CPU per second of music (bass 16, vocals 8, other 8, drums 1);
@@ -452,7 +469,9 @@ The Stems lanes and the Waveform page's **Hold still** mode share `ScopeLock`:
   "other", and "other" is by construction whatever the first three left.
 - A phone that cannot run the model in real time gets a stem picture that skips
   to keep up, and says so in the footer. The S24 Ultra this is built on falls
-  behind much of the time; its load figure has not been measured yet.
+  behind in dense passages: its footer reads about 1.06 there, against 0.97 in
+  quieter ones. Benchmarked on that phone, the model has headroom on the X4
+  while it is cool and runs out once the X4 is thermally capped.
 - The APK is ~51 MB, of which the model is 30 MB and ONNX Runtime ~10 MB per CPU
   architecture (arm64 and 32-bit ARM ship; x86 does not — Chromebooks translate
   ARM apps).
