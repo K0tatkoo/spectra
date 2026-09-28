@@ -124,8 +124,9 @@ the mix locked to its loudest note so it stands still (**Hold still**, see
 [held-still scopes](#held-still-scopes)), and the [NES 2A03
 triangle](#the-nes-2a03-triangle-mode) staircase.
 
-**Stems** — vocals, other, bass and drums separated live on the phone, each
-held still in its own lane. See [Stems](#stems--live-source-separation).
+**Stems** — vocals, other, bass and drums separated live on the phone, each in
+its own lane, held still or scrolling as you choose per stem — only bass is held
+by default. See [Stems](#stems--live-source-separation).
 
 ---
 
@@ -377,8 +378,14 @@ two notes into one picture.
 ## Stems — live source separation
 
 The **Stems** page splits whatever is playing into **vocals, other, bass and
-drums**, on the phone, as it plays, and draws each one as a held-still scope —
-the channel-scope look of chiptune videos, applied to a real mix.
+drums**, on the phone, as it plays, and draws each one in its own lane — the
+channel-scope look of chiptune videos, applied to a real mix.
+
+- **Held still or scrolling, per stem.** The chips under the page choose which
+  lanes stand still; the rest scroll like a plain scope. Only bass is held by
+  default: a bass line is one note at a time and locks cleanly, while vocals,
+  leads and drums in a real mix rarely keep one shape long enough to read held
+  still.
 
 - **The model** is StemgenRT's release of HS-TasNet (MIT): a recurrent network
   that takes 128 stereo samples at 44.1 kHz per call, carries eight state tensors
@@ -397,6 +404,11 @@ the channel-scope look of chiptune videos, applied to a real mix.
   fraction of a second after each skip. An Android 12+ performance-hint session
   tells the scheduler the thread has a 2.9 ms deadline, so it can move it to the
   big core or raise the clock rather than guess.
+- **Scrolling lanes are cheaper, but not by much.** A free lane skips the pitch
+  detector, the phase and the fold. On an M1 all four held lanes together cost
+  about 33 ms of CPU per second of music (bass 16, vocals 8, other 8, drums 1);
+  the model costs 550 ms, and it separates all four stems in one pass whatever
+  is drawn. How many lanes are held does not decide whether a phone keeps up.
 - **It only runs while something shows it** — the page in the app, or the
   overlay, notification or widget set to Stems — and the model is unloaded 20 s
   after the last of those goes away.
@@ -439,8 +451,8 @@ The Stems lanes and the Waveform page's **Hold still** mode share `ScopeLock`:
   voice still, not to hear as a clean stem. Four stems only: two guitars are one
   "other", and "other" is by construction whatever the first three left.
 - A phone that cannot run the model in real time gets a stem picture that skips
-  to keep up, and says so in the footer. Measured on an emulator, not yet on the
-  S24 Ultra itself.
+  to keep up, and says so in the footer. The S24 Ultra this is built on falls
+  behind much of the time; its load figure has not been measured yet.
 - The APK is ~51 MB, of which the model is 30 MB and ONNX Runtime ~10 MB per CPU
   architecture (arm64 and 32-bit ARM ship; x86 does not — Chromebooks translate
   ARM apps).

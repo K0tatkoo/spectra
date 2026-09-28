@@ -580,8 +580,9 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "How much time each held-still picture spans. Fixed in time, so a higher " +
-                        "note shows more, narrower cycles and a lower one fewer, wider ones.",
+                    "How much time each held-still picture, and each scrolling stem, spans. Fixed " +
+                        "in time, so a higher note shows more, narrower cycles and a lower one fewer, " +
+                        "wider ones.",
                     color = palette.textFaint.toComposeColor(),
                     fontSize = 11.sp,
                     lineHeight = 15.sp,
@@ -626,8 +627,9 @@ fun SettingsScreen(
                 Text(
                     "The Stems page splits the music into vocals, other, bass and drums with a " +
                         "neural network running on this phone — nothing is uploaded. It only runs " +
-                        "while that page is on screen. If its footer says the phone is slower than " +
-                        "the music, try 2 cores.",
+                        "while that page is on screen. The chips under it choose which stems stand " +
+                        "still; the rest scroll like a plain scope. If its footer says the phone is " +
+                        "slower than the music, try 2 cores.",
                     color = palette.textFaint.toComposeColor(),
                     fontSize = 11.sp,
                     lineHeight = 15.sp,

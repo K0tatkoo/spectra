@@ -155,12 +155,7 @@ class ScopeLock(private val sampleRate: Int, val spec: ScopeLaneSpec) {
         val w = (windowMs * sampleRate / 1000f).toDouble().coerceIn(16.0, n / 2.0)
         val count = points.coerceIn(16, max(16, w.toInt()))
         val newest = n - 1 - EDGE
-
-        var sum = 0.0
-        val w0 = (newest - w).toInt().coerceAtLeast(0)
-        for (i in w0 until newest) sum += raw[i].toDouble() * raw[i]
-        val rms = sqrt(sum / max(1, newest - w0))
-        val levelDb = if (rms <= 1e-9) -120f else (20.0 * log10(rms)).toFloat()
+        val levelDb = levelDb(raw, (newest - w).toInt(), newest)
 
         // Every lane tracks hits, not just the drums: a pitched lane that loses
         // its note falls back to the last hit rather than to a scrolling wave.
@@ -196,6 +191,35 @@ class ScopeLock(private val sampleRate: Int, val spec: ScopeLaneSpec) {
         }
 
         return triggered(raw, end, w, count, windowMs, levelDb)
+    }
+
+    /**
+     * The same lane, not held: the newest [windowMs] of [raw] as it arrives,
+     * the classic free-running scope.
+     *
+     * Nothing here looks for a note, so it costs a small fraction of
+     * [analyze]: no pitch detector, no phase, no fold, no hit scan. It keeps
+     * the lane's automatic gain, smoothed so the picture does not pump from
+     * frame to frame. [raw] only has to reach back one window. Call [reset]
+     * when a lane switches between this and [analyze].
+     */
+    fun freeRunning(raw: FloatArray, windowMs: Float, points: Int, dtMs: Float): ScopeTrace {
+        val newest = raw.size - 1 - EDGE
+        val w = (windowMs * sampleRate / 1000f).toDouble().coerceIn(16.0, newest.toDouble())
+        val count = points.coerceIn(16, max(16, w.toInt()))
+        val start = newest - w
+        val levelDb = levelDb(raw, start.toInt(), newest)
+        if (levelDb < QUIET_DB) return ScopeTrace.quiet(count, windowMs, levelDb)
+
+        val out = FloatArray(count)
+        val step = w / (count - 1)
+        var peak = 0f
+        for (i in 0 until count) {
+            val v = sampleAt(raw, start + i * step)
+            out[i] = v
+            peak = max(peak, abs(v))
+        }
+        return ScopeTrace(normalise(out, peak, dtMs), windowMs, TraceMode.FREE, 0f, "", 0f, levelDb, 1, false)
     }
 
     // ---- pitch lock --------------------------------------------------------
@@ -367,6 +391,15 @@ class ScopeLock(private val sampleRate: Int, val spec: ScopeLaneSpec) {
     }
 
     // ---- shared ------------------------------------------------------------
+
+    /** RMS level of `raw[from until to]`, dBFS, for the readout and the quiet gate. */
+    private fun levelDb(raw: FloatArray, from: Int, to: Int): Float {
+        val a = from.coerceAtLeast(0)
+        var sum = 0.0
+        for (i in a until to) sum += raw[i].toDouble() * raw[i]
+        val rms = sqrt(sum / max(1, to - a))
+        return if (rms <= 1e-9) -120f else (20.0 * log10(rms)).toFloat()
+    }
 
     /**
      * Automatic gain: instant when the picture would clip, slow when it would

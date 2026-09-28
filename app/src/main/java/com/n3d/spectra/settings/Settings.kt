@@ -148,6 +148,17 @@ data class Settings(
      * cleaned by the same amount and follow a melody equally fast. 0 = off.
      */
     val scopeCleanMs: Float = 60f,
+    /**
+     * Which Stems lanes are held still; the rest scroll like a plain scope.
+     * Only bass by default: a bass line is one note at a time and locks
+     * cleanly, while vocals, leads and drums in a real mix rarely hold one
+     * shape long enough to read held still. A free lane also skips the pitch
+     * detector, the phase and the fold, which are most of what a lane costs.
+     */
+    val holdVocals: Boolean = false,
+    val holdOther: Boolean = false,
+    val holdBass: Boolean = true,
+    val holdDrums: Boolean = false,
     /** CPU threads for the stem model. One is usually fastest: the work per call is tiny. */
     val stemThreads: Int = 1,
     val nesRegion: Nes2A03.Region = Nes2A03.Region.NTSC,

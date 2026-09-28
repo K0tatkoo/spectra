@@ -31,6 +31,10 @@ import com.n3d.spectra.dsp.PeakHold
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.WaveformMode
+import com.n3d.spectra.stems.ScopeRunner
+import com.n3d.spectra.stems.Stem
+import com.n3d.spectra.stems.holdingStill
+import com.n3d.spectra.stems.holdsStill
 import com.n3d.spectra.ui.MainViewModel
 import com.n3d.spectra.ui.VizSurface
 import com.n3d.spectra.ui.neu.NeuButton
@@ -134,6 +138,14 @@ fun HomeScreen(
             )
         }
 
+        if (settings.page == VizPage.STEMS) {
+            Spacer(Modifier.height(12.dp))
+            StemHoldChips(
+                isHeld = { stem -> settings.holdsStill(stem) },
+                onToggle = { stem -> viewModel.update { it.holdingStill(stem, !it.holdsStill(stem)) } },
+            )
+        }
+
         Spacer(Modifier.height(12.dp))
         Readouts(frame)
 
@@ -214,6 +226,30 @@ private fun PageChips(selected: VizPage, onSelect: (VizPage) -> Unit) {
                 label = page.label,
                 selected = page == selected,
                 onClick = { onSelect(page) },
+            )
+        }
+    }
+}
+
+/**
+ * Which Stems lanes stand still. One chip per lane, top to bottom as drawn;
+ * a pressed-in chip is held still, a raised one scrolls.
+ */
+@Composable
+private fun StemHoldChips(isHeld: (Stem) -> Boolean, onToggle: (Stem) -> Unit) {
+    val palette = LocalPalette.current
+    val scroll = rememberScrollState()
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(scroll),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Hold still", color = palette.textFaint.toComposeColor(), fontSize = 11.sp)
+        ScopeRunner.LANES.forEach { stem ->
+            NeuChip(
+                label = stem.label,
+                selected = isHeld(stem),
+                onClick = { onToggle(stem) },
             )
         }
     }

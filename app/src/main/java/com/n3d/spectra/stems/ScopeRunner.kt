@@ -7,6 +7,7 @@ import com.n3d.spectra.dsp.Resampler
 import com.n3d.spectra.dsp.ScopeFrame
 import com.n3d.spectra.dsp.ScopeLaneSpec
 import com.n3d.spectra.dsp.ScopeLock
+import com.n3d.spectra.dsp.ScopeTrace
 import com.n3d.spectra.dsp.StemLane
 import com.n3d.spectra.dsp.StemsInfo
 import com.n3d.spectra.dsp.StemsState
@@ -51,11 +52,12 @@ class ScopeRunner(
     private var rsL = FloatArray(4096)
     private var rsR = FloatArray(4096)
 
-    /** Display order, top to bottom: the stem that is usually highest first. */
-    private val laneOrder = listOf(Stem.VOCALS, Stem.OTHER, Stem.BASS, Stem.DRUMS)
-    private val stemLocks = laneOrder.associateWith { ScopeLock(StemSeparator.SAMPLE_RATE, specFor(it)) }
+    private val stemLocks = LANES.associateWith { ScopeLock(StemSeparator.SAMPLE_RATE, specFor(it)) }
     private val laneRaw = FloatArray(LANE_HISTORY)
     private val lanePitched = FloatArray(LANE_HISTORY)
+    private val laneFree = FloatArray(FREE_HISTORY)
+    /** Whether each lane, in [LANES] order, was held still last frame. */
+    private val laneHeld = BooleanArray(LANES.size)
 
     // ---- the mix: hold still + 2A03 ---------------------------------------
 
@@ -208,17 +210,35 @@ class ScopeRunner(
     private fun stemLanes(s: Settings, dt: Float): List<StemLane> {
         val sep = separator ?: return emptyList()
         if (sep.status !is StemSeparator.Status.Running) return emptyList()
-        return laneOrder.map { stem ->
+        return LANES.mapIndexed { i, stem ->
             val raw = sep.stems[stem.ordinal]
-            val low = sep.pitched[stem.ordinal]
-            val end = minOf(raw.written, low.written)
             val lock = stemLocks.getValue(stem)
-            val trace = if (end > 0 && raw.read(end, laneRaw, LANE_HISTORY) && low.read(end, lanePitched, LANE_HISTORY)) {
-                lock.analyze(laneRaw, lanePitched, end, s.scopeWindowMs, s.scopeCleanMs, POINTS, dt, sep.cleanFrom)
-            } else {
-                com.n3d.spectra.dsp.ScopeTrace.quiet(POINTS, s.scopeWindowMs, -120f)
+            val held = s.holdsStill(stem)
+            // A lock switched back on must not pick up a note, a gain or a
+            // hit from before it was switched off.
+            if (held != laneHeld[i]) {
+                lock.reset()
+                laneHeld[i] = held
             }
-            StemLane(stem.label, trace)
+            // The worker writes every stem's pitched ring whatever is held, so
+            // the two rings of a lane can never drift apart while it is free.
+            val trace = if (held) {
+                val low = sep.pitched[stem.ordinal]
+                val end = minOf(raw.written, low.written)
+                if (end > 0 && raw.read(end, laneRaw, LANE_HISTORY) && low.read(end, lanePitched, LANE_HISTORY)) {
+                    lock.analyze(laneRaw, lanePitched, end, s.scopeWindowMs, s.scopeCleanMs, POINTS, dt, sep.cleanFrom)
+                } else {
+                    null
+                }
+            } else {
+                val end = raw.written
+                if (end > 0 && raw.read(end, laneFree, FREE_HISTORY)) {
+                    lock.freeRunning(laneFree, s.scopeWindowMs, POINTS, dt)
+                } else {
+                    null
+                }
+            }
+            StemLane(stem.label, trace ?: ScopeTrace.quiet(POINTS, s.scopeWindowMs, -120f))
         }
     }
 
@@ -246,8 +266,13 @@ class ScopeRunner(
     }
 
     companion object {
+        /** Display order, top to bottom: the stem that is usually highest first. */
+        val LANES = listOf(Stem.VOCALS, Stem.OTHER, Stem.BASS, Stem.DRUMS)
+
         /** Samples of each lane handed to its lock: 370 ms at 44.1 kHz. */
         const val LANE_HISTORY = 16_384
+        /** A free lane only reads one window: 185 ms, past the longest one Settings offers. */
+        private const val FREE_HISTORY = 8_192
         const val POINTS = 512
         /** Scope refresh. Blocks arrive about every 21 ms; this is one per block. */
         private const val SCOPE_INTERVAL_MS = 15f
@@ -272,4 +297,24 @@ class ScopeRunner(
             }
         }
     }
+}
+
+/**
+ * Whether [stem]'s lane on the Stems page is held still, or scrolls. Lives here
+ * rather than in [Settings] because Settings is also compiled into the Windows
+ * build, which has no stems.
+ */
+fun Settings.holdsStill(stem: Stem): Boolean = when (stem) {
+    Stem.VOCALS -> holdVocals
+    Stem.OTHER -> holdOther
+    Stem.BASS -> holdBass
+    Stem.DRUMS -> holdDrums
+}
+
+/** These settings with [stem]'s lane held still, or not. */
+fun Settings.holdingStill(stem: Stem, hold: Boolean): Settings = when (stem) {
+    Stem.VOCALS -> copy(holdVocals = hold)
+    Stem.OTHER -> copy(holdOther = hold)
+    Stem.BASS -> copy(holdBass = hold)
+    Stem.DRUMS -> copy(holdDrums = hold)
 }

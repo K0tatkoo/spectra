@@ -131,6 +131,10 @@ class SettingsStore private constructor(context: Context) {
         p[K_WAVE_MODE] = s.waveformMode.name
         p[K_SCOPE_WINDOW] = s.scopeWindowMs
         p[K_SCOPE_CLEAN] = s.scopeCleanMs
+        p[K_HOLD_VOCALS] = s.holdVocals
+        p[K_HOLD_OTHER] = s.holdOther
+        p[K_HOLD_BASS] = s.holdBass
+        p[K_HOLD_DRUMS] = s.holdDrums
         p[K_STEM_THREADS] = s.stemThreads
         p[K_NES_REGION] = s.nesRegion.name
 
@@ -204,6 +208,10 @@ class SettingsStore private constructor(context: Context) {
             waveformMode = p.enum(K_WAVE_MODE, d.waveformMode),
             scopeWindowMs = p[K_SCOPE_WINDOW] ?: d.scopeWindowMs,
             scopeCleanMs = p[K_SCOPE_CLEAN] ?: d.scopeCleanMs,
+            holdVocals = p[K_HOLD_VOCALS] ?: d.holdVocals,
+            holdOther = p[K_HOLD_OTHER] ?: d.holdOther,
+            holdBass = p[K_HOLD_BASS] ?: d.holdBass,
+            holdDrums = p[K_HOLD_DRUMS] ?: d.holdDrums,
             stemThreads = p[K_STEM_THREADS] ?: d.stemThreads,
             nesRegion = p.enum(K_NES_REGION, d.nesRegion),
 
@@ -293,6 +301,10 @@ class SettingsStore private constructor(context: Context) {
         private val K_WAVE_MODE = stringPreferencesKey("waveform_mode")
         private val K_SCOPE_WINDOW = floatPreferencesKey("scope_window_ms")
         private val K_SCOPE_CLEAN = floatPreferencesKey("scope_clean_ms")
+        private val K_HOLD_VOCALS = booleanPreferencesKey("hold_vocals")
+        private val K_HOLD_OTHER = booleanPreferencesKey("hold_other")
+        private val K_HOLD_BASS = booleanPreferencesKey("hold_bass")
+        private val K_HOLD_DRUMS = booleanPreferencesKey("hold_drums")
         private val K_STEM_THREADS = intPreferencesKey("stem_threads")
         private val K_NES_REGION = stringPreferencesKey("nes_region")
 

@@ -27,53 +27,54 @@ class ScopeRunnerTest {
         val block = 1024
         val runner = ScopeRunner(rate, modelFile = { File(path!!) }, hooks = { StemWorkerHooks.NONE })
         val wants = ScopeRunner.Wants(stems = true, hold = true, nes = false)
-        val settings = Settings()
+        val allHeld = Settings(holdVocals = true, holdOther = true, holdBass = true, holdDrums = true)
         val blockMs = block * 1000f / rate
 
-        var frame: ScopeFrame? = null
-        val frames = ArrayList<ScopeFrame>()
         var t = 0L
-        val total = rate * 4L
         val left = FloatArray(block)
-        while (t < total) {
-            for (i in 0 until block) {
-                val s = (t + i).toDouble() / rate
-                left[i] = (
-                    0.3 * TestSignals.nesTriangle(55.0, s) +
-                        0.2 * TestSignals.vibrato(330.0, s) +
-                        0.4 * TestSignals.kick(s)
-                    ).toFloat()
+        fun play(settings: Settings, seconds: Double): List<ScopeFrame> {
+            val frames = ArrayList<ScopeFrame>()
+            val until = t + (seconds * rate).toLong()
+            while (t < until) {
+                for (i in 0 until block) {
+                    val s = (t + i).toDouble() / rate
+                    left[i] = (
+                        0.3 * TestSignals.nesTriangle(55.0, s) +
+                            0.2 * TestSignals.vibrato(330.0, s) +
+                            0.4 * TestSignals.kick(s)
+                        ).toFloat()
+                }
+                runner.process(left, left, block, wants, settings, blockMs)
+                t += block
+                runner.latest?.let { frames += it }
+                // Real time, near enough: the worker has to keep up with a capture,
+                // not with a loop that hands it four seconds at once.
+                Thread.sleep(blockMs.toLong())
             }
-            runner.process(left, left, block, wants, settings, blockMs)
-            t += block
-            frame = runner.latest
-            frame?.let { frames += it }
-            // Real time, near enough: the worker has to keep up with a capture,
-            // not with a loop that hands it four seconds at once.
-            Thread.sleep(blockMs.toLong())
+            return frames
         }
-        runner.release()
+        fun lane(frames: List<ScopeFrame>, name: String) = frames.map { f -> f.stems.first { it.name == name }.trace }
 
-        assertNotNull(frame)
-        val info = frame!!.stemsInfo!!
+        val frames = play(allHeld, 4.0)
+        assertTrue("the runner published nothing", frames.isNotEmpty())
+        val info = frames.last().stemsInfo!!
         println("stems: ${info.state} load ${info.load} · ${info.msPerHop} ms/hop · skips ${info.skips}")
         assertEquals(StemsState.RUNNING, info.state)
 
         // Judge the last second, once the model and the locks have settled.
         val settled = frames.takeLast(40)
-        fun lane(name: String) = settled.map { f -> f.stems.first { it.name == name }.trace }
 
-        val bass = lane("Bass")
+        val bass = lane(settled, "Bass")
         val bassLocked = bass.count { it.mode == TraceMode.PITCH && it.note == "A1" }
         println("bass: $bassLocked/${bass.size} frames locked to A1 · last ${bass.last().note} ${bass.last().hz} Hz")
         assertTrue(bassLocked > bass.size * 0.8)
 
-        val vocals = lane("Vocals")
+        val vocals = lane(settled, "Vocals")
         val vocalsLocked = vocals.count { it.mode == TraceMode.PITCH && it.note == "E4" }
         println("vocals: $vocalsLocked/${vocals.size} frames locked to E4 · last ${vocals.last().note} ${vocals.last().hz} Hz")
         assertTrue(vocalsLocked > vocals.size * 0.8)
 
-        val drums = lane("Drums")
+        val drums = lane(settled, "Drums")
         val drumHits = drums.count { it.mode == TraceMode.HIT }
         println("drums: $drumHits/${drums.size} frames frozen on a hit")
         assertTrue(drumHits > drums.size * 0.6)
@@ -83,6 +84,28 @@ class ScopeRunnerTest {
         val hold = settled.mapNotNull { it.hold }
         println("hold: ${hold.last().mode} ${hold.last().note} ${hold.last().hz} Hz")
         assertTrue(hold.count { it.mode == TraceMode.PITCH } > hold.size / 2)
+
+        // The defaults hold only the bass. Every other lane scrolls: never a
+        // note, never a frozen hit — but still showing its stem, not silence.
+        val defaults = play(Settings(), 1.5).takeLast(40)
+        val bassAlone = lane(defaults, "Bass").count { it.mode == TraceMode.PITCH && it.note == "A1" }
+        println("defaults: bass $bassAlone/${defaults.size} locked to A1")
+        assertTrue(bassAlone > defaults.size * 0.8)
+        for (name in listOf("Vocals", "Other", "Drums")) {
+            val traces = lane(defaults, name)
+            assertTrue("$name is held still with hold off", traces.none { it.mode == TraceMode.PITCH || it.mode == TraceMode.HIT })
+            assertTrue("$name shows a held-over picture with hold off", traces.none { it.stale })
+        }
+        val vocalsFree = lane(defaults, "Vocals").count { it.mode == TraceMode.FREE }
+        println("defaults: vocals free-running in $vocalsFree/${defaults.size} frames")
+        assertTrue(vocalsFree > defaults.size * 0.8)
+
+        // Switched back on, a lane locks again rather than keeping the free picture.
+        val back = play(Settings(holdVocals = true), 1.5).takeLast(40)
+        val relocked = lane(back, "Vocals").count { it.mode == TraceMode.PITCH && it.note == "E4" }
+        println("vocals held again: $relocked/${back.size} locked to E4")
+        assertTrue(relocked > back.size * 0.8)
+        runner.release()
     }
 }
 

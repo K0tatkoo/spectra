@@ -101,6 +101,37 @@ class ScopeLockTest {
         assertTrue(same > total * 0.7)
     }
 
+    @Test
+    fun `a free-running lane shows the newest audio and never locks`() {
+        val lock = ScopeLock(rate, spec(28f, 300f))
+        val raw = HistoryRing(65_536)
+        val a = FloatArray(8_192)
+        val chunk = FloatArray(block)
+        val frames = ArrayList<ScopeTrace>()
+        var i = 0L
+        while (i < rate) {
+            for (k in 0 until block) chunk[k] = (0.3 * TestSignals.saw(110.0, (i + k).toDouble() / rate)).toFloat()
+            raw.write(chunk, 0, block)
+            i += block
+            assertTrue(raw.read(raw.written, a, a.size))
+            frames += lock.freeRunning(a, 35f, 512, block * 1000f / rate)
+        }
+        assertTrue(frames.all { it.mode == TraceMode.FREE && it.folded == 1 && !it.stale })
+        // The same window a held lane shows: 35 ms of 110 Hz is 3.85 cycles.
+        val c = cycles(frames.last().points)
+        assertTrue("cycles in window: $c", c in 3..4)
+        // Not held: a block is 4.69 periods long, so each frame starts at a
+        // different point of the wave and the picture moves.
+        val moved = frames.drop(5).zipWithNext { x, y -> rmsDiff(x.points, y.points) }.average()
+        println("free-running: mean frame-to-frame RMS change $moved")
+        assertTrue("a free lane is standing still ($moved)", moved > 0.2)
+        // The gain still settles to fill the lane, as it does for a held one.
+        assertEquals(0.9, maxAbs(frames.last().points).toDouble(), 0.1)
+
+        val silent = ScopeLock(rate, spec(28f, 300f)).freeRunning(FloatArray(8_192), 35f, 512, 20f)
+        assertEquals(TraceMode.QUIET, silent.mode)
+    }
+
     // ------------------------------------------------------------------------
 
     private fun spec(minHz: Float, maxHz: Float) =
@@ -156,6 +187,5 @@ class ScopeLockTest {
         return n
     }
 
-    @Suppress("unused")
     private fun maxAbs(p: FloatArray) = p.maxOf { abs(it) }
 }
