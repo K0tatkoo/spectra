@@ -5,6 +5,12 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 1.3.0 — 2026-09-28
+
+Choose which Stems lanes hold still; only bass is held by default
+
+- Let each Stems lane be held still or scroll; only bass by default
+
 ## 1.2.1 — 2026-09-23
 
 Sliders no longer change when a scroll passes over them; double-tap one to reset it.
