@@ -92,6 +92,14 @@ object AudioEngine {
      */
     @Volatile var inAppPage: VizPage? = null
 
+    /**
+     * True while the app's own window has input focus. With [inAppPage] set it
+     * means nobody can see the notification or the widget, so they need not be
+     * redrawn — and every notification redraw is a bitmap through the system
+     * and SystemUI, a cost the phone pays on top of the analysis.
+     */
+    @Volatile var appFocused: Boolean = false
+
     /** Kept up to date by the service, so background surfaces stop costing when the screen is off. */
     @Volatile var screenOn: Boolean = true
 

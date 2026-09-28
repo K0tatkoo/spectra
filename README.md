@@ -152,6 +152,14 @@ drawn at full colour depth and copied down to RGB_565 with dithering before it
 ships, which halves the bandwidth at the cost of a stipple you will not see at
 52 dp tall.
 
+**It pauses while the app itself is in front.** Nobody can see it then until
+the shade comes down, and pulling the shade takes the app's window focus, so
+focus is the switch: the graph picks up again within 250 ms. Measured on the
+emulator with the Stems page open, redrawing it anyway cost SystemUI 8 % and
+system_server 3 % of a core on top of the app's own drawing thread — heat a
+phone running the stem model close to its limit has no room for. The home-screen
+widget pauses the same way.
+
 For the notification to appear on the lock screen at all, the system setting for
 showing notification content on the lock screen has to be on; the channel and the
 notification both request `VISIBILITY_PUBLIC`.

@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.service.AnalyzerService
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.ui.MainViewModel
@@ -110,6 +111,15 @@ class MainActivity : ComponentActivity() {
             // — the whole lock-screen feature — is invisible.
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Pulling the notification shade down takes focus from the app without
+        // pausing it, and that is the only way the notification can be seen
+        // while the app is in front — so focus is what decides whether it is
+        // worth redrawing.
+        AudioEngine.appFocused = hasFocus
     }
 
     private fun start() {

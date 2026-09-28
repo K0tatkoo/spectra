@@ -305,6 +305,9 @@ class AnalyzerService : Service() {
         val s = settings
         if (!s.notificationEnabled) return 1_000L
         if (s.pauseRenderWhenScreenOff && !isScreenOn()) return 800L
+        // The app is in front and focused: the notification cannot be seen
+        // until the shade comes down, which takes the focus — check again soon.
+        if (appInFront()) return APP_IN_FRONT_RECHECK_MS
 
         val notification = notifications.build(
             AudioEngine.frame.value,
@@ -335,6 +338,7 @@ class AnalyzerService : Service() {
         val s = settings
         if (!s.widgetEnabled) return 2_000L
         if (s.pauseRenderWhenScreenOff && !isScreenOn()) return 2_000L
+        if (appInFront()) return 1_000L
         val now = System.currentTimeMillis()
         val minGap = 1000L / s.widgetFps.coerceIn(1, 4)
         if (now - lastWidgetPushAt < minGap) return minGap - (now - lastWidgetPushAt)
@@ -356,6 +360,8 @@ class AnalyzerService : Service() {
     }
 
     // ---- helpers -----------------------------------------------------------
+
+    private fun appInFront(): Boolean = AudioEngine.inAppPage != null && AudioEngine.appFocused
 
     private fun isScreenOn(): Boolean =
         getSystemService(PowerManager::class.java)?.isInteractive ?: true
@@ -404,6 +410,8 @@ class AnalyzerService : Service() {
 
     companion object {
         private const val TAG = "SpectraService"
+        /** How soon the notification picks up again once the shade takes the app's focus. */
+        private const val APP_IN_FRONT_RECHECK_MS = 250L
 
         const val ACTION_START_MIC = "com.n3d.spectra.action.START_MIC"
         const val ACTION_START_PLAYBACK = "com.n3d.spectra.action.START_PLAYBACK"
