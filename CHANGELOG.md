@@ -5,6 +5,13 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 1.3.1 — 2026-09-28
+
+Stems keep up better: the model stays on the fastest core, and a skip no longer wipes its memory
+
+- Pin the stem worker to the phone's fastest core
+- Keep the stem model's memory across a skip, and allocate its tensors once
+
 ## 1.3.0 — 2026-09-28
 
 Choose which Stems lanes hold still; only bass is held by default
