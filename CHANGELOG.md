@@ -5,6 +5,12 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 1.3.2 — 2026-09-28
+
+Uses less power while open: the notification graph pauses while the app is in front
+
+- Stop redrawing the notification and widget while the app is in front
+
 ## 1.3.1 — 2026-09-28
 
 Stems keep up better: the model stays on the fastest core, and a skip no longer wipes its memory
