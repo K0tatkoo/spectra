@@ -1,10 +1,13 @@
 package com.n3d.spectra.paint
 
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -20,12 +23,16 @@ import com.n3d.spectra.dsp.nes.Nes2A03
 import com.n3d.spectra.dsp.nes.NesOptions
 import com.n3d.spectra.dsp.nes.NesReading
 import com.n3d.spectra.settings.FreqScale
+import com.n3d.spectra.settings.OscMode
 import com.n3d.spectra.settings.Settings
+import com.n3d.spectra.settings.oscFullScaleLabel
+import com.n3d.spectra.settings.oscTimeLabel
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.WaveformMode
 import java.util.Locale
 import kotlin.math.exp
+import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
@@ -72,6 +79,18 @@ class VizPainter(var palette: Palette = Palette.DARK) {
     private val historyScratch = FloatArray(AudioEngine.BAND_HISTORY)
     private val loudnessScratch = FloatArray(AudioEngine.BAND_HISTORY)
 
+    private var crt: Crt? = null
+    private var crtBitmap: Bitmap? = null
+    private var crtShader: BitmapShader? = null
+    private val crtMatrix = Matrix()
+    private val crtLayout = CrtLayout()
+    private val crtRect = RectF()
+    private var glassShader: RadialGradient? = null
+    private var glassKey = 0L
+
+    /** The clock the oscilloscope's beam runs on. */
+    var nanoTime: () -> Long = System::nanoTime
+
     // ------------------------------------------------------------------------
 
     fun draw(
@@ -99,6 +118,7 @@ class VizPainter(var palette: Palette = Palette.DARK) {
                     WaveformMode.HOLD -> drawHold(canvas, area, frame, s, compact)
                     WaveformMode.NES -> drawNesTriangle(canvas, area, frame.nes, NesOptions(region = s.nesRegion), frame, compact)
                 }
+                VizPage.OSCILLOSCOPE -> drawOscilloscope(canvas, area, frame, s, compact)
                 VizPage.STEMS -> drawStems(canvas, area, frame, s, compact)
             }
             if (frame.clipped) drawClipFlag(canvas, area, compact)
@@ -1355,6 +1375,170 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         canvas.drawText(verdict, r.left, r.top + sp(12f), monoPaint)
     }
 
+    // ---- oscilloscope ------------------------------------------------------
+
+    /**
+     * The Oscilloscope page: the simulated tube (see [Crt]) seen through a
+     * graticule, with a bench scope's readout along the bottom of the glass.
+     *
+     * The tube is drawn at about half the surface's resolution and stretched
+     * with filtering, which suits it — a trace a dp wide with a soft edge — and
+     * quarters the work of developing it every frame on this thread. The
+     * graticule and readout are drawn over it at full resolution so they stay
+     * crisp, the way lines etched on the glass would.
+     */
+    private fun drawOscilloscope(canvas: Canvas, area: RectF, f: AnalysisFrame, s: Settings, compact: Boolean) {
+        val lay = crtLayout
+        lay.compute(area.left, area.top, area.right, area.bottom, density, s.oscMode, compact)
+        crtRect.set(lay.faceL, lay.faceT, lay.faceR, lay.faceB)
+        val tint = Crt.colorOf(s.oscPhosphor, TINT_ENERGY)
+        val feed = f.beam
+        val tube = crt ?: Crt().also { crt = it }
+        if (feed != null) tube.render(feed, f.sampleRate, s, lay, nanoTime(), glowAllowed = !compact)
+        if (feed == null || tube.width == 0) {
+            paint.reset()
+            paint.isAntiAlias = true
+            paint.color = Crt.colorOf(s.oscPhosphor, 0f)
+            canvas.drawRoundRect(crtRect, lay.radius, lay.radius, paint)
+            drawGraticule(canvas, lay, tint, compact)
+            return
+        }
+        val w = tube.width
+        val h = tube.height
+        var bmp = crtBitmap
+        var fresh = false
+        if (bmp == null || bmp.width != w || bmp.height != h) {
+            bmp?.recycle()
+            bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            crtBitmap = bmp
+            crtShader = BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+            fresh = true
+        }
+        // Unchanged between two capture bursts, or while paused: the bitmap
+        // still holds the picture, and uploading it again would be waste.
+        if (tube.changed || fresh) bmp.setPixels(tube.pixels, 0, w, 0, 0, w, h)
+        val shader = crtShader ?: return
+        crtMatrix.setScale(crtRect.width() / w, crtRect.height() / h)
+        crtMatrix.postTranslate(crtRect.left, crtRect.top)
+        shader.setLocalMatrix(crtMatrix)
+
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.isFilterBitmap = true
+        paint.shader = shader
+        canvas.drawRoundRect(crtRect, lay.radius, lay.radius, paint)
+        paint.shader = null
+
+        drawGraticule(canvas, lay, tint, compact)
+        drawGlass(canvas, lay)
+        if (!compact) drawScopeReadout(canvas, lay, f, s, tube, tint)
+    }
+
+    /**
+     * Eight divisions a side for X-Y, ten across for Y-T, with the centre axes
+     * ticked in fifths — the graticule of a bench scope, faint enough that the
+     * trace reads over it.
+     */
+    private fun drawGraticule(canvas: Canvas, lay: CrtLayout, tint: Int, compact: Boolean) {
+        val l = lay.gratL
+        val t = lay.gratT
+        val r = lay.gratR
+        val b = lay.gratB
+        if (r - l < 4f || b - t < 4f) return
+        val nx = lay.divisionsX
+        val ny = lay.divisionsY
+        val dx = (r - l) / nx
+        val dy = (b - t) / ny
+        val mx = (l + r) / 2f
+        val my = (t + b) / 2f
+        val ink = Palette.mix(GRATICULE_GREY, tint, 0.35f)
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = dp(0.7f)
+        if (!compact) {
+            paint.color = Palette.withAlpha(ink, 0.17f)
+            for (i in 1 until nx) if (i * 2 != nx) canvas.drawLine(l + dx * i, t, l + dx * i, b, paint)
+            for (j in 1 until ny) if (j * 2 != ny) canvas.drawLine(l, t + dy * j, r, t + dy * j, paint)
+        }
+        paint.color = Palette.withAlpha(ink, if (compact) 0.22f else 0.3f)
+        canvas.drawRect(l, t, r, b, paint)
+        canvas.drawLine(mx, t, mx, b, paint)
+        canvas.drawLine(l, my, r, my, paint)
+        if (compact) return
+        val tick = min(dx, dy) * 0.07f
+        for (i in 1 until nx * 5) if (i % 5 != 0) canvas.drawLine(l + dx * i / 5f, my - tick, l + dx * i / 5f, my + tick, paint)
+        for (j in 1 until ny * 5) if (j % 5 != 0) canvas.drawLine(mx - tick, t + dy * j / 5f, mx + tick, t + dy * j / 5f, paint)
+    }
+
+    /**
+     * A tube's face is curved, so its corners sit further from the eye and a
+     * shade darker; and there is a dark rim where the bezel meets the glass.
+     */
+    private fun drawGlass(canvas: Canvas, lay: CrtLayout) {
+        val key = (crtRect.width().toLong() shl 32) or crtRect.height().toLong() xor
+            (crtRect.left.toLong() shl 16) xor crtRect.top.toLong()
+        var shader = glassShader
+        if (shader == null || key != glassKey) {
+            shader = RadialGradient(
+                crtRect.centerX(), crtRect.centerY(), hypot(crtRect.width(), crtRect.height()) / 2f,
+                intArrayOf(0x00000000, 0x00000000, 0x5C000000),
+                floatArrayOf(0f, 0.55f, 1f),
+                Shader.TileMode.CLAMP,
+            )
+            glassShader = shader
+            glassKey = key
+        }
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.shader = shader
+        canvas.drawRoundRect(crtRect, lay.radius, lay.radius, paint)
+        paint.shader = null
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = dp(1f)
+        paint.color = 0x59000000
+        canvas.drawRoundRect(crtRect, lay.radius, lay.radius, paint)
+    }
+
+    private fun drawScopeReadout(canvas: Canvas, lay: CrtLayout, f: AnalysisFrame, s: Settings, tube: Crt, tint: Int) {
+        val y = lay.readoutY
+        if (y.isNaN()) return
+        monoPaint.textSize = sp(9f)
+        monoPaint.textAlign = Paint.Align.LEFT
+        monoPaint.color = Palette.withAlpha(tint, 0.9f)
+        val scale = "${oscFullScaleLabel(s.oscZoom)} FS/div"
+        val left = when (s.oscMode) {
+            OscMode.XY -> "X-Y · $scale"
+            OscMode.YT -> "${oscTimeLabel(s.oscTimeDivMs)}/div · $scale"
+        }
+        // A mono input has no picture to draw in X-Y: L and R are the same, so
+        // the beam can only run up the diagonal. Say so rather than look broken.
+        val mono = f.waveR.isEmpty()
+        val right = when {
+            mono -> "mono input"
+            s.oscMode == OscMode.XY -> "L → X · R → Y"
+            tube.triggered -> "trig ↑ mix"
+            else -> "auto"
+        }
+        // Under the graticule's edges when they are far enough apart — a
+        // square X-Y graticule on a short, wide surface is not — else out
+        // to the glass's, and the second one goes if even that is too tight.
+        val need = monoPaint.measureText(left) + monoPaint.measureText(right) + dp(12f)
+        var l = lay.gratL
+        var r = lay.gratR
+        if (r - l < need) {
+            l = lay.faceL + dp(10f)
+            r = lay.faceR - dp(10f)
+        }
+        canvas.drawText(left, l, y, monoPaint)
+        if (r - l >= need) {
+            monoPaint.textAlign = Paint.Align.RIGHT
+            monoPaint.color = if (mono) palette.warn else Palette.withAlpha(tint, 0.9f)
+            canvas.drawText(right, r, y, monoPaint)
+        }
+        monoPaint.textAlign = Paint.Align.LEFT
+    }
+
     private fun drawIdleText(canvas: Canvas, area: RectF, message: String, compact: Boolean) {
         textPaint.color = palette.textFaint
         textPaint.textSize = sp(if (compact) 9f else 11f)
@@ -1371,6 +1555,12 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         gonioBitmap?.recycle()
         gonioBitmap = null
         gonioCanvas = null
+        crt?.release()
+        crt = null
+        crtBitmap?.recycle()
+        crtBitmap = null
+        crtShader = null
+        glassShader = null
     }
 
     private fun dp(v: Float) = v * density
@@ -1383,6 +1573,10 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         if (v <= -70f) "—" else String.format(Locale.US, "%.1f", v)
 
     companion object {
+        /** How bright the graticule's tint and the readout are, in the phosphor's own terms. */
+        private const val TINT_ENERGY = 1.4f
+        private const val GRATICULE_GREY = 0xFF8C9690.toInt()
+
         private val GRID_FREQS = floatArrayOf(
             20f, 30f, 50f, 100f, 200f, 300f, 500f, 1000f, 2000f, 3000f, 5000f, 10000f, 20000f,
         )

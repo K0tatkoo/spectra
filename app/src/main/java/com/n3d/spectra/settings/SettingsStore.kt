@@ -138,6 +138,14 @@ class SettingsStore private constructor(context: Context) {
         p[K_STEM_THREADS] = s.stemThreads
         p[K_NES_REGION] = s.nesRegion.name
 
+        p[K_OSC_MODE] = s.oscMode.name
+        p[K_OSC_PHOSPHOR] = s.oscPhosphor.name
+        p[K_OSC_INTENSITY] = s.oscIntensity
+        p[K_OSC_PERSIST] = s.oscPersistenceMs
+        p[K_OSC_GLOW] = s.oscGlow
+        p[K_OSC_ZOOM] = s.oscZoom
+        p[K_OSC_TIME_DIV] = s.oscTimeDivMs
+
         p[K_THEME] = s.theme.name
         p[K_PAGE] = s.page.name
         p[K_UI_FPS] = s.uiFps
@@ -214,6 +222,14 @@ class SettingsStore private constructor(context: Context) {
             holdDrums = p[K_HOLD_DRUMS] ?: d.holdDrums,
             stemThreads = p[K_STEM_THREADS] ?: d.stemThreads,
             nesRegion = p.enum(K_NES_REGION, d.nesRegion),
+
+            oscMode = p.enum(K_OSC_MODE, d.oscMode),
+            oscPhosphor = p.enum(K_OSC_PHOSPHOR, d.oscPhosphor),
+            oscIntensity = p[K_OSC_INTENSITY] ?: d.oscIntensity,
+            oscPersistenceMs = p[K_OSC_PERSIST] ?: d.oscPersistenceMs,
+            oscGlow = p[K_OSC_GLOW] ?: d.oscGlow,
+            oscZoom = p[K_OSC_ZOOM] ?: d.oscZoom,
+            oscTimeDivMs = p[K_OSC_TIME_DIV] ?: d.oscTimeDivMs,
 
             theme = p.enum(K_THEME, d.theme),
             page = p.enum(K_PAGE, d.page),
@@ -307,6 +323,14 @@ class SettingsStore private constructor(context: Context) {
         private val K_HOLD_DRUMS = booleanPreferencesKey("hold_drums")
         private val K_STEM_THREADS = intPreferencesKey("stem_threads")
         private val K_NES_REGION = stringPreferencesKey("nes_region")
+
+        private val K_OSC_MODE = stringPreferencesKey("osc_mode")
+        private val K_OSC_PHOSPHOR = stringPreferencesKey("osc_phosphor")
+        private val K_OSC_INTENSITY = floatPreferencesKey("osc_intensity")
+        private val K_OSC_PERSIST = floatPreferencesKey("osc_persistence_ms")
+        private val K_OSC_GLOW = floatPreferencesKey("osc_glow")
+        private val K_OSC_ZOOM = floatPreferencesKey("osc_zoom")
+        private val K_OSC_TIME_DIV = floatPreferencesKey("osc_time_div_ms")
 
         private val K_THEME = stringPreferencesKey("theme")
         private val K_PAGE = stringPreferencesKey("page")

@@ -27,12 +27,15 @@ import com.n3d.spectra.settings.BandSlope
 import com.n3d.spectra.settings.ColorMap
 import com.n3d.spectra.settings.FreqScale
 import com.n3d.spectra.settings.MicPreset
+import com.n3d.spectra.settings.OscMode
+import com.n3d.spectra.settings.Phosphor
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.ThemeMode
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.Weighting
+import com.n3d.spectra.settings.oscTimeLabel
 import com.n3d.spectra.ui.MainViewModel
 import com.n3d.spectra.ui.neu.NeuButton
 import com.n3d.spectra.ui.neu.NeuCard
@@ -47,6 +50,7 @@ import com.n3d.spectra.ui.theme.LocalPalette
 import com.n3d.spectra.ui.theme.toComposeColor
 import java.util.Locale
 import kotlin.math.ln
+import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -663,6 +667,102 @@ fun SettingsScreen(
                 )
             }
 
+            // ---- oscilloscope ---------------------------------------------------------
+            SectionTitle("Oscilloscope")
+            NeuCard {
+                NeuSegmented(
+                    options = OscMode.entries.toList(),
+                    selected = s.oscMode,
+                    onSelect = { v -> edit { it.copy(oscMode = v) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    labelOf = { it.label },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (s.oscMode == OscMode.XY) {
+                        "For oscilloscope music: tracks written so that the left channel moves the " +
+                            "beam across and the right moves it up, which draws pictures. Anything else " +
+                            "draws a tangle around the diagonal. The picture needs both channels exactly " +
+                            "as they were played, so use Device audio — through the microphone there is " +
+                            "none of it left."
+                    } else {
+                        "Sweeps the beam across in time and starts each sweep where the mix crosses " +
+                            "zero going up, like a bench scope's trigger. A single tone stands still; a " +
+                            "full mix only while one low note leads it."
+                    },
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("Phosphor", color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+                NeuSegmented(
+                    options = Phosphor.entries.toList(),
+                    selected = s.oscPhosphor,
+                    onSelect = { v -> edit { it.copy(oscPhosphor = v) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    labelOf = { it.label },
+                )
+                Spacer(Modifier.height(12.dp))
+                NeuSlider(
+                    value = log2(s.oscIntensity),
+                    default = log2(defaults.oscIntensity),
+                    onValueChange = { v -> edit { it.copy(oscIntensity = 2f.pow(v.round(2))) } },
+                    valueRange = -3f..3f,
+                    label = "Intensity",
+                    valueText = "×${s.oscIntensity.fmt(2)}",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                NeuSlider(
+                    value = persistToSlider(s.oscPersistenceMs),
+                    default = persistToSlider(defaults.oscPersistenceMs),
+                    onValueChange = { v -> edit { it.copy(oscPersistenceMs = sliderToPersist(v)) } },
+                    valueRange = 0f..1f,
+                    label = "Persistence",
+                    valueText = "${s.oscPersistenceMs.fmt(0)} ms",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                NeuSlider(
+                    value = s.oscGlow,
+                    default = defaults.oscGlow,
+                    onValueChange = { v -> edit { it.copy(oscGlow = v.round(2)) } },
+                    valueRange = 0f..1f,
+                    label = "Glow",
+                    valueText = "${(s.oscGlow * 100).roundToInt()}%",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                NeuSlider(
+                    value = log2(s.oscZoom),
+                    default = log2(defaults.oscZoom),
+                    onValueChange = { v -> edit { it.copy(oscZoom = 2f.pow(v.round(2))) } },
+                    valueRange = -1f..2f,
+                    label = "Zoom",
+                    valueText = "×${s.oscZoom.fmt(2)}",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                NeuPicker(
+                    options = Settings.OSC_TIME_DIVS,
+                    selected = Settings.OSC_TIME_DIVS.minBy { kotlin.math.abs(it - s.oscTimeDivMs) },
+                    onSelect = { v -> edit { it.copy(oscTimeDivMs = v) } },
+                    label = "Y-T time base",
+                    labelOf = { "${oscTimeLabel(it)} per division" },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Brightness is time, as on a real tube: the phosphor glows where the beam " +
+                        "lingers, so slow strokes are bright, fast jumps are faint threads and a " +
+                        "resting beam burns a dot in the middle. Persistence is how long the glow " +
+                        "lasts. The audio is drawn at four times its sample rate, band-limited — the " +
+                        "smooth path a real beam takes behind a converter, not straight lines " +
+                        "between samples.",
+                    color = palette.textFaint.toComposeColor(),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+
             // ---- appearance -------------------------------------------------------
             SectionTitle("Appearance")
             NeuCard {
@@ -843,6 +943,11 @@ private fun freqToSlider(hz: Float): Float =
     (ln((hz / 20f).coerceAtLeast(1e-3f)) / ln(1000f)).coerceIn(0f, 1f)
 
 private fun sliderToFreq(t: Float): Float = 20f * 1000f.pow(t.coerceIn(0f, 1f))
+
+/** Persistence is logarithmic too: 5 ms to half a second, with room at the short end where the choices differ. */
+private fun persistToSlider(ms: Float): Float = (ln((ms / 5f).coerceAtLeast(1f)) / ln(100f)).coerceIn(0f, 1f)
+
+private fun sliderToPersist(t: Float): Float = (5f * 100f.pow(t.coerceIn(0f, 1f))).roundToInt().toFloat()
 
 private fun Float.round(decimals: Int): Float {
     val factor = 10f.pow(decimals)

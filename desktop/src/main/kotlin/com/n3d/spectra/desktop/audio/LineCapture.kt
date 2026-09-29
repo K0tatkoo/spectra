@@ -57,9 +57,18 @@ object Devices {
         loopback = false,
     )
 
+    /** The oscilloscope-music generator, listed the same way. */
+    val OSC_DEMO = InputDevice(
+        name = OscDemoCapture.NAME,
+        description = "A cube, a Lissajous figure and a word, drawn for the Oscilloscope page's X-Y mode",
+        mixer = null,
+        loopback = false,
+    )
+
     fun list(): List<InputDevice> {
         val out = ArrayList<InputDevice>()
         out += DEMO
+        out += OSC_DEMO
         for (info in AudioSystem.getMixerInfo()) {
             val mixer = runCatching { AudioSystem.getMixer(info) }.getOrNull() ?: continue
             val supportsCapture = mixer.targetLineInfo.any { it is DataLine.Info && TargetDataLine::class.java.isAssignableFrom(it.lineClass) }

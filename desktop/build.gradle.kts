@@ -29,6 +29,7 @@ sourceSets.main {
             "com/n3d/spectra/audio/MonoRing.kt",
             "com/n3d/spectra/audio/AudioCapture.kt",
             "com/n3d/spectra/paint/Palette.kt",
+            "com/n3d/spectra/paint/Crt.kt",
             // Desktop-only.
             "com/n3d/spectra/desktop/**",
         ),
@@ -131,4 +132,20 @@ tasks.register<JavaExec>("appIcon") {
     // year and a committed PNG set is far less fragile than wiring a JavaExec
     // into the resource-processing graph.
     args = listOf("../app/src/main/res/drawable", "src/main/resources/icon", "build/icon")
+}
+
+tasks.register<JavaExec>("crtShots") {
+    group = "verification"
+    description = "Renders the Oscilloscope page from known signals on a simulated clock, to build/crt-shots."
+    mainClass.set("com.n3d.spectra.desktop.dev.CrtShotsKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+    args = listOf("build/crt-shots")
+}
+
+tasks.register<JavaExec>("oscDemoWav") {
+    group = "verification"
+    description = "Writes the built-in oscilloscope demo to build/osc-demo.wav, to play into a phone."
+    mainClass.set("com.n3d.spectra.desktop.dev.OscDemoWavKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+    args = listOf("build/osc-demo.wav")
 }

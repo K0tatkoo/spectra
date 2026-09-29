@@ -48,7 +48,30 @@ enum class VizPage(val label: String) {
     LOUDNESS("Loudness"),
     STEREO("Stereo"),
     WAVEFORM("Waveform"),
+    OSCILLOSCOPE("Oscilloscope"),
     STEMS("Stems"),
+}
+
+/** How the Oscilloscope page moves its beam. */
+enum class OscMode(val label: String) {
+    /**
+     * The left channel moves the beam across and the right moves it up — the
+     * way oscilloscope music is written to be watched. Anything else draws a
+     * tangle around the diagonal.
+     */
+    XY("X-Y"),
+    /** A time base sweeps it across, restarted by the mix crossing zero upwards: the bench scope. */
+    YT("Y-T"),
+}
+
+/** The colour the Oscilloscope page's tube glows in. */
+enum class Phosphor(val label: String) {
+    /** P31, the green of nearly every analog scope. */
+    GREEN("Green"),
+    AMBER("Amber"),
+    BLUE("Blue"),
+    /** The app's own cyan. */
+    SPECTRA("Spectra"),
 }
 
 /** What the Waveform page draws. */
@@ -59,6 +82,19 @@ enum class WaveformMode(val label: String) {
     HOLD("Hold still"),
     /** The NES triangle channel against the chip's own 32-step staircase. */
     NES("2A03 triangle"),
+}
+
+/** A time base as a bench scope labels it: 100 µs, 2 ms. */
+fun oscTimeLabel(ms: Float): String =
+    if (ms < 1f) "${Math.round(ms * 1000f)} µs" else "${Math.round(ms)} ms"
+
+/**
+ * Full scale per division at [zoom]. Four divisions from the centre to the
+ * edge, so at 1× a division is a quarter of full scale.
+ */
+fun oscFullScaleLabel(zoom: Float): String {
+    val perDiv = 0.25f / zoom.coerceAtLeast(0.01f)
+    return String.format(java.util.Locale.US, if (perDiv < 0.1f) "%.3f" else "%.2f", perDiv)
 }
 
 data class BandDef(
@@ -163,6 +199,24 @@ data class Settings(
     val stemThreads: Int = 1,
     val nesRegion: Nes2A03.Region = Nes2A03.Region.NTSC,
 
+    // ---- oscilloscope ----------------------------------------------------
+    val oscMode: OscMode = OscMode.XY,
+    val oscPhosphor: Phosphor = Phosphor.GREEN,
+    /** Beam current, as a multiple of the default. The tube's brightness knob. */
+    val oscIntensity: Float = 1f,
+    /**
+     * How long the phosphor keeps glowing, as the time for it to fall to 37 %.
+     * About one frame's worth by default, which is what a camera filming a real
+     * tube sees: the tube itself fades in microseconds.
+     */
+    val oscPersistenceMs: Float = 25f,
+    /** Strength of the halo that bright strokes throw on the glass, 0–1. */
+    val oscGlow: Float = 0.5f,
+    /** Deflection gain. At 1, full scale reaches the edge of the graticule. */
+    val oscZoom: Float = 1f,
+    /** Y-T time base, per division; one of [OSC_TIME_DIVS]. The graticule is ten divisions wide. */
+    val oscTimeDivMs: Float = 1f,
+
     // ---- display ---------------------------------------------------------
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val page: VizPage = VizPage.SPECTRUM,
@@ -203,6 +257,9 @@ data class Settings(
 
         /** Off, light, medium, strong. */
         val SCOPE_CLEANS = listOf(0f, 30f, 60f, 120f)
+
+        /** Y-T time bases, ms per division, in a bench scope's 1-2-5 steps. */
+        val OSC_TIME_DIVS = listOf(0.1f, 0.2f, 0.5f, 1f, 2f, 5f, 10f)
 
         val FFT_SIZES = listOf(512, 1024, 2048, 4096, 8192, 16384)
         val SAMPLE_RATES = listOf(44100, 48000)

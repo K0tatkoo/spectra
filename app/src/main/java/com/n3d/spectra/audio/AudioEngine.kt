@@ -10,6 +10,7 @@ import com.n3d.spectra.dsp.ScrollBuffer
 import com.n3d.spectra.dsp.SpectrogramBuffer
 import com.n3d.spectra.dsp.SpectrumAnalyzer
 import com.n3d.spectra.dsp.StereoAnalyzer
+import com.n3d.spectra.dsp.StereoFeed
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.settings.VizPage
@@ -61,6 +62,7 @@ object AudioEngine {
     const val SPECTROGRAM_ROWS = 256
     const val SPECTROGRAM_COLUMNS = 512
     const val BAND_HISTORY = 256
+    private const val BEAM_HISTORY = 32_768
     private const val SCOPE_SPAN = 4096
     private const val SCOPE_POINTS = 512
     /**
@@ -76,6 +78,14 @@ object AudioEngine {
 
     /** Short-term loudness trace, shared with every surface for the same reason. */
     val loudnessHistory = ScrollBuffer(BAND_HISTORY, -70f)
+
+    /**
+     * The raw stereo capture for the Oscilloscope page, 680 ms of it. Always
+     * written — two floats a frame is nothing — so a surface that starts
+     * showing the page finds the present there, not whatever was playing the
+     * last time somebody looked.
+     */
+    val beamFeed = StereoFeed(BEAM_HISTORY)
 
     @Volatile private var settings = Settings()
     @Volatile private var running = false
@@ -309,6 +319,7 @@ object AudioEngine {
 
             scopeL.write(left, 0, frames)
             if (rightOrNull != null) scopeR.write(rightOrNull, 0, frames)
+            beamFeed.write(left, rightOrNull ?: left, frames)
 
             // The transform runs on the mono sum: a spectrum of L+R is what an
             // engineer expects from an analyser, and running two transforms
@@ -355,6 +366,7 @@ object AudioEngine {
                     spectrogram = spectrogram,
                     scopes = scopes.latest,
                     nes = scopes.latestNes,
+                    beam = beamFeed,
                 )
             }
         }

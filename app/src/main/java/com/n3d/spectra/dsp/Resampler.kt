@@ -139,20 +139,20 @@ class Resampler(val inRate: Int, val outRate: Int, private val halfTaps: Int = 1
         const val KAISER_BETA = 8.0
 
         tailrec fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
-
-        /** Zeroth-order modified Bessel function, by its power series. */
-        fun besselI0(x: Double): Double {
-            var sum = 1.0
-            var term = 1.0
-            val half = x / 2.0
-            var k = 1
-            while (k < 64) {
-                term *= (half / k) * (half / k)
-                sum += term
-                if (term < sum * 1e-12) break
-                k++
-            }
-            return sum
-        }
     }
+}
+
+/** Zeroth-order modified Bessel function, by its power series. For Kaiser windows. */
+internal fun besselI0(x: Double): Double {
+    var sum = 1.0
+    var term = 1.0
+    val half = x / 2.0
+    var k = 1
+    while (k < 64) {
+        term *= (half / k) * (half / k)
+        sum += term
+        if (term < sum * 1e-12) break
+        k++
+    }
+    return sum
 }

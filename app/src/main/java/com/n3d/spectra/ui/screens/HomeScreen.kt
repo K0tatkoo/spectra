@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -28,9 +29,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.dsp.PeakHold
+import com.n3d.spectra.settings.OscMode
+import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.WaveformMode
+import com.n3d.spectra.settings.oscTimeLabel
 import com.n3d.spectra.stems.ScopeRunner
 import com.n3d.spectra.stems.Stem
 import com.n3d.spectra.stems.holdingStill
@@ -135,6 +139,16 @@ fun HomeScreen(
                 onSelect = { mode -> viewModel.update { it.copy(waveformMode = mode) } },
                 modifier = Modifier.fillMaxWidth(),
                 labelOf = { it.label },
+            )
+        }
+
+        if (settings.page == VizPage.OSCILLOSCOPE) {
+            Spacer(Modifier.height(12.dp))
+            ScopeControls(
+                mode = settings.oscMode,
+                timeDivMs = settings.oscTimeDivMs,
+                onMode = { mode -> viewModel.update { it.copy(oscMode = mode) } },
+                onTimeDiv = { ms -> viewModel.update { it.copy(oscTimeDivMs = ms) } },
             )
         }
 
@@ -251,6 +265,46 @@ private fun StemHoldChips(isHeld: (Stem) -> Boolean, onToggle: (Stem) -> Unit) {
                 selected = isHeld(stem),
                 onClick = { onToggle(stem) },
             )
+        }
+    }
+}
+
+/**
+ * The Oscilloscope page's front panel: X-Y or Y-T, and in Y-T the time base,
+ * stepped through a bench scope's 1-2-5 sequence. Everything else about the
+ * tube is in Settings.
+ */
+@Composable
+private fun ScopeControls(
+    mode: OscMode,
+    timeDivMs: Float,
+    onMode: (OscMode) -> Unit,
+    onTimeDiv: (Float) -> Unit,
+) {
+    val palette = LocalPalette.current
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        NeuSegmented(
+            options = OscMode.entries.toList(),
+            selected = mode,
+            onSelect = onMode,
+            modifier = Modifier.weight(1f),
+            labelOf = { it.label },
+        )
+        if (mode == OscMode.YT) {
+            val steps = Settings.OSC_TIME_DIVS
+            val at = steps.indices.minBy { kotlin.math.abs(steps[it] - timeDivMs) }
+            Spacer(Modifier.width(10.dp))
+            NeuIconButton(onClick = { onTimeDiv(steps[(at - 1).coerceAtLeast(0)]) }, glyph = "−", size = 44.dp)
+            Text(
+                oscTimeLabel(steps[at]),
+                color = palette.text.toComposeColor(),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(62.dp),
+            )
+            NeuIconButton(onClick = { onTimeDiv(steps[(at + 1).coerceAtMost(steps.lastIndex)]) }, glyph = "+", size = 44.dp)
         }
     }
 }

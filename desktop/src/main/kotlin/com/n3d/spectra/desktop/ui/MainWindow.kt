@@ -4,6 +4,7 @@ import com.n3d.spectra.desktop.audio.DesktopEngine
 import com.n3d.spectra.desktop.audio.Devices
 import com.n3d.spectra.desktop.audio.InputDevice
 import com.n3d.spectra.desktop.audio.LineCapture
+import com.n3d.spectra.desktop.audio.OscDemoCapture
 import com.n3d.spectra.desktop.audio.SyntheticCapture
 import com.n3d.spectra.dsp.nes.Nes2A03
 import com.n3d.spectra.desktop.paint.Align
@@ -27,10 +28,13 @@ import com.n3d.spectra.paint.Palette
 import com.n3d.spectra.settings.BandSlope
 import com.n3d.spectra.settings.ColorMap
 import com.n3d.spectra.settings.FreqScale
+import com.n3d.spectra.settings.OscMode
+import com.n3d.spectra.settings.Phosphor
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.ThemeMode
 import com.n3d.spectra.settings.Weighting
+import com.n3d.spectra.settings.oscTimeLabel
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Graphics
@@ -38,6 +42,9 @@ import java.awt.Graphics2D
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.util.Locale
+import kotlin.math.log2
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import javax.swing.BorderFactory
 import javax.swing.BoxLayout
 import javax.swing.JFrame
@@ -159,10 +166,11 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         DesktopEngine.updateNes(state.nes)
         DesktopEngine.nesActive = state.page == DesktopPage.WAVEFORM && state.waveMode == WaveMode.NES
         val device = Devices.find(state.deviceName)
-        val source = if (device != null && device.mixer == null) {
-            SyntheticCapture(state.settings.sampleRate, state.settings.stereo, state.nes.region)
-        } else {
-            LineCapture(device, state.settings.sampleRate, state.settings.stereo)
+        val source = when {
+            device?.name == OscDemoCapture.NAME -> OscDemoCapture(state.settings.sampleRate, state.settings.stereo)
+            device != null && device.mixer == null ->
+                SyntheticCapture(state.settings.sampleRate, state.settings.stereo, state.nes.region)
+            else -> LineCapture(device, state.settings.sampleRate, state.settings.stereo)
         }
         DesktopEngine.start(source)
     }
@@ -254,6 +262,7 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
             DesktopPage.LOUDNESS -> buildLoudnessSection()
             DesktopPage.STEREO -> buildStereoSection()
             DesktopPage.WAVEFORM -> buildWaveformSection()
+            DesktopPage.OSCILLOSCOPE -> buildOscilloscopeSection()
         }
         gap(10)
         buildDisplaySection()
@@ -515,6 +524,76 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         )
     }
 
+    // ---- the oscilloscope ----------------------------------------------------
+
+    private fun buildOscilloscopeSection() {
+        add(SectionLabel("Oscilloscope", palette))
+        add(
+            NeuSegmented("Mode", OscMode.entries.toList(), s().oscMode, palette, { it.label }) { v ->
+                setSettings { it.copy(oscMode = v) }
+                rebuildSidebar()
+            },
+        )
+        add(
+            NoteLabel(
+                if (s().oscMode == OscMode.XY) {
+                    "For oscilloscope music: tracks written so that the left channel moves the beam " +
+                        "across and the right moves it up, which draws pictures. Anything else draws a " +
+                        "tangle around the diagonal. It needs both channels exactly as they were played — " +
+                        "a loopback input (Stereo Mix, a virtual cable), not a microphone."
+                } else {
+                    "Sweeps the beam across in time and starts each sweep where the mix crosses zero " +
+                        "going up, like a bench scope's trigger in AUTO. A single tone stands still; a " +
+                        "full mix only while one low note leads it."
+                },
+                palette,
+            ),
+        )
+        if (s().oscMode == OscMode.YT) {
+            val divs = Settings.OSC_TIME_DIVS
+            add(
+                NeuSegmented("Time per division", divs, divs.minBy { kotlin.math.abs(it - s().oscTimeDivMs) }, palette, { oscTimeLabel(it) }) { v ->
+                    setSettings { it.copy(oscTimeDivMs = v) }
+                },
+            )
+        }
+        add(SectionLabel("Tube", palette))
+        add(NeuSegmented("Phosphor", Phosphor.entries.toList(), s().oscPhosphor, palette, { it.label }) { v -> setSettings { it.copy(oscPhosphor = v) } })
+        add(
+            NeuSlider("Intensity", -3f, 3f, log2(s().oscIntensity), palette, 0.25f, { String.format(Locale.US, "×%.2f", 2f.pow(it)) }) { v ->
+                setSettings { it.copy(oscIntensity = 2f.pow(v)) }
+            },
+        )
+        // Logarithmic, as on the phone: 5 ms to half a second, with room at the
+        // short end where the choices differ.
+        add(
+            NeuSlider("Persistence", 0f, 1f, kotlin.math.ln(s().oscPersistenceMs / 5f) / kotlin.math.ln(100f), palette, 0.01f, { "${(5f * 100f.pow(it)).roundToInt()} ms" }) { v ->
+                setSettings { it.copy(oscPersistenceMs = (5f * 100f.pow(v)).roundToInt().toFloat()) }
+            },
+        )
+        add(NeuSlider("Glow", 0f, 1f, s().oscGlow, palette, 0.05f, { "${(it * 100).roundToInt()} %" }) { v -> setSettings { it.copy(oscGlow = v) } })
+        add(
+            NeuSlider("Zoom", -1f, 2f, log2(s().oscZoom), palette, 0.25f, { String.format(Locale.US, "×%.2f", 2f.pow(it)) }) { v ->
+                setSettings { it.copy(oscZoom = 2f.pow(v)) }
+            },
+        )
+        add(
+            NoteLabel(
+                "Brightness is time, as on a real tube: the phosphor glows where the beam lingers, so " +
+                    "slow strokes are bright, fast jumps are faint threads and a resting beam burns a dot " +
+                    "in the middle. The audio is drawn at four times its sample rate, band-limited — the " +
+                    "path a real beam takes behind a converter.",
+                palette,
+            ),
+        )
+        if (!s().stereo) {
+            add(NoteLabel("The input is set to mono, so X-Y can only draw the diagonal.", palette, warn = true))
+        }
+        if (state.deviceName != OscDemoCapture.NAME) {
+            add(NoteLabel("No oscilloscope music to hand? Choose \"${OscDemoCapture.NAME}\" as the input.", palette))
+        }
+    }
+
     private fun buildDisplaySection() {
         add(SectionLabel("Display", palette))
         add(NeuSegmented("Theme", ThemeMode.entries.toList(), s().theme, palette, { it.label }) { v -> setSettings { it.copy(theme = v) } })
@@ -537,6 +616,17 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
     }
 
     internal fun setThemeForShot(mode: ThemeMode) = setSettings { it.copy(theme = mode) }
+
+    internal fun setSettingsForShot(transform: (Settings) -> Settings) {
+        setSettings(transform)
+        rebuildSidebar()
+    }
+
+    internal fun useInputForShot(name: String) {
+        update { it.copy(deviceName = name) }
+        restartCapture()
+        rebuildSidebar()
+    }
 
     // ---- top bar -----------------------------------------------------------
 

@@ -53,6 +53,11 @@ class AnalysisFrame(
     val scopes: ScopeFrame? = null,
     /** The 2A03 triangle reading, when that waveform mode is on screen. */
     val nes: NesReading? = null,
+    /**
+     * Every captured frame, both channels, for the Oscilloscope page's beam.
+     * Referenced like [spectrogram]: each surface reads the stretch it needs.
+     */
+    val beam: StereoFeed? = null,
 ) {
     val binCount: Int get() = magnitudesDb.size
 

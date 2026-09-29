@@ -11,9 +11,10 @@ analysis engine:
   stdlib), shipped as a self-contained `.exe`.
 
 The desktop module compiles the whole `com.n3d.spectra.dsp` package — the 2A03
-tracker and the held-still scopes included — `Settings` and `Palette` straight
-out of `app/src/main/java` rather than copying them, so the two can never
-disagree about what a dB, an LUFS or an accent colour is.
+tracker and the held-still scopes included — `Settings`, `Palette` and the
+oscilloscope's tube straight out of `app/src/main/java` rather than copying
+them, so the two can never disagree about what a dB, an LUFS, an accent colour
+or a phosphor is.
 
 ---
 
@@ -126,6 +127,11 @@ the mix locked to its loudest note so it stands still (**Hold still**, see
 [held-still scopes](#held-still-scopes)), and the [NES 2A03
 triangle](#the-nes-2a03-triangle-mode) staircase.
 
+**Oscilloscope** — a simulated analog tube. **X-Y** drives the beam across with
+the left channel and up with the right, which is what oscilloscope music is
+written for: it draws pictures. **Y-T** is a bench scope's time base, triggered
+on the mix. See [the oscilloscope](#the-oscilloscope).
+
 **Stems** — vocals, other, bass and drums separated live on the phone, each in
 its own lane, held still or scrolling as you choose per stem — only bass is held
 by default. See [Stems](#stems--live-source-separation).
@@ -225,12 +231,14 @@ app/src/main/java/com/n3d/spectra/
     BandSplitter.kt        time-domain band-pass meters
     LoudnessMeter.kt       BS.1770-4 + polyphase true peak
     StereoAnalyzer.kt      correlation, width, goniometer cloud
+    Beam.kt                the oscilloscope's pacing, 4× interpolation, Y-T trigger
     Ballistics.kt          attack/release, peak hold
     Histories.kt           lock-free ring buffers shared with the painters
     AnalysisFrame.kt       one immutable snapshot per hop
   paint/
     Palette.kt             the n3d design tokens as ints + colour maps
     Neu.kt                 neumorphic shadows on a raw Canvas
+    Crt.kt                 the oscilloscope's tube: beam, phosphor, glow (plain JVM)
     VizPainter.kt          every graph, once
   service/
     AnalyzerService.kt     owns capture, notification, overlay, widget pushes
@@ -248,6 +256,7 @@ desktop/src/main/kotlin/com/n3d/spectra/desktop/
   audio/
     LineCapture.kt         javax.sound.sampled, format negotiation, device list
     SyntheticCapture.kt    a 2A03 rendered in software, as an input
+    OscDemo.kt             oscilloscope music made up on the spot, as an input
     DesktopEngine.kt       the analysis loop — a port of AudioEngine
   nes/
     Nes2A03.kt             the chip as arithmetic: sequence, timers, clocks
@@ -315,6 +324,8 @@ Checks, none of which need a display:
 |---|---|
 | `:desktop:trackerCheck` | Synthesises 2A03 audio and asserts the tracker's behaviour, including stationarity and the limits it cannot beat |
 | `:desktop:uiShots` | Renders every page of the real window to PNGs |
+| `:desktop:crtShots` | Renders the Oscilloscope page from known signals on a simulated clock, and times it |
+| `:desktop:oscDemoWav` | Writes the built-in oscilloscope demo to a WAV, to play into a phone |
 | `:desktop:appIcon` | Rasterises the launcher icon into PNGs and an `.ico` |
 
 `trackerCheck` also runs against the cross-built Windows runtime under Wine,
@@ -457,6 +468,65 @@ The Stems lanes and the Waveform page's **Hold still** mode share `ScopeLock`:
 - **Drums have no period**, so their lane freezes on each hit — an energy jump
   marks it — until the next one.
 - A lane below −62 dBFS says *quiet* rather than amplifying noise to full height.
+
+## The oscilloscope
+
+The Oscilloscope page is a simulated analog tube rather than a plot. What makes
+a real scope look like one is that brightness is *time*: the phosphor glows in
+proportion to how long the beam spends on it. A slow stroke is bright, a fast
+jump across the screen is a faint thread, and a beam at rest burns a white-hot
+dot in the middle — which is exactly how oscilloscope music hides the moves
+between its shapes. So the beam deposits the same energy for every instant,
+spread along however much glass that instant covers, and the picture is that
+energy fading with the phosphor (`Crt.kt`, shared with Windows).
+
+- **X-Y** — the left channel moves the beam across and the right moves it up,
+  the convention oscilloscope music is written to. Anything else draws a tangle
+  around the diagonal, and a mono source only ever the diagonal itself. The
+  graticule is eight divisions square; at 1× full scale reaches its edge.
+- **Y-T** — ten divisions of time base, 100 µs to 10 ms each, triggered like a
+  bench scope's AUTO mode: each sweep starts where the mix crosses zero going
+  up, and if nothing crosses for 60 ms it sweeps anyway. The trigger listens to
+  a low-passed copy cornered by the time base, because a mix crosses zero once
+  for every loud harmonic and each is a different place to start; and the
+  crossing is found *between* samples, so a sweep does not shiver by a sample.
+- **Interpolated, not joined.** At 48 kHz a figure drawn at 200 Hz has 240
+  samples to its outline, and straight lines between them draw its curves as
+  polygons. A converter's reconstruction filter is what makes a real tube draw
+  them smooth — and makes a sharp corner ring a little — so the beam is drawn
+  from a Kaiser-windowed sinc at four points a sample: 192 kHz, the rate
+  oscilloscope music is mastered at. Off the band-limited curve by about 1e-4.
+- **Paced, so it does not pulse.** The capture arrives in bursts — 1024 frames
+  every 21 ms on the phone — while the page draws on every display frame. Each
+  frame draws the slice of audio its own frame time covers, a little behind the
+  newest sample, so a frame never gets a whole burst and the next one nothing;
+  the slices meet end to end, and every sample is drawn once. The lag it keeps
+  is measured (a little over the largest burst), about 30–45 ms. The phosphor
+  fades with *audio* time, so a paused scope freezes like every other page.
+- **Persistence** is the phosphor's time constant, 25 ms by default: about what
+  a camera filming a real tube sees — the tube itself fades in microseconds.
+- **The picture is developed**, not drawn: energy through a curve that
+  saturates the phosphor's own colour first and white after, so the core of a
+  bright stroke goes pale while its edges keep the colour; encoded like sRGB so
+  faint strokes do not vanish; plus a **glow**, the energy blurred at a quarter
+  of the tube's resolution and capped, because a phosphor cannot give out more
+  light than it has. Green (P31), amber, blue, or the app's own cyan.
+- **Cost.** The tube is drawn at about 1.4 pixels a dp — half resolution on a
+  phone, one to one on a monitor — and developed in one pass: under a
+  millisecond a frame on an M1 core, 2–3 ms of CPU on the Android emulator at
+  1.5× a phone's pixels. It runs only while the page is on screen.
+
+**What it will not do:**
+
+- Oscilloscope music released at 192 kHz reaches the capture at 48: Android's
+  mixer resamples everything to its own rate before any app can listen. The top
+  octaves go, and with them the finest detail — a corner comes out rounder, a
+  fast stroke a little softer.
+- It needs both channels exactly as played. Through the microphone there is no
+  picture left, and apps that block capture (Spotify, the YouTube app) give it
+  silence — a resting dot. A local player or a browser works.
+- The notification redraws at about 10 fps, and a square X-Y graticule in a
+  52 dp strip is small. The in-app page and the overlay are the ways to watch.
 
 ## Known limits
 

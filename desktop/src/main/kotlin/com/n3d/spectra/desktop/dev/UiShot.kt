@@ -1,11 +1,13 @@
 package com.n3d.spectra.desktop.dev
 
 import com.n3d.spectra.desktop.audio.DesktopEngine
+import com.n3d.spectra.desktop.audio.OscDemoCapture
 import com.n3d.spectra.desktop.audio.SyntheticCapture
 import com.n3d.spectra.desktop.state.DesktopPage
 import com.n3d.spectra.desktop.state.DesktopState
 import com.n3d.spectra.desktop.state.WaveMode
 import com.n3d.spectra.desktop.ui.MainWindow
+import com.n3d.spectra.settings.OscMode
 import com.n3d.spectra.settings.ThemeMode
 import java.awt.image.BufferedImage
 import java.io.File
@@ -78,6 +80,29 @@ fun main(args: Array<String>) {
     }
     ImageIO.write(light, "png", File(outDir, "light.png"))
     println("wrote ${File(outDir, "light.png").absolutePath}")
+
+    // The oscilloscope, on the demo it is made for: X-Y, then Y-T.
+    fun shot(name: String) {
+        val image = BufferedImage(frame.width, frame.height, BufferedImage.TYPE_INT_RGB)
+        SwingUtilities.invokeAndWait {
+            val g = image.createGraphics()
+            frame.contentPane.printAll(g)
+            g.dispose()
+        }
+        val file = File(outDir, "$name.png")
+        ImageIO.write(image, "png", file)
+        println("wrote ${file.absolutePath}")
+    }
+    SwingUtilities.invokeAndWait {
+        frame.setThemeForShot(ThemeMode.DARK)
+        frame.useInputForShot(OscDemoCapture.NAME)
+        frame.showPageForShot(DesktopPage.OSCILLOSCOPE)
+    }
+    Thread.sleep(2_500)
+    shot("oscilloscope-xy")
+    SwingUtilities.invokeAndWait { frame.setSettingsForShot { it.copy(oscMode = OscMode.YT, oscTimeDivMs = 2f) } }
+    Thread.sleep(1_500)
+    shot("oscilloscope-yt")
 
     DesktopEngine.stop()
     exitProcess(0)

@@ -15,6 +15,7 @@ import com.n3d.spectra.dsp.ScrollBuffer
 import com.n3d.spectra.dsp.SpectrogramBuffer
 import com.n3d.spectra.dsp.SpectrumAnalyzer
 import com.n3d.spectra.dsp.StereoAnalyzer
+import com.n3d.spectra.dsp.StereoFeed
 import com.n3d.spectra.settings.Settings
 import kotlin.math.abs
 import kotlin.math.log10
@@ -53,12 +54,16 @@ object DesktopEngine {
     private const val SCOPE_SPAN = 4096
     private const val SCOPE_POINTS = 512
     private const val READ_FRAMES = 2048
+    private const val BEAM_HISTORY = 32_768
 
     /** How often the 2A03 tracker runs. Twice the display rate is already more than enough. */
     private const val NES_INTERVAL_MS = 16f
 
     val spectrogram = SpectrogramBuffer(SPECTROGRAM_ROWS, SPECTROGRAM_COLUMNS)
     val loudnessHistory = ScrollBuffer(BAND_HISTORY, -70f)
+
+    /** The raw stereo capture for the Oscilloscope page. Always written, as on Android. */
+    val beamFeed = StereoFeed(BEAM_HISTORY)
 
     @Volatile var state: State = State.Idle
         private set
@@ -291,6 +296,7 @@ object DesktopEngine {
 
             scopeL.write(left, 0, frames)
             if (rightOrNull != null) scopeR.write(rightOrNull, 0, frames)
+            beamFeed.write(left, rightOrNull ?: left, frames)
 
             // The mono sum, which is what the transform and the 2A03 tracker both
             // want: the triangle channel is centred, and a stereo emulator would
@@ -354,6 +360,7 @@ object DesktopEngine {
                         clipped = clipHoldMs > 0f,
                         silent = silentMs > SILENCE_HINT_MS,
                         spectrogram = spectrogram,
+                        beam = beamFeed,
                     ),
                     nesReading,
                 )

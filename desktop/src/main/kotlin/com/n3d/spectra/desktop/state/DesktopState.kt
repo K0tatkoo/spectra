@@ -14,7 +14,7 @@ import com.n3d.spectra.settings.Weighting
 import java.io.File
 import java.util.Properties
 
-/** The pages the desktop build cycles through. Same six as Android. */
+/** The pages the desktop build cycles through: Android's, less Stems. */
 enum class DesktopPage(val label: String, val page: VizPage) {
     SPECTRUM("Spectrum", VizPage.SPECTRUM),
     BANDS("Bands", VizPage.BANDS),
@@ -22,6 +22,7 @@ enum class DesktopPage(val label: String, val page: VizPage) {
     LOUDNESS("Loudness", VizPage.LOUDNESS),
     STEREO("Stereo", VizPage.STEREO),
     WAVEFORM("Waveform", VizPage.WAVEFORM),
+    OSCILLOSCOPE("Oscilloscope", VizPage.OSCILLOSCOPE),
 }
 
 /**
@@ -127,6 +128,13 @@ object StateStore {
             loudnessTargetLufs = p.float("loudnessTargetLufs", s.loudnessTargetLufs),
             goniometerPersistence = p.float("goniometerPersistence", s.goniometerPersistence),
             correlationWindowMs = p.float("correlationWindowMs", s.correlationWindowMs),
+            oscMode = p.enum("oscMode", s.oscMode),
+            oscPhosphor = p.enum("oscPhosphor", s.oscPhosphor),
+            oscIntensity = p.float("oscIntensity", s.oscIntensity),
+            oscPersistenceMs = p.float("oscPersistenceMs", s.oscPersistenceMs),
+            oscGlow = p.float("oscGlow", s.oscGlow),
+            oscZoom = p.float("oscZoom", s.oscZoom),
+            oscTimeDivMs = p.float("oscTimeDivMs", s.oscTimeDivMs),
             theme = p.enum("theme", s.theme),
             uiFps = p.int("uiFps", s.uiFps),
         )
@@ -201,6 +209,13 @@ object StateStore {
         p["loudnessTargetLufs"] = s.loudnessTargetLufs.toString()
         p["goniometerPersistence"] = s.goniometerPersistence.toString()
         p["correlationWindowMs"] = s.correlationWindowMs.toString()
+        p["oscMode"] = s.oscMode.name
+        p["oscPhosphor"] = s.oscPhosphor.name
+        p["oscIntensity"] = s.oscIntensity.toString()
+        p["oscPersistenceMs"] = s.oscPersistenceMs.toString()
+        p["oscGlow"] = s.oscGlow.toString()
+        p["oscZoom"] = s.oscZoom.toString()
+        p["oscTimeDivMs"] = s.oscTimeDivMs.toString()
         p["theme"] = s.theme.name
         p["uiFps"] = s.uiFps.toString()
 

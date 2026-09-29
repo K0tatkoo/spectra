@@ -10,18 +10,30 @@ import com.n3d.spectra.dsp.AnalysisFrame
 import com.n3d.spectra.dsp.PeakHold
 import com.n3d.spectra.dsp.ScrollBuffer
 import com.n3d.spectra.dsp.SpectrogramBuffer
+import com.n3d.spectra.paint.Crt
+import com.n3d.spectra.paint.CrtLayout
 import com.n3d.spectra.paint.Palette
 import com.n3d.spectra.settings.FreqScale
+import com.n3d.spectra.settings.OscMode
 import com.n3d.spectra.settings.Settings
+import com.n3d.spectra.settings.oscFullScaleLabel
+import com.n3d.spectra.settings.oscTimeLabel
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.VizPage
 import java.awt.BasicStroke
 import java.awt.Graphics2D
+import java.awt.MultipleGradientPaint
+import java.awt.RadialGradientPaint
 import java.awt.geom.Path2D
+import java.awt.geom.Point2D
+import java.awt.geom.RoundRectangle2D
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferInt
+import java.awt.image.DirectColorModel
+import java.awt.image.Raster
 import java.util.Locale
 import kotlin.math.exp
+import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
@@ -66,6 +78,15 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
     private val historyScratch = FloatArray(DesktopEngine.BAND_HISTORY)
     private val loudnessScratch = FloatArray(DesktopEngine.BAND_HISTORY)
 
+    private var crt: Crt? = null
+    private var crtImage: BufferedImage? = null
+    private var crtImagePixels: IntArray? = null
+    private val crtLayout = CrtLayout()
+    private var glassImage: BufferedImage? = null
+
+    /** The clock the oscilloscope's beam runs on. The dev harness swaps in a simulated one. */
+    var nanoTime: () -> Long = System::nanoTime
+
     // ------------------------------------------------------------------------
 
     fun draw(
@@ -94,6 +115,7 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
                 VizPage.WAVEFORM ->
                     if (waveMode == WaveMode.NES) drawNesTriangle(g, area, frame.nes, nes, f, compact)
                     else drawWaveform(g, area, f, compact)
+                VizPage.OSCILLOSCOPE -> drawOscilloscope(g, area, f, s, compact)
                 // Separation needs the ONNX runtime and a device-audio capture,
                 // and this build has neither. The desktop never offers the page.
                 VizPage.STEMS -> drawIdleText(g, area, "stems run in the Android app", compact)
@@ -949,6 +971,155 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
         drawIdleText(g, plot, msg, compact)
     }
 
+    // ---- oscilloscope ------------------------------------------------------
+
+    /**
+     * The Oscilloscope page. A port of the Android painter's, over the same
+     * [Crt]: the tube develops into an int array, which is wrapped as the
+     * image here rather than copied, and stretched onto the glass.
+     */
+    private fun drawOscilloscope(g: Graphics2D, area: Box, f: AnalysisFrame, s: Settings, compact: Boolean) {
+        val lay = crtLayout
+        lay.compute(area.left, area.top, area.right, area.bottom, density, s.oscMode, compact)
+        val face = RoundRectangle2D.Float(
+            lay.faceL, lay.faceT, lay.faceR - lay.faceL, lay.faceB - lay.faceT, lay.radius * 2f, lay.radius * 2f,
+        )
+        val tint = Crt.colorOf(s.oscPhosphor, TINT_ENERGY)
+        val feed = f.beam
+        val tube = crt ?: Crt().also { crt = it }
+        if (feed != null) tube.render(feed, f.sampleRate, s, lay, nanoTime(), glowAllowed = !compact)
+        if (feed == null || tube.width == 0) {
+            g.useColor(Crt.colorOf(s.oscPhosphor, 0f))
+            g.fill(face)
+            drawGraticule(g, lay, tint, compact)
+            return
+        }
+        val px = tube.pixels
+        var img = crtImage
+        if (img == null || crtImagePixels !== px) {
+            // Built on the tube's own array, so a new picture needs no copy. A
+            // raster made from a caller's array is never cached on the GPU, so
+            // every draw sees the latest pixels.
+            val raster = Raster.createPackedRaster(
+                DataBufferInt(px, px.size), tube.width, tube.height, tube.width,
+                intArrayOf(0xFF0000, 0xFF00, 0xFF), null,
+            )
+            img = BufferedImage(DirectColorModel(24, 0xFF0000, 0xFF00, 0xFF), raster, false, null)
+            crtImage = img
+            crtImagePixels = px
+        }
+        val oldClip = g.clip
+        g.clip(face)
+        val faceW = lay.faceR - lay.faceL
+        val faceH = lay.faceB - lay.faceT
+        if (kotlin.math.abs(tube.width - faceW) < 1.5f && kotlin.math.abs(tube.height - faceH) < 1.5f) {
+            // One to one: a plain copy. Stretching in software is the dearest
+            // thing this page could do, dearer than developing the tube.
+            g.drawImage(img, lay.faceL.roundToInt(), lay.faceT.roundToInt(), null)
+        } else {
+            g.drawImage(
+                img,
+                lay.faceL.roundToInt(), lay.faceT.roundToInt(), lay.faceR.roundToInt(), lay.faceB.roundToInt(),
+                0, 0, tube.width, tube.height, null,
+            )
+        }
+        g.clip = oldClip
+
+        drawGraticule(g, lay, tint, compact)
+        drawGlass(g, lay, face)
+        if (!compact) drawScopeReadout(g, lay, f, s, tube, tint)
+    }
+
+    private fun drawGraticule(g: Graphics2D, lay: CrtLayout, tint: Int, compact: Boolean) {
+        val l = lay.gratL
+        val t = lay.gratT
+        val r = lay.gratR
+        val b = lay.gratB
+        if (r - l < 4f || b - t < 4f) return
+        val nx = lay.divisionsX
+        val ny = lay.divisionsY
+        val dx = (r - l) / nx
+        val dy = (b - t) / ny
+        val mx = (l + r) / 2f
+        val my = (t + b) / 2f
+        val ink = Palette.mix(GRATICULE_GREY, tint, 0.35f)
+        val width = dp(0.7f)
+        if (!compact) {
+            val faint = Palette.withAlpha(ink, 0.17f)
+            for (i in 1 until nx) if (i * 2 != nx) g.line(l + dx * i, t, l + dx * i, b, faint, width)
+            for (j in 1 until ny) if (j * 2 != ny) g.line(l, t + dy * j, r, t + dy * j, faint, width)
+        }
+        val strong = Palette.withAlpha(ink, if (compact) 0.22f else 0.3f)
+        g.strokeRound(Box(l, t, r, b), 0f, strong, width)
+        g.line(mx, t, mx, b, strong, width)
+        g.line(l, my, r, my, strong, width)
+        if (compact) return
+        val tick = min(dx, dy) * 0.07f
+        for (i in 1 until nx * 5) if (i % 5 != 0) g.line(l + dx * i / 5f, my - tick, l + dx * i / 5f, my + tick, strong, width)
+        for (j in 1 until ny * 5) if (j % 5 != 0) g.line(mx - tick, t + dy * j / 5f, mx + tick, t + dy * j / 5f, strong, width)
+    }
+
+    /**
+     * The curved face darkening towards its corners, and the dark rim at the
+     * bezel — which also hides the clip's edge. The shading is rendered once
+     * per size and blitted: a radial gradient computed every frame in
+     * software costs three times the copy.
+     */
+    private fun drawGlass(g: Graphics2D, lay: CrtLayout, face: RoundRectangle2D.Float) {
+        val w = (lay.faceR - lay.faceL).roundToInt()
+        val h = (lay.faceB - lay.faceT).roundToInt()
+        if (w < 4 || h < 4) return
+        var glass = glassImage
+        if (glass == null || glass.width != w || glass.height != h) {
+            glass = BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE)
+            val gg = glass.createGraphics()
+            gg.paint = RadialGradientPaint(
+                Point2D.Float(w / 2f, h / 2f), hypot(w.toFloat(), h.toFloat()) / 2f,
+                floatArrayOf(0f, 0.55f, 1f),
+                arrayOf(Colors.of(0x00000000), Colors.of(0x00000000), Colors.of(0x5C000000)),
+                MultipleGradientPaint.CycleMethod.NO_CYCLE,
+            )
+            gg.fillRect(0, 0, w, h)
+            gg.dispose()
+            glassImage = glass
+        }
+        val oldClip = g.clip
+        g.clip(face)
+        g.drawImage(glass, lay.faceL.roundToInt(), lay.faceT.roundToInt(), null)
+        g.clip = oldClip
+        g.stroke = BasicStroke(dp(1.2f))
+        g.useColor(0x59000000)
+        g.draw(face)
+    }
+
+    private fun drawScopeReadout(g: Graphics2D, lay: CrtLayout, f: AnalysisFrame, s: Settings, tube: Crt, tint: Int) {
+        val y = lay.readoutY
+        if (y.isNaN()) return
+        val font = Fonts.mono(sp(9f))
+        val scale = "${oscFullScaleLabel(s.oscZoom)} FS/div"
+        val left = when (s.oscMode) {
+            OscMode.XY -> "X-Y · $scale"
+            OscMode.YT -> "${oscTimeLabel(s.oscTimeDivMs)}/div · $scale"
+        }
+        val mono = f.waveR.isEmpty()
+        val right = when {
+            mono -> "mono input"
+            s.oscMode == OscMode.XY -> "L → X · R → Y"
+            tube.triggered -> "trig ↑ mix"
+            else -> "auto"
+        }
+        // Under the graticule's edges when there is room, else the glass's.
+        val need = g.textWidth(left, font) + g.textWidth(right, font) + dp(12f)
+        var l = lay.gratL
+        var r = lay.gratR
+        if (r - l < need) {
+            l = lay.faceL + dp(10f)
+            r = lay.faceR - dp(10f)
+        }
+        g.text(left, l, y, font, Palette.withAlpha(tint, 0.9f))
+        if (r - l >= need) g.text(right, r, y, font, if (mono) palette.warn else Palette.withAlpha(tint, 0.9f), Align.RIGHT)
+    }
+
     private fun drawIdleText(g: Graphics2D, area: Box, message: String, compact: Boolean) {
         g.text(
             message, area.centerX(), area.centerY(),
@@ -964,6 +1135,11 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
         gonioImage = null
         spectrogramImage = null
         spectrogramPixels = IntArray(0)
+        crt?.release()
+        crt = null
+        crtImage = null
+        crtImagePixels = null
+        glassImage = null
     }
 
     private fun dp(v: Float) = v * density
@@ -976,6 +1152,10 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
         if (v <= -70f) "—" else String.format(Locale.US, "%.1f", v)
 
     companion object {
+        /** How bright the graticule's tint and the readout are, in the phosphor's own terms. */
+        private const val TINT_ENERGY = 1.4f
+        private const val GRATICULE_GREY = 0xFF8C9690.toInt()
+
         private val GRID_FREQS = floatArrayOf(
             20f, 30f, 50f, 100f, 200f, 300f, 500f, 1000f, 2000f, 3000f, 5000f, 10000f, 20000f,
         )
