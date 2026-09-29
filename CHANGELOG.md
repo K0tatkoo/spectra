@@ -5,6 +5,12 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 1.4.0 — 2026-09-29
+
+Oscilloscope page: X-Y for oscilloscope music and a triggered Y-T sweep, drawn like an analog tube
+
+- Add an Oscilloscope page that draws the capture like an analog tube
+
 ## 1.3.2 — 2026-09-28
 
 Uses less power while open: the notification graph pauses while the app is in front
