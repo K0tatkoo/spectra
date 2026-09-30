@@ -1,0 +1,93 @@
+# Synth splitter — training
+
+The Stems page's **Synth** lane comes from a second, small network that runs
+behind the stem model (StemgenRT) on the phone. This folder trains it.
+
+## Why it reads vocals *and* other
+
+StemgenRT knows four stems and puts a synth wherever it sounds most at home.
+Measured on the app's own model file with synthetic synths (2026-09-30):
+
+| synth, played alone | → vocals | → other | → drums |
+|---|---|---|---|
+| supersaw lead | **99 %** | 1 % | 0 % |
+| screech (distorted, gliding) | **73 %** | 21 % | 5 % |
+| supersaw pad | 14 % | **86 %** | 0 % |
+| pluck arp | 8 % | 52 % | **40 %** |
+| lead, in a mix with pad, kick, bass | **60 %** | 31 % | 7 % |
+
+So the splitter takes StemgenRT's vocals and other stems, and gives back
+three lanes: synth, vocals without the synth, other without the synth. The
+lanes still add up to the mix. Drums are left alone: a hardstyle kick is
+pitched and distorted, and taking synth out of drums would cost more in
+kicks-called-synth than it wins in plucks. What counts as synth: **leads and
+pads**; synth bass stays in Bass, FX are left out.
+
+## How it works
+
+- **Signal path** (`synthsplit/layout.py`, `reference.py`): a low-delay STFT —
+  2048-sample asymmetric analysis window, 1024-sample synthesis window, hop
+  512 — so the lanes lag the other stems by 12–23 ms, not 40+. 186 one-bin
+  bands up to 4 kHz, 48 wider ones above: 234 band powers per input stem.
+- **Network** (`synthsplit/model.py`): log band powers → Linear → 2× GRU(256) →
+  Linear → a mask (0–1) per band per input. ~1.0 M parameters, ~1 M
+  multiply-adds a frame, 86 frames a second: a few percent of one of the
+  phone's middle cores. The app keeps it off the X4, which the stem model
+  needs whole.
+- **Contract with the app**: the export carries the layout in ONNX metadata;
+  `OnnxMaskNet.kt` reads it. `reference.py` is the spec both sides follow:
+  the app is tested against a fixture it writes (`tools/make_dsp_fixture.py`
+  → `SpectralSplitTest`), the trainer's batched torch version against the
+  reference itself (`tests/test_dsp.py`), the exported graph against the
+  torch network (`export.py`, and `OnnxMaskNetTest` from the Kotlin side).
+  **Change any of those and all of them must move together.**
+
+## Data
+
+| | what | licence | who downloads |
+|---|---|---|---|
+| **MoisesDB** | 240 real songs, every track labelled; "synth lead" and "synth pad" are the target | CC BY-NC-SA 4.0 — non-commercial, share-alike | **you** (sign-up and terms at [music.ai/research](https://music.ai/research/)), ~149 GB |
+| **Slakh2100** | 2,100 MIDI songs rendered with real synth patches, classes per stem | CC BY 4.0 | the scripts stream it from Zenodo (104 GB, never stored whole) |
+
+The trained weights derive from MoisesDB, so treat them as **CC BY-NC-SA 4.0**:
+fine for a free app, and the licence notice ships with the model (to do at
+release: `THIRD_PARTY_NOTICES.txt` + the Settings credit already names both).
+
+The splitter trains on what StemgenRT *made of* each mix, never on clean
+stems alone: `prepare/*` runs the app's exact stem model file (sha 08424ca9…,
+pinned in `synthsplit/stemgen.py`) over every song. Training examples
+(`synthsplit/data.py`) mix those "real" crops with remixes of ground-truth
+stems where a random, drifting share of the synth is routed into the vocals
+input — plus levels, bleed, and crops with no synth at all.
+
+## Running it (Windows desktop, NVIDIA GPU)
+
+```powershell
+cd "Claudes Projects\android\Spectra\train"
+uv venv --python 3.12; .venv\Scripts\activate
+uv pip install torch --index-url https://download.pytorch.org/whl/cu128
+uv pip install -r requirements.txt
+python -m pytest tests                      # torch DSP = reference, streaming = batch, export round trip
+python export.py --contract-fixture         # then commit app/src/test/resources/synthsplit/net-fixture.*
+
+python prepare\moisesdb.py --moisesdb D:\data\moisesdb\moisesdb_v0.1 --out D:\data\synthsplit --workers 8
+python prepare\slakh.py --tar "https://zenodo.org/records/4599666/files/slakh2100_flac_redux.tar.gz?download=1" `
+    --out D:\data\synthsplit --workers 8 --max-tracks 800
+
+python train.py --data D:\data\synthsplit --out runs\first          # --resume after any stop
+python evaluate.py --data D:\data\synthsplit --run runs\first
+python export.py --run runs\first --out ..\app\src\main\assets\stems\synth-split.onnx
+python evaluate.py --data D:\data\synthsplit --onnx ..\app\src\main\assets\stems\synth-split.onnx
+python tools\render_split.py some-hardstyle.flac --onnx ..\app\src\main\assets\stems\synth-split.onnx --out renders\song
+```
+
+Estimates, not yet measured: preparing is CPU-bound (the stem model runs
+at roughly half real time per core) — about an hour for MoisesDB and one to
+two for 800 Slakh tracks on 8 cores, plus the Slakh download. Training
+100 k steps of 32 × 4 s should take a few hours on a recent GPU. The prepared
+corpus is ~30 GB for MoisesDB and ~40 GB for Slakh (120 s kept per track).
+
+**Is it good enough?** `train.py` and `evaluate.py` score it against three
+answers that need no network: no synth, "all of other is synth", and "all of
+vocals and other is synth". It must beat all three on held-out songs — then
+listen to `render_split.py` on real hardstyle before it goes near the app.

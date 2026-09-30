@@ -1,0 +1,11 @@
+# Install PyTorch first, from https://pytorch.org — the CUDA build on the
+# Windows desktop (or the default build on a Mac, which trains on MPS).
+numpy>=1.26
+onnx>=1.17
+# The app's runtime version (gradle/libs.versions.toml), so the export is
+# checked by the same ONNX Runtime the phone runs.
+onnxruntime==1.26.0
+soundfile>=0.12
+pyyaml>=6.0
+soxr>=0.5
+pytest>=8

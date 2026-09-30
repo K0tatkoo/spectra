@@ -1,0 +1,8 @@
+# Data, downloads and training output never go in git.
+models/
+runs/
+renders/
+data/
+__pycache__/
+.pytest_cache/
+.venv/
