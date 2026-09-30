@@ -105,7 +105,7 @@ class StemSeparatorTest {
         sep.start()
         awaitRunning(sep)
         val block = 1882 // 1024 frames at 48 kHz, resampled
-        val out = Array(Stem.entries.size) { FloatArray(mono.size) }
+        val out = Array(StemSeparator.MODEL_STEMS) { FloatArray(mono.size) }
         var collected = 0L
         var pushed = 0
         val t0 = System.nanoTime()

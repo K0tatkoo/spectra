@@ -98,3 +98,28 @@ class AndroidStemHooks(private val context: Context) : StemWorkerHooks {
         const val REPIN_AUDIO_NANOS = 1_000_000_000L
     }
 }
+
+/**
+ * What Android does for the synth splitter's thread: the stem worker's
+ * priority, and every core but the one the stem worker is pinned to. No hint
+ * session — its frames are small, and the governor is better left listening to
+ * the thread with the real deadline.
+ */
+class AndroidSplitHooks : StemWorkerHooks {
+
+    private var repinIn = 0L
+
+    override fun onStart() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
+    }
+
+    override fun onWork(workNanos: Long, audioNanos: Long) {
+        // Every second, as for the stem worker: the kernel resets affinity on
+        // every cpuset change.
+        repinIn -= audioNanos
+        if (repinIn <= 0L) {
+            CpuAffinity.pinAwayFromFastest()
+            repinIn = 1_000_000_000L
+        }
+    }
+}

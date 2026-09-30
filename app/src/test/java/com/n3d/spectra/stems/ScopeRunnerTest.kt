@@ -141,3 +141,81 @@ class ScopeRunnerModesTest {
         assertEquals("A1", hold.note)
     }
 }
+
+/**
+ * The Stems page with a synth splitter behind the real stem model. The
+ * splitter's network is a stand-in that calls everything in vocals synth —
+ * so the vibrato tone the model puts in vocals must move to the synth lane,
+ * held still on its note, and leave the vocals lane empty.
+ */
+class ScopeRunnerSynthTest {
+
+    private class VocalsAreSynth(private val bands: Int) : MaskNet {
+        override fun step(power: FloatArray, mask: FloatArray) {
+            for (i in mask.indices) mask[i] = if (i < bands) 1f else 0f
+        }
+    }
+
+    @Test
+    fun `the synth lane shows what the splitter takes out`() {
+        val path = System.getProperty("spectra.stemModel")
+        assumeTrue(path != null && File(path).length() == StemSeparator.BYTES)
+
+        val layout = SplitLayout(
+            StemSeparator.SAMPLE_RATE, 2048, 512,
+            (IntArray(129) { it * 8 } + intArrayOf(1025)),
+            listOf(Stem.VOCALS, Stem.OTHER),
+        )
+        val rate = 48_000
+        val block = 1024
+        val runner = ScopeRunner(
+            rate,
+            modelFile = { File(path!!) },
+            hooks = { StemWorkerHooks.NONE },
+            synthModel = { SplitModel(layout, VocalsAreSynth(layout.bands)) },
+        )
+        val wants = ScopeRunner.Wants(stems = true, hold = false, nes = false)
+        val blockMs = block * 1000f / rate
+        var t = 0L
+        val left = FloatArray(block)
+        fun play(settings: Settings, seconds: Double): List<ScopeFrame> {
+            val frames = ArrayList<ScopeFrame>()
+            val until = t + (seconds * rate).toLong()
+            while (t < until) {
+                for (i in 0 until block) {
+                    val s = (t + i).toDouble() / rate
+                    left[i] = (0.3 * TestSignals.nesTriangle(55.0, s) + 0.2 * TestSignals.vibrato(330.0, s) + 0.4 * TestSignals.kick(s)).toFloat()
+                }
+                runner.process(left, left, block, wants, settings, blockMs)
+                t += block
+                runner.latest?.let { frames += it }
+                Thread.sleep(blockMs.toLong())
+            }
+            return frames
+        }
+        fun lane(frames: List<ScopeFrame>, name: String) = frames.map { f -> f.stems.first { it.name == name }.trace }
+
+        val held = Settings(holdVocals = true, holdSynth = true)
+        val frames = play(held, 4.0).takeLast(40)
+        val names = frames.last().stems.map { it.name }
+        println("lanes: $names · synth ${frames.last().stemsInfo?.synth?.state}")
+        assertEquals(listOf("Vocals", "Synth", "Other", "Bass", "Drums"), names)
+        assertEquals(StemsState.RUNNING, frames.last().stemsInfo?.synth?.state)
+
+        val synth = lane(frames, "Synth")
+        val synthLocked = synth.count { it.mode == TraceMode.PITCH && it.note == "E4" }
+        println("synth: $synthLocked/${synth.size} frames locked to E4 · last ${synth.last().note} ${synth.last().hz} Hz")
+        assertTrue(synthLocked > synth.size * 0.8)
+        val vocals = lane(frames, "Vocals")
+        println("vocals after the split: ${vocals.groupingBy { it.mode }.eachCount()}")
+        assertTrue("vocals still shows a note", vocals.none { it.mode == TraceMode.PITCH })
+        // Every lane keeps its own colour slot, whichever lanes are showing.
+        assertEquals(Stem.SYNTH.ordinal, frames.last().stems[1].slot)
+
+        // Switched off, the page is the model's four stems again.
+        val off = play(held.copy(stemSynth = false), 1.0).last()
+        assertEquals(listOf("Vocals", "Other", "Bass", "Drums"), off.stems.map { it.name })
+        assertEquals(null, off.stemsInfo?.synth)
+        runner.release()
+    }
+}

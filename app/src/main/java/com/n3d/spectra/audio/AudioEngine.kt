@@ -1,5 +1,6 @@
 package com.n3d.spectra.audio
 
+import ai.onnxruntime.OrtEnvironment
 import android.os.Process
 import android.util.Log
 import com.n3d.spectra.dsp.AnalysisFrame
@@ -15,6 +16,7 @@ import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SourceKind
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.WaveformMode
+import com.n3d.spectra.stems.OnnxMaskNet
 import com.n3d.spectra.stems.ScopeRunner
 import com.n3d.spectra.stems.StemWorkerHooks
 import java.io.File
@@ -119,6 +121,12 @@ object AudioEngine {
     /** Priority and performance hints for the stem worker. Set once by the Application. */
     @Volatile var stemHooks: () -> StemWorkerHooks = { StemWorkerHooks.NONE }
 
+    /** The synth splitter's model, or null when this build has none. Set once by the Application. */
+    @Volatile var synthModel: (() -> ByteArray)? = null
+
+    /** Priority and core choice for the synth splitter's worker. Set once by the Application. */
+    @Volatile var synthHooks: () -> StemWorkerHooks = { StemWorkerHooks.NONE }
+
     /**
      * Applies new settings to the running analysis. Safe from any thread: the
      * DSP thread picks the new object up whole at the top of its next block, so
@@ -212,6 +220,8 @@ object AudioEngine {
             rate,
             modelFile = { stemModel?.invoke() ?: error("no model provider") },
             hooks = { stemHooks() },
+            synthModel = synthModel?.let { bytes -> { OnnxMaskNet.open(OrtEnvironment.getEnvironment(), bytes()) } },
+            synthHooks = { synthHooks() },
         )
         val scopeL = MonoRing(SCOPE_SPAN)
         val scopeR = MonoRing(SCOPE_SPAN)

@@ -30,6 +30,7 @@ import com.n3d.spectra.settings.oscTimeLabel
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.WaveformMode
+import com.n3d.spectra.stems.Stem
 import java.util.Locale
 import kotlin.math.exp
 import kotlin.math.hypot
@@ -901,7 +902,7 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         var y = body.top
         for ((i, lane) in lanes.withIndex()) {
             val r = RectF(body.left, y, body.right, y + laneH)
-            drawScopeLane(canvas, r, lane.name, lane.trace, laneColor(i), compact)
+            drawScopeLane(canvas, r, lane.name, lane.trace, laneColor(lane.slot), compact)
             if (i < lanes.size - 1 && !compact) {
                 paint.reset()
                 paint.isAntiAlias = true
@@ -914,11 +915,16 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         if (footerH > 0f && info != null) drawStemsFooter(canvas, RectF(area.left, body.bottom, area.right, area.bottom), info, s)
     }
 
-    /** Vocals, other, bass, drums — distinct at a glance, from the site's own tokens. */
-    private fun laneColor(index: Int): Int = when (index) {
-        0 -> palette.accent2
-        1 -> palette.accent
-        2 -> palette.warn
+    /**
+     * Each stem its own colour, whichever lanes are showing — distinct at a
+     * glance, from the site's own tokens. Synth has no token of its own; its
+     * pink clears 4.5:1 against the page in both themes.
+     */
+    private fun laneColor(slot: Int): Int = when (Stem.entries.getOrNull(slot)) {
+        Stem.VOCALS -> palette.accent2
+        Stem.OTHER -> palette.accent
+        Stem.BASS -> palette.warn
+        Stem.SYNTH -> if (palette.isDark) SYNTH_DARK else SYNTH_LIGHT
         else -> palette.good
     }
 
@@ -926,22 +932,32 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         monoPaint.textSize = sp(8.5f)
         monoPaint.textAlign = Paint.Align.LEFT
         val load = String.format(Locale.US, "%.2f", info.load)
+        val synth = info.synth
         // Above 1 the phone separates a second of music in more than a second.
         // It still works — the separator skips to the present — but say so,
-        // rather than let a stutter look like a bug.
-        val slow = info.load > 1f
-        val left = if (slow) {
-            "phone slower than the music — skipping to keep up"
-        } else {
-            "separated on this phone · ${String.format(Locale.US, "%.1f", info.msPerHop)} ms per 2.9 ms"
+        // rather than let a stutter look like a bug. The splitter has a core
+        // of its own and skips the same way.
+        val slow = info.load > 1f || (synth != null && synth.load > 1f)
+        val left = when {
+            synth?.state == StemsState.FAILED -> synth.message ?: "synth splitting failed"
+            slow -> "phone slower than the music — skipping to keep up"
+            synth != null -> "on this phone · ${String.format(Locale.US, "%.1f", info.msPerHop)} ms per 2.9 ms"
+            else -> "separated on this phone · ${String.format(Locale.US, "%.1f", info.msPerHop)} ms per 2.9 ms"
         }
-        monoPaint.color = if (slow) palette.warn else palette.textFaint
-        canvas.drawText(left, r.left, r.bottom - dp(2f), monoPaint)
+        val right = when {
+            synth?.state == StemsState.RUNNING -> "load $load · synth ${String.format(Locale.US, "%.2f", synth.load)}"
+            slow -> "load $load"
+            else -> "load $load · ${s.scopeWindowMs.roundToInt()} ms"
+        }
         monoPaint.textAlign = Paint.Align.RIGHT
         monoPaint.color = palette.textFaint
-        val right = if (slow) "load $load" else "load $load · ${s.scopeWindowMs.roundToInt()} ms"
         canvas.drawText(right, r.right, r.bottom - dp(2f), monoPaint)
         monoPaint.textAlign = Paint.Align.LEFT
+        monoPaint.color = if (slow || synth?.state == StemsState.FAILED) palette.warn else palette.textFaint
+        // A load error can be a whole sentence: cut it short of the right-hand readout.
+        val room = r.width() - monoPaint.measureText(right) - dp(8f)
+        val fits = monoPaint.breakText(left, true, room, null)
+        canvas.drawText(if (fits < left.length) left.take((fits - 1).coerceAtLeast(0)) + "…" else left, r.left, r.bottom - dp(2f), monoPaint)
     }
 
     /** The Waveform page in "hold still" mode: one lane, the mix, locked to its loudest note. */
@@ -1576,6 +1592,10 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         /** How bright the graticule's tint and the readout are, in the phosphor's own terms. */
         private const val TINT_ENERGY = 1.4f
         private const val GRATICULE_GREY = 0xFF8C9690.toInt()
+
+        /** The synth lane: 6.5:1 on the dark page, 5.0:1 on the light one (4.6:1 on its deeper grey). */
+        private const val SYNTH_DARK = 0xFFFF7AC8.toInt()
+        private const val SYNTH_LIGHT = 0xFFB32A73.toInt()
 
         private val GRID_FREQS = floatArrayOf(
             20f, 30f, 50f, 100f, 200f, 300f, 500f, 1000f, 2000f, 3000f, 5000f, 10000f, 20000f,

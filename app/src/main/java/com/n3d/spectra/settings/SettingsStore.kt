@@ -132,6 +132,8 @@ class SettingsStore private constructor(context: Context) {
         p[K_SCOPE_WINDOW] = s.scopeWindowMs
         p[K_SCOPE_CLEAN] = s.scopeCleanMs
         p[K_HOLD_VOCALS] = s.holdVocals
+        p[K_HOLD_SYNTH] = s.holdSynth
+        p[K_STEM_SYNTH] = s.stemSynth
         p[K_HOLD_OTHER] = s.holdOther
         p[K_HOLD_BASS] = s.holdBass
         p[K_HOLD_DRUMS] = s.holdDrums
@@ -217,6 +219,8 @@ class SettingsStore private constructor(context: Context) {
             scopeWindowMs = p[K_SCOPE_WINDOW] ?: d.scopeWindowMs,
             scopeCleanMs = p[K_SCOPE_CLEAN] ?: d.scopeCleanMs,
             holdVocals = p[K_HOLD_VOCALS] ?: d.holdVocals,
+            holdSynth = p[K_HOLD_SYNTH] ?: d.holdSynth,
+            stemSynth = p[K_STEM_SYNTH] ?: d.stemSynth,
             holdOther = p[K_HOLD_OTHER] ?: d.holdOther,
             holdBass = p[K_HOLD_BASS] ?: d.holdBass,
             holdDrums = p[K_HOLD_DRUMS] ?: d.holdDrums,
@@ -318,6 +322,8 @@ class SettingsStore private constructor(context: Context) {
         private val K_SCOPE_WINDOW = floatPreferencesKey("scope_window_ms")
         private val K_SCOPE_CLEAN = floatPreferencesKey("scope_clean_ms")
         private val K_HOLD_VOCALS = booleanPreferencesKey("hold_vocals")
+        private val K_HOLD_SYNTH = booleanPreferencesKey("hold_synth")
+        private val K_STEM_SYNTH = booleanPreferencesKey("stem_synth")
         private val K_HOLD_OTHER = booleanPreferencesKey("hold_other")
         private val K_HOLD_BASS = booleanPreferencesKey("hold_bass")
         private val K_HOLD_DRUMS = booleanPreferencesKey("hold_drums")

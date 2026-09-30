@@ -192,9 +192,16 @@ data class Settings(
      * detector, the phase and the fold, which are most of what a lane costs.
      */
     val holdVocals: Boolean = false,
+    val holdSynth: Boolean = false,
     val holdOther: Boolean = false,
     val holdBass: Boolean = true,
     val holdDrums: Boolean = false,
+    /**
+     * Split synths out of the vocals and other stems into a lane of their own,
+     * when the build carries the synth model. A second, much smaller network,
+     * on a core of its own.
+     */
+    val stemSynth: Boolean = true,
     /** CPU threads for the stem model. One is usually fastest: the work per call is tiny. */
     val stemThreads: Int = 1,
     val nesRegion: Nes2A03.Region = Nes2A03.Region.NTSC,

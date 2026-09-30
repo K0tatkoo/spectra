@@ -16,10 +16,23 @@ class StemsInfo(
     val load: Float,
     val skips: Int,
     val msPerHop: Float,
+    /** The synth splitter behind the stem model, when there is one. */
+    val synth: SynthInfo? = null,
 )
 
-/** One stem lane as published: its label and its held-still trace. */
-class StemLane(val name: String, val trace: ScopeTrace)
+/** The synth splitter's health: [load] like the stem model's, on a core of its own. */
+class SynthInfo(
+    val state: StemsState,
+    val message: String?,
+    val load: Float,
+    val skips: Int,
+)
+
+/**
+ * One stem lane as published: its label, its held-still trace, and which
+ * stem it is ([slot]), so a lane keeps its colour whatever else is shown.
+ */
+class StemLane(val name: String, val trace: ScopeTrace, val slot: Int)
 
 /**
  * The held-still scopes for one published frame. Only the pages that are

@@ -7,12 +7,21 @@ import com.n3d.spectra.dsp.StereoFeed
 import java.io.File
 import java.util.concurrent.locks.LockSupport
 
-/** The four outputs, in the model's own order. */
+/**
+ * What a Stems lane can show. The first four are the stem model's outputs, in
+ * its own order — [StemSeparator.stems] is indexed by their ordinal. [SYNTH] is
+ * not the model's: [SynthSplitter] takes it out of the others.
+ */
 enum class Stem(val label: String) {
     DRUMS("Drums"),
     BASS("Bass"),
     VOCALS("Vocals"),
     OTHER("Other"),
+    SYNTH("Synth"),
+    ;
+
+    /** True for the stems the stem model itself produces. */
+    val fromModel: Boolean get() = ordinal < StemSeparator.MODEL_STEMS
 }
 
 /**
@@ -65,11 +74,17 @@ class StemSeparator(
     /** The mix, at [SAMPLE_RATE], from the analysis thread. */
     val input = StereoFeed(FEED_FRAMES)
 
-    /** Each stem as mono, at [SAMPLE_RATE], indexed like [input]. */
-    val stems: Array<HistoryRing> = Array(Stem.entries.size) { HistoryRing(HISTORY) }
+    /** Each of the model's stems as mono, at [SAMPLE_RATE], indexed like [input] and by [Stem.ordinal]. */
+    val stems: Array<HistoryRing> = Array(MODEL_STEMS) { HistoryRing(HISTORY) }
 
     /** The same stems low-passed for pitch detection, sample-aligned with [stems]. */
-    val pitched: Array<HistoryRing> = Array(Stem.entries.size) { HistoryRing(HISTORY) }
+    val pitched: Array<HistoryRing> = Array(MODEL_STEMS) { HistoryRing(HISTORY) }
+
+    /**
+     * Called on the worker thread after every hop, once all the stems are
+     * written, with their new length — the synth splitter's cue.
+     */
+    @Volatile var onHop: ((Long) -> Unit)? = null
 
     /**
      * Absolute stem index from which the output can be trusted: past the
@@ -153,7 +168,7 @@ class StemSeparator(
         val separated = FloatArray(StemSession.OUT_SIZE)
         val mono = FloatArray(HOP)
         val low = FloatArray(HOP)
-        val filters = Array(Stem.entries.size) { i -> pitchFilter(Stem.entries[i]) }
+        val filters = Array(MODEL_STEMS) { i -> pitchFilter(Stem.entries[i]) }
 
         // The first call carries nothing but the zero history.
         var skipNext = true
@@ -205,7 +220,7 @@ class StemSeparator(
             if (skipNext) {
                 skipNext = false
             } else {
-                for (s in Stem.entries.indices) {
+                for (s in 0 until MODEL_STEMS) {
                     val base = s * 2 * HOP
                     for (i in 0 until HOP) mono[i] = 0.5f * (separated[base + i] + separated[base + HOP + i])
                     stems[s].write(mono, 0, HOP)
@@ -217,6 +232,7 @@ class StemSeparator(
                     }
                     pitched[s].write(low, 0, HOP)
                 }
+                onHop?.invoke(stems[0].written)
             }
 
             val now = System.nanoTime()
@@ -242,6 +258,8 @@ class StemSeparator(
         /** The model is trained at, and only valid at, exactly this rate. */
         const val SAMPLE_RATE = 44_100
         const val HOP = 128
+        /** The stems the model outputs: the first four [Stem]s. */
+        const val MODEL_STEMS = 4
 
         /** File name of the model inside the APK's assets and on disk. */
         const val ASSET = "stems/stemgen-rt-hop128.onnx"
@@ -278,7 +296,7 @@ class StemSeparator(
         fun pitchCornerHz(stem: Stem): Double = when (stem) {
             Stem.BASS -> 360.0
             Stem.DRUMS -> 2000.0
-            Stem.VOCALS, Stem.OTHER -> 1200.0
+            Stem.VOCALS, Stem.OTHER, Stem.SYNTH -> 1200.0
         }
 
         private fun pitchFilter(stem: Stem): Array<Biquad> =
