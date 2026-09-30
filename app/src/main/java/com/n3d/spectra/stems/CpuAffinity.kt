@@ -32,9 +32,13 @@ object CpuAffinity {
      * are all alike — then there is nothing to gain, and pinning would only stop
      * the scheduler from spreading the load.
      */
-    val fastestCores: Long by lazy { findFastest() }
+    val fastestCores: Long by lazy { findTiers().first }
+
+    /** Every core but [fastestCores], or 0 when the cores are all alike. */
+    val otherCores: Long by lazy { findTiers().second }
 
     private var reported = false
+    private var reportedAway = false
 
     /** Pins the calling thread to [fastestCores]. True if the kernel took it. */
     fun pinToFastest(): Boolean {
@@ -52,7 +56,24 @@ object CpuAffinity {
         return result == 0
     }
 
-    private fun findFastest(): Long {
+    /**
+     * Pins the calling thread to every core but the fastest tier — for the
+     * synth splitter, so that it never takes time from the stem worker on the
+     * one core that can keep up with the stem model. True if the kernel took it.
+     */
+    fun pinAwayFromFastest(): Boolean {
+        val mask = otherCores
+        if (!loaded || mask == 0L) return false
+        val result = pinCallingThread(mask)
+        if (!reportedAway) {
+            reportedAway = true
+            Log.i(TAG, if (result == 0) "synth worker kept off the fastest cores: 0x${callingThreadMask().toString(16)}" else "could not pin the synth worker: errno ${-result}")
+        }
+        return result == 0
+    }
+
+    /** (fastest tier, everything else) as masks, both 0 when the cores are all alike. */
+    private fun findTiers(): Pair<Long, Long> {
         val maxFreq = HashMap<Int, Long>()
         var cpu = 0
         while (cpu < 64 && File("/sys/devices/system/cpu/cpu$cpu").exists()) {
@@ -61,11 +82,12 @@ object CpuAffinity {
             }.getOrNull()?.let { maxFreq[cpu] = it }
             cpu++
         }
-        if (maxFreq.size < 2) return 0L
+        if (maxFreq.size < 2) return 0L to 0L
         val top = maxFreq.values.max()
         val fastest = maxFreq.filterValues { it == top }.keys
-        if (fastest.size == maxFreq.size) return 0L
-        return fastest.fold(0L) { mask, c -> mask or (1L shl c) }
+        if (fastest.size == maxFreq.size) return 0L to 0L
+        fun mask(cores: Collection<Int>) = cores.fold(0L) { m, c -> m or (1L shl c) }
+        return mask(fastest) to mask(maxFreq.keys - fastest)
     }
 
     @JvmStatic private external fun pinCallingThread(mask: Long): Int

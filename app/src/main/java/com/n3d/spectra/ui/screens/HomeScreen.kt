@@ -155,6 +155,7 @@ fun HomeScreen(
         if (settings.page == VizPage.STEMS) {
             Spacer(Modifier.height(12.dp))
             StemHoldChips(
+                lanes = ScopeRunner.lanesFor(settings.stemSynth && AudioEngine.synthModel != null),
                 isHeld = { stem -> settings.holdsStill(stem) },
                 onToggle = { stem -> viewModel.update { it.holdingStill(stem, !it.holdsStill(stem)) } },
             )
@@ -250,7 +251,7 @@ private fun PageChips(selected: VizPage, onSelect: (VizPage) -> Unit) {
  * a pressed-in chip is held still, a raised one scrolls.
  */
 @Composable
-private fun StemHoldChips(isHeld: (Stem) -> Boolean, onToggle: (Stem) -> Unit) {
+private fun StemHoldChips(lanes: List<Stem>, isHeld: (Stem) -> Boolean, onToggle: (Stem) -> Unit) {
     val palette = LocalPalette.current
     val scroll = rememberScrollState()
     Row(
@@ -259,7 +260,7 @@ private fun StemHoldChips(isHeld: (Stem) -> Boolean, onToggle: (Stem) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("Hold still", color = palette.textFaint.toComposeColor(), fontSize = 11.sp)
-        ScopeRunner.LANES.forEach { stem ->
+        lanes.forEach { stem ->
             NeuChip(
                 label = stem.label,
                 selected = isHeld(stem),

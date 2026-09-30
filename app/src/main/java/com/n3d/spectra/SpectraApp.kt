@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.settings.SettingsStore
+import com.n3d.spectra.stems.AndroidSplitHooks
 import com.n3d.spectra.stems.AndroidStemHooks
 import com.n3d.spectra.stems.StemModel
+import com.n3d.spectra.stems.SynthModel
 
 class SpectraApp : Application() {
 
@@ -15,10 +17,12 @@ class SpectraApp : Application() {
         // Warm the settings so the service does not have to block on first read.
         SettingsStore.get(this)
         createChannel()
-        // The engine is a plain object with no Context; these are the two
-        // Android things the stem model needs from it.
+        // The engine is a plain object with no Context; these are the Android
+        // things the stem model and the synth splitter need from it.
         AudioEngine.stemModel = { StemModel.file(this) }
         AudioEngine.stemHooks = { AndroidStemHooks(this) }
+        AudioEngine.synthModel = SynthModel.loader(this)
+        AudioEngine.synthHooks = { AndroidSplitHooks() }
     }
 
     /**

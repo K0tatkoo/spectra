@@ -50,6 +50,22 @@ class HistoryRing(capacity: Int) {
         return true
     }
 
+    /**
+     * Moves the stream on to absolute index [end] as silence — for a writer that
+     * has to stay index-aligned with another stream across a jump. Costs at most
+     * one pass over the ring, however far it jumps.
+     */
+    fun advanceTo(end: Long) {
+        val w = written
+        if (end <= w) return
+        var i = end - minOf(end - w, capacity.toLong())
+        while (i < end) {
+            buf[(i and mask.toLong()).toInt()] = 0f
+            i++
+        }
+        written = end
+    }
+
     fun clear() {
         java.util.Arrays.fill(buf, 0f)
         written = 0L

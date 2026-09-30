@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.n3d.spectra.audio.AudioEngine
 import com.n3d.spectra.dsp.WindowFunction
 import com.n3d.spectra.dsp.nes.Nes2A03
 import com.n3d.spectra.settings.BandSlope
@@ -617,6 +618,15 @@ fun SettingsScreen(
                     fontSize = 11.sp,
                     lineHeight = 15.sp,
                 )
+                if (AudioEngine.synthModel != null) {
+                    SettingRow(
+                        "Synth lane",
+                        "Takes synth leads and pads out of the vocals and other stems into a lane of " +
+                            "their own. A second, much smaller network, on a core of its own.",
+                    ) {
+                        NeuSwitch(s.stemSynth) { v -> edit { it.copy(stemSynth = v) } }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 Text("Stem model threads", color = palette.textDim.toComposeColor(), fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
@@ -642,6 +652,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Separation model: StemgenRT (HS-TasNet), MIT. Runtime: ONNX Runtime, MIT. " +
+                        (if (AudioEngine.synthModel != null) "Synth model: Spectra's own, trained on MoisesDB and Slakh2100. " else "") +
                         "Their licence texts ship inside the app.",
                     color = palette.textFaint.toComposeColor(),
                     fontSize = 10.sp,
