@@ -34,7 +34,8 @@ ACTIVE_DB = -45.0  # a one-second window with synth louder than this counts as "
 @dataclass
 class Mix:
     real_share: float = 0.6
-    second_song_share: float = 0.25
+    second_song_share: float = 0.5
+    eq_share: float = 0.5
     no_synth_share: float = 0.15
     vocals_in_remix_share: float = 0.6
     gain_db: tuple[float, float] = (-12.0, 6.0)
@@ -159,5 +160,19 @@ class SplitDataset(Dataset):
         else:
             v, o, s = self._remix(rng, want_synth)
         g = 1.0 if self.real_only else self._db(rng, self.mix.gain_db)
-        x = np.stack([v, o]).astype(np.float32) * g
-        return torch.from_numpy(x), torch.from_numpy((s * g).astype(np.float32))
+        x = np.stack([v, o, s]).astype(np.float32) * g
+        if not self.real_only and rng.random() < self.mix.eq_share:
+            # The same filter on the inputs and the answer: a linear filter
+            # keeps the answer exact, and the network stops leaning on the
+            # exact timbre of the few hundred patches it trains on.
+            x = np.fft.irfft(np.fft.rfft(x, axis=-1) * random_eq(rng, x.shape[-1]), n=x.shape[-1], axis=-1).astype(np.float32)
+        return torch.from_numpy(np.ascontiguousarray(x[:2])), torch.from_numpy(np.ascontiguousarray(x[2]))
+
+
+def random_eq(rng, n: int, rate: int = 44100) -> np.ndarray:
+    """A smooth random response over log frequency: a tilt and two broad bumps, within ±12 dB."""
+    lf = np.log2(np.maximum(np.fft.rfftfreq(n, 1 / rate), 20.0) / 1000.0)  # octaves from 1 kHz
+    db = rng.uniform(-1.5, 1.5) * lf
+    for _ in range(2):
+        db += rng.uniform(-6, 6) * np.exp(-0.5 * ((lf - rng.uniform(-4, 4)) / rng.uniform(0.5, 2.0)) ** 2)
+    return (10 ** (np.clip(db, -12, 12) / 20)).astype(np.float32)

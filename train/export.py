@@ -83,6 +83,7 @@ def verify(net: SynthSplitNet, path: Path, frames: int = 300, seed: int = 0) -> 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--ckpt", default="best.pt", help="which checkpoint in the run folder: best.pt or checkpoint.pt")
     ap.add_argument("--run", type=Path, help="a training run folder (uses its averaged weights)")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--contract-fixture", action="store_true")
@@ -104,7 +105,7 @@ def main():
 
     if not args.run or not args.out:
         ap.error("--run and --out are required (or --contract-fixture)")
-    ckpt = torch.load(args.run / "checkpoint.pt", map_location="cpu")
+    ckpt = torch.load(args.run / args.ckpt, map_location="cpu")
     lay = layout_from(ckpt["layout"])
     net = SynthSplitNet(lay, int(ckpt["hidden"]), int(ckpt["layers"]))
     net.load_state_dict(ckpt["ema"])

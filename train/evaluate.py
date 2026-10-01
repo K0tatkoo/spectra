@@ -71,6 +71,7 @@ def onnx_runner(path: Path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data", required=True, type=Path)
+    ap.add_argument("--ckpt", default="best.pt", help="which checkpoint in the run folder: best.pt or checkpoint.pt")
     ap.add_argument("--run", type=Path)
     ap.add_argument("--onnx", type=Path)
     ap.add_argument("--out", type=Path, help="write per-song scores here as JSON")
@@ -79,7 +80,7 @@ def main():
     if args.onnx:
         lay, run = onnx_runner(args.onnx)
     else:
-        ckpt = torch.load(args.run / "checkpoint.pt", map_location="cpu")
+        ckpt = torch.load(args.run / args.ckpt, map_location="cpu")
         d = ckpt["layout"]
         lay = Layout(sample_rate=d["sample_rate"], n_fft=d["n_fft"], hop=d["hop"], inputs=tuple(d["inputs"]),
                      edges=tuple(d["edges"]))

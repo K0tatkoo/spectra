@@ -41,15 +41,19 @@ from synthsplit import corpus, stemgen  # noqa: E402
 _sg = None
 SPLITS = {"train": "train", "validation": "valid", "test": "valid"}
 VOCAL_ACTIVE_DB = -40.0
+# Synth patches General MIDI files under other families (Slakh's program_num,
+# 0-based): pads and stabs by ear, so synth here. See prepare/relabel_slakh.py.
+SYNTH_PROGRAMS = {50: "SynthStrings 1", 51: "SynthStrings 2", 54: "Synth Voice", 62: "SynthBrass 1", 63: "SynthBrass 2"}
 
 
-def classify(inst_class: str, is_drum: bool) -> str | None:
+def classify(inst_class: str, is_drum: bool, program: int | None = None) -> str | None:
+    """Without `program`, the class-only rule the first corpus was built with."""
     c = (inst_class or "").lower()
     if is_drum or c == "bass":
         return "bassdrums"
     if "effects" in c:
         return None
-    if c in ("synth lead", "synth pad"):
+    if c in ("synth lead", "synth pad") or (program is not None and program in SYNTH_PROGRAMS):
         return "synth"
     return "nonsynth"
 
@@ -95,7 +99,7 @@ def prepare(track_dir: str, split: str, out_root: str, keep: float, vocals_dir: 
         path = track / "stems" / f"{sid}.flac"
         if not info.get("audio_rendered", True) or not path.exists():
             continue
-        g = classify(info.get("inst_class", ""), bool(info.get("is_drum", False)))
+        g = classify(info.get("inst_class", ""), bool(info.get("is_drum", False)), info.get("program_num"))
         if g is None:
             continue
         arrays[g].append(load_stereo(path))
@@ -141,7 +145,7 @@ def track_state(track: Path, settle: float):
     for sid, info in (meta.get("stems") or {}).items():
         if not info.get("audio_rendered", True):
             continue
-        g = classify(info.get("inst_class", ""), bool(info.get("is_drum", False)))
+        g = classify(info.get("inst_class", ""), bool(info.get("is_drum", False)), info.get("program_num"))
         if g is None:
             continue  # effects: not used, so not waited for
         path = track / "stems" / f"{sid}.flac"

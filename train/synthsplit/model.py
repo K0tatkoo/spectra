@@ -17,7 +17,7 @@ LOG_EPS = 1e-8
 
 
 class SynthSplitNet(nn.Module):
-    def __init__(self, layout: Layout, hidden: int = 256, layers: int = 2):
+    def __init__(self, layout: Layout, hidden: int = 256, layers: int = 2, dropout: float = 0.0):
         super().__init__()
         self.layout = layout
         self.hidden = hidden
@@ -28,7 +28,10 @@ class SynthSplitNet(nn.Module):
         self.register_buffer("mean", torch.zeros(f))
         self.register_buffer("std", torch.ones(f))
         self.inp = nn.Linear(f, hidden)
-        self.gru = nn.GRU(hidden, hidden, num_layers=layers, batch_first=True)
+        # Dropout only while training (the first run memorised its songs);
+        # it adds no weights, so checkpoints load either way.
+        self.drop = nn.Dropout(dropout)
+        self.gru = nn.GRU(hidden, hidden, num_layers=layers, batch_first=True, dropout=dropout if layers > 1 else 0.0)
         self.out = nn.Linear(hidden, f)
         # Start by calling a little of everything synth, not half of it.
         nn.init.constant_(self.out.bias, -2.0)
@@ -36,7 +39,7 @@ class SynthSplitNet(nn.Module):
     def forward(self, power: torch.Tensor, state: torch.Tensor | None = None):
         """power (B, F, features) -> mask (B, F, features), state (layers, B, hidden)."""
         x = (torch.log(power + LOG_EPS) - self.mean) / self.std
-        x = torch.relu(self.inp(x))
+        x = self.drop(torch.relu(self.inp(x)))
         y, state = self.gru(x, state)
         mask = torch.sigmoid(self.out(y + x))
         return mask, state
