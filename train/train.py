@@ -129,6 +129,8 @@ def main():
     ap.add_argument("--warmup", type=int, default=1000)
     ap.add_argument("--hidden", type=int, default=256)
     ap.add_argument("--layers", type=int, default=2)
+    ap.add_argument("--dropout", type=float, default=0.2)
+    ap.add_argument("--weight-decay", type=float, default=1e-3)
     ap.add_argument("--ema", type=float, default=0.999)
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--seed", type=int, default=20260930)
@@ -158,8 +160,9 @@ def main():
     valid_loader = DataLoader(valid_ds, batch_size=long_batch, num_workers=args.workers)
 
     dsp = SplitDSP(layout).to(device)
-    net = SynthSplitNet(layout, args.hidden, args.layers).to(device)
-    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, betas=(0.9, 0.99), weight_decay=1e-4)
+    net = SynthSplitNet(layout, args.hidden, args.layers, args.dropout).to(device)
+    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, betas=(0.9, 0.99), weight_decay=args.weight_decay)
+    best = float("-inf")
     step = 0
     if args.resume and ckpt_path.exists():
         ckpt = torch.load(ckpt_path, map_location=device)
@@ -186,12 +189,12 @@ def main():
         return iter(DataLoader(ds, batch_size=b, sampler=range(from_step * b, len(ds)), num_workers=args.workers,
                                pin_memory=device.type == "cuda", persistent_workers=False, drop_last=True))
 
-    def save():
-        tmp = ckpt_path.with_suffix(".tmp")
+    def save(path=ckpt_path):
+        tmp = path.with_suffix(".tmp")
         torch.save({"step": step, "steps": args.steps, "net": net.state_dict(), "ema": ema.state_dict(), "opt": opt.state_dict(),
                     "args": {k: str(v) for k, v in vars(args).items()},
                     "layout": dataclasses.asdict(layout), "hidden": args.hidden, "layers": args.layers}, tmp)
-        tmp.replace(ckpt_path)
+        tmp.replace(path)
 
     log = open(args.out / "metrics.jsonl", "a")
     running, seen, t0 = 0.0, 0, time.time()
@@ -238,6 +241,11 @@ def main():
             if step % args.valid_every == 0:
                 ema.eval()
                 row.update(validate(dsp, ema, valid_loader, device, hop))
+                # Kept apart: the network that did best on songs it never trained on.
+                if row["valid_sdr"] > best:
+                    best = row["valid_sdr"]
+                    save(args.out / "best.pt")
+                    row["best"] = True
             print(json.dumps(row), flush=True)
             log.write(json.dumps(row) + "\n")
             log.flush()

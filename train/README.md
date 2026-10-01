@@ -81,6 +81,29 @@ held-out MUSDB songs rendered for listening. Measured on the M1 Pro: a step of
 the batch, so short crops it is), 555 ms for the final 21 × 6 s ones; the stem
 model pass runs at 0.55× real time per core.
 
+### What the first night taught (2026-10-01)
+
+The first run stalled: training SDR kept rising (2.1 → 3.0 dB by step
+20 000), held-out SDR sat at +0.3 dB from step 10 000 on. Measured on its
+checkpoint, two causes:
+
+- **Overfitting to the 750 training songs**: real crops scored +1.5 dB on
+  training songs, +0.7 dB on held-out ones. Hence dropout 0.2, weight decay
+  1e-3, a random EQ applied to inputs and target alike, and twice the song
+  mixing — and `best.pt`, the checkpoint that did best on held-out songs.
+- **Label noise**: General MIDI files SynthStrings 1/2, Synth Voice and
+  SynthBrass 1/2 under strings and brass, so they were "not synth" — in 220
+  of the 810 songs, and in 4 of the 11 held-out songs without synth, where
+  the model heard synth and was scored −6.6 dB for it. `prepare/relabel_slakh.py`
+  moves them into the synth target; the mix, and so the stem model's outputs,
+  stay as they were.
+
+The ceiling, for scale: a band mask that *knows* the answer scores **+5.2 dB**
+on held-out real crops (+5.0 dB per bin — the bands are not what limits it).
+On real Slakh songs StemgenRT puts a median 39 % of the synth in vocals and
+46 % in other (45 % / 44 % when someone sings): reading only "other" would
+miss half of it.
+
 ## Running it (Windows desktop, NVIDIA GPU)
 
 ```powershell
