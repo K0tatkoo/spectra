@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +27,7 @@ from synthsplit.losses import floored_sdr_loss
 from synthsplit.model import SynthSplitNet, split_batch
 from synthsplit.reference import StreamSplit
 
-EXCERPT = 30 * 44100
+EXCERPT_SECONDS = float(os.environ.get("EVAL_EXCERPT_S", "30"))
 
 
 def sdr(est: np.ndarray, ref: np.ndarray, inputs: np.ndarray) -> float:
@@ -92,23 +93,25 @@ def main():
                 est, _, _ = split_batch(dsp, net, torch.from_numpy(x.astype(np.float32))[None])
             return est[0].numpy()
 
+    # A whole number of hops: the signal path works in whole frames.
+    excerpt = int(EXCERPT_SECONDS * 44100) // lay.hop * lay.hop
     rows = []
     for song_dir in list_songs(args.data, "valid"):
         meta, arrays = load_song(song_dir)
         total = meta["samples"] // lay.hop * lay.hop
-        for start in range(0, total - EXCERPT + 1, EXCERPT):
-            x = np.stack([np.asarray(arrays["sg_vocals"][start:start + EXCERPT], dtype=np.float64),
-                          np.asarray(arrays["sg_other"][start:start + EXCERPT], dtype=np.float64)])
-            ref = np.asarray(arrays["synth"][start:start + EXCERPT - lay.hop], dtype=np.float64)
+        for start in range(0, total - excerpt + 1, excerpt):
+            x = np.stack([np.asarray(arrays["sg_vocals"][start:start + excerpt], dtype=np.float64),
+                          np.asarray(arrays["sg_other"][start:start + excerpt], dtype=np.float64)])
+            ref = np.asarray(arrays["synth"][start:start + excerpt - lay.hop], dtype=np.float64)
             if np.sqrt(np.mean(ref ** 2)) < 10 ** (-50 / 20):
                 continue  # no synth to speak of in this excerpt
             est = run(x)
             warm = 44100 // 2
-            inputs = x[:, warm:EXCERPT - lay.hop].sum(0)
+            inputs = x[:, warm:excerpt - lay.hop].sum(0)
             row = {"song": song_dir.name, "corpus": meta["corpus"], "start_s": start / 44100,
                    "sdr": sdr(est[warm:], ref[warm:], inputs),
                    "none": sdr(np.zeros_like(ref[warm:]), ref[warm:], inputs),
-                   "other": sdr(x[1, warm:EXCERPT - lay.hop], ref[warm:], inputs),
+                   "other": sdr(x[1, warm:excerpt - lay.hop], ref[warm:], inputs),
                    "vocals_other": sdr(inputs, ref[warm:], inputs)}
             rows.append(row)
             print(json.dumps(row), flush=True)

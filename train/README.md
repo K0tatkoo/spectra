@@ -47,9 +47,10 @@ pads**; synth bass stays in Bass, FX are left out.
 | | what | licence | who downloads |
 |---|---|---|---|
 | **MoisesDB** | 240 real songs, every track labelled; "synth lead" and "synth pad" are the target | CC BY-NC-SA 4.0 — non-commercial, share-alike | **you** (sign-up and terms at [music.ai/research](https://music.ai/research/)), ~149 GB |
-| **Slakh2100** | 2,100 MIDI songs rendered with real synth patches, classes per stem | CC BY 4.0 | the scripts stream it from Zenodo (104 GB, never stored whole) |
+| **Slakh2100** | 2,100 MIDI songs rendered with real synth patches, classes per stem | CC BY 4.0 | `~/synthsplit-data/fetch-slakh.sh` streams it from Zenodo (104 GB, keeping only metadata + stems) |
+| **MUSDB18-HQ** | 150 songs; only the *vocals* are used, mixed into Slakh songs (nobody sings in Slakh) | non-commercial | the scripts, from Zenodo (22.7 GB, no sign-up) |
 
-The trained weights derive from MoisesDB, so treat them as **CC BY-NC-SA 4.0**:
+The trained weights derive from MoisesDB and MUSDB18-HQ, so treat them as **CC BY-NC-SA 4.0**:
 fine for a free app, and the licence notice ships with the model (to do at
 release: `THIRD_PARTY_NOTICES.txt` + the Settings credit already names both).
 
@@ -59,6 +60,26 @@ pinned in `synthsplit/stemgen.py`) over every song. Training examples
 (`synthsplit/data.py`) mix those "real" crops with remixes of ground-truth
 stems where a random, drifting share of the synth is routed into the vocals
 input — plus levels, bleed, and crops with no synth at all.
+
+Two things about Slakh worth knowing before touching `prepare/slakh.py`:
+the Zenodo archive is **shuffled** (a song's files are spread over all 104 GB,
+so no song is complete until near the end of the download), and one
+connection to Zenodo gets ~4 MB/s — `tools/fetch_parallel.py` uses six and
+feeds `tar` in order, ~14 MB/s on the home line.
+
+## One night on the Mac (M1 Pro, MPS)
+
+```bash
+tools/overnight.sh     # nohup it; everything lands in ~/synthsplit-data, progress in logs/overnight.log
+```
+
+MUSDB18-HQ → its vocals → Slakh songs as their stems land (750 + 60 held out,
+90 s each, 60 % with a MUSDB vocal mixed in) → training until about 07:15
+(`--hours`) → `evaluate.py` → `export.py` → the export evaluated again → two
+held-out MUSDB songs rendered for listening. Measured on the M1 Pro: a step of
+64 × 2 s crops is 320 ms on MPS (the GRU's cost follows the crop length, not
+the batch, so short crops it is), 555 ms for the final 21 × 6 s ones; the stem
+model pass runs at 0.55× real time per core.
 
 ## Running it (Windows desktop, NVIDIA GPU)
 

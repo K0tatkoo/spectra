@@ -1,7 +1,13 @@
 """Trains the synth splitter.
 
     python train.py --data D:/data/synthsplit --out runs/first
+    python train.py --data D:/data/synthsplit --out runs/first --hours 9    # as many steps as fit in 9 h
     python train.py --data D:/data/synthsplit --out runs/first --resume     # after a stop or a crash
+
+Most steps train on short crops, because the GRU's cost grows with crop
+length and barely with batch size; the last --long-share of them on long
+crops, so the network also learns to run for a long time from one start, as
+it does on the phone.
 
 Writes runs/<name>/checkpoint.pt every --save-every steps (weights, averaged
 weights, optimiser, step) and one line of metrics.jsonl per report. Validation
@@ -61,7 +67,9 @@ def score(dsp, net, x: torch.Tensor, s: torch.Tensor, hop: int):
 @torch.no_grad()
 def measure_features(dsp, loader, device, batches: int, features: int):
     """Mean and spread of every log band power over some training examples."""
-    total = torch.zeros(features, device=device, dtype=torch.float64)
+    # Summed in float64 on the CPU: MPS has no float64, and a float32 sum of
+    # millions of squares loses the digits the spread lives in.
+    total = torch.zeros(features, dtype=torch.float64)
     square = torch.zeros_like(total)
     count = 0
     for i, (x, _) in enumerate(loader):
@@ -69,13 +77,13 @@ def measure_features(dsp, loader, device, batches: int, features: int):
             break
         _, power = dsp.analyze(x.to(device))
         b, k, f, bands = power.shape
-        logp = torch.log(power.permute(0, 2, 1, 3).reshape(b * f, k * bands) + LOG_EPS).double()
+        logp = torch.log(power.permute(0, 2, 1, 3).reshape(b * f, k * bands) + LOG_EPS).cpu().double()
         total += logp.sum(0)
         square += logp.square().sum(0)
         count += logp.shape[0]
     mean = total / count
     std = (square / count - mean.square()).clamp_min(1e-4).sqrt()
-    return mean.float(), std.float()
+    return mean.float().to(device), std.float().to(device)
 
 
 @torch.no_grad()
@@ -110,8 +118,12 @@ def main():
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--steps", type=int, default=100_000)
-    ap.add_argument("--batch", type=int, default=32)
-    ap.add_argument("--crop-seconds", type=float, default=4.0)
+    ap.add_argument("--hours", type=float, default=0,
+                    help="fit the run in this long instead: --steps is set from the measured speed")
+    ap.add_argument("--batch", type=int, default=64)
+    ap.add_argument("--crop-seconds", type=float, default=2.0)
+    ap.add_argument("--long-crop-seconds", type=float, default=6.0)
+    ap.add_argument("--long-share", type=float, default=0.2, help="share of the steps on long crops")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--min-lr", type=float, default=1e-5)
     ap.add_argument("--warmup", type=int, default=1000)
@@ -137,9 +149,13 @@ def main():
     train_songs = list_songs(args.data, "train")
     valid_songs = list_songs(args.data, "valid")
     print(f"{len(train_songs)} training songs, {len(valid_songs)} held out · device {device}")
-    train_ds = SplitDataset(train_songs, crop, args.steps * args.batch, args.seed, Mix())
-    valid_ds = SplitDataset(valid_songs, crop, args.valid_examples, 12345, real_only=True)
-    valid_loader = DataLoader(valid_ds, batch_size=args.batch, num_workers=args.workers)
+    long_crop = crop_samples(args.long_crop_seconds, hop)
+    long_batch = max(1, round(args.batch * crop / long_crop))
+    # Long enough for any run; example i is the same on every run either way.
+    train_ds = SplitDataset(train_songs, crop, 1 << 31, args.seed, Mix())
+    long_ds = SplitDataset(train_songs, long_crop, 1 << 31, args.seed + 1, Mix())
+    valid_ds = SplitDataset(valid_songs, long_crop, args.valid_examples, 12345, real_only=True)
+    valid_loader = DataLoader(valid_ds, batch_size=long_batch, num_workers=args.workers)
 
     dsp = SplitDSP(layout).to(device)
     net = SynthSplitNet(layout, args.hidden, args.layers).to(device)
@@ -161,24 +177,35 @@ def main():
         ema = copy.deepcopy(net)
     ema.requires_grad_(False)
 
-    # Example i is the same on every run, so resuming carries on with the next ones.
-    sampler = range(step * args.batch, len(train_ds))
-    loader = DataLoader(train_ds, batch_size=args.batch, sampler=sampler, num_workers=args.workers,
-                        pin_memory=device.type == "cuda", persistent_workers=args.workers > 0, drop_last=True)
+    if args.resume and ckpt_path.exists() and "steps" in ckpt:
+        args.steps = int(ckpt["steps"])  # keep the schedule the run was started with
+
+    def loader_for(long: bool, from_step: int):
+        ds, b = (long_ds, long_batch) if long else (train_ds, args.batch)
+        # Example i is the same on every run, so resuming carries on with the next ones.
+        return iter(DataLoader(ds, batch_size=b, sampler=range(from_step * b, len(ds)), num_workers=args.workers,
+                               pin_memory=device.type == "cuda", persistent_workers=False, drop_last=True))
 
     def save():
         tmp = ckpt_path.with_suffix(".tmp")
-        torch.save({"step": step, "net": net.state_dict(), "ema": ema.state_dict(), "opt": opt.state_dict(),
+        torch.save({"step": step, "steps": args.steps, "net": net.state_dict(), "ema": ema.state_dict(), "opt": opt.state_dict(),
                     "args": {k: str(v) for k, v in vars(args).items()},
                     "layout": dataclasses.asdict(layout), "hidden": args.hidden, "layers": args.layers}, tmp)
         tmp.replace(ckpt_path)
 
     log = open(args.out / "metrics.jsonl", "a")
     running, seen, t0 = 0.0, 0, time.time()
+    started, started_step = time.time(), step
     net.train()
-    for x, s in loader:
-        if step >= args.steps:
-            break
+    long_from = lambda: int(args.steps * (1 - args.long_share))  # noqa: E731
+    long = step >= long_from()
+    batches = loader_for(long, step)
+    while step < args.steps:
+        if not long and step >= long_from():
+            long = True
+            batches = loader_for(True, step)
+            print(f"step {step}: switching to {args.long_crop_seconds:g} s crops, batch {long_batch}", flush=True)
+        x, s = next(batches)
         for g in opt.param_groups:
             g["lr"] = lr_at(step, args)
         x, s = x.to(device, non_blocking=True), s.to(device, non_blocking=True)
@@ -194,6 +221,15 @@ def main():
         step += 1
         running += loss.item()
         seen += 1
+        if args.hours and not args.resume and step == started_step + 20:
+            started = time.time()  # past the loader's start-up and the GPU's first compiles
+        if args.hours and not args.resume and step == started_step + 80:
+            # Fit the run in the time given: short-crop steps at the speed just
+            # measured, long-crop steps at ~1.75x that (555 vs 320 ms on the M1 Pro), 5 % kept for validation.
+            per = (time.time() - started) / 60
+            budget = args.hours * 3600 * 0.95
+            args.steps = int(budget / (per * (1 - args.long_share) + per * 1.75 * args.long_share))
+            print(f"{per * 1000:.0f} ms a step: {args.steps} steps fit in {args.hours:g} h", flush=True)
 
         if step % args.report_every == 0:
             row = {"step": step, "train_sdr": -running / seen, "lr": lr_at(step, args), "grad": float(grad),

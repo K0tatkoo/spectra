@@ -59,21 +59,28 @@ def synth_window(synth: np.ndarray, keep: int) -> int:
     return int(np.argmax(np.convolve(energy, np.ones(k), mode="valid"))) * rate
 
 
+def choose_window(groups: dict[str, np.ndarray], keep_seconds: float) -> tuple[int, int]:
+    """The part of a song to keep: all of it, or the keep_seconds with the most synth."""
+    total = min(g.shape[-1] for g in groups.values())
+    keep = int(keep_seconds * stemgen.SAMPLE_RATE)
+    if keep and total > keep:
+        start = synth_window(groups["synth"][:, :total], keep)
+        return start, start + keep
+    return 0, total
+
+
 def write_song(out_dir: Path, corpus: str, song_id: str, split: str, groups: dict[str, np.ndarray],
-               sg: stemgen.StemgenRT, extra: dict | None = None, keep_seconds: float = 0) -> dict:
+               sg: stemgen.StemgenRT, extra: dict | None = None, keep_seconds: float = 0,
+               window: tuple[int, int] | None = None) -> dict:
     """groups: stereo (2, T) float32 arrays for each of GROUPS (zeros where absent).
 
     keep_seconds > 0 keeps only the window of that length with the most synth
-    in it; the stem model still hears the two seconds before it, so its
-    output there is past its warm-up."""
+    in it (or `window` names it); the stem model still hears the two seconds
+    before it, so its output there is past its warm-up."""
     total = min(g.shape[-1] for g in groups.values())
     groups = {k: v[:, :total].astype(np.float32) for k, v in groups.items()}
     mix = sum(groups.values())
-    start, end = 0, total
-    keep = int(keep_seconds * stemgen.SAMPLE_RATE)
-    if keep and total > keep:
-        start = synth_window(groups["synth"], keep)
-        end = start + keep
+    start, end = window if window is not None else choose_window(groups, keep_seconds)
     pre = min(start, PREROLL)
     window = mix[:, start:end]
     gain = 10 ** ((TARGET_RMS_DB - rms_db(window)) / 20)
