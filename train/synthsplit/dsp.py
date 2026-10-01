@@ -16,13 +16,15 @@ from .layout import Layout
 class SplitDSP(nn.Module):
     """analyze(): stems -> spectra + band powers. synthesize(): spectra + masks -> each input's synth part."""
 
-    def __init__(self, layout: Layout):
+    def __init__(self, layout: Layout, dtype: torch.dtype = torch.float32):
         super().__init__()
         self.layout = layout
-        self.register_buffer("wa", torch.tensor(layout.analysis_window(), dtype=torch.float32), persistent=False)
-        self.register_buffer("ws", torch.tensor(layout.synthesis_window(), dtype=torch.float32), persistent=False)
+        # Built from the float64 formulas in the precision asked for, so a
+        # float64 instance matches the reference exactly (tests/test_dsp.py).
+        self.register_buffer("wa", torch.tensor(layout.analysis_window(), dtype=dtype), persistent=False)
+        self.register_buffer("ws", torch.tensor(layout.synthesis_window(), dtype=dtype), persistent=False)
         self.register_buffer("band_of", torch.tensor(layout.band_of_bin(), dtype=torch.long), persistent=False)
-        self.register_buffer("widths", torch.tensor(layout.band_widths(), dtype=torch.float32), persistent=False)
+        self.register_buffer("widths", torch.tensor(layout.band_widths(), dtype=dtype), persistent=False)
 
     def frames(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, K, T), T a multiple of the hop -> (B, K, T / hop, n_fft).

@@ -28,7 +28,7 @@ def test_batched_matches_reference():
     masks = rng.uniform(0, 1, (frames, 2, lay.bands))
     synth_ref, rests_ref, powers_ref = run_stream(lay, lambda p, f: masks[f], x)
 
-    dsp = SplitDSP(lay).double()
+    dsp = SplitDSP(lay, torch.float64)
     spec, power = dsp.analyze(torch.from_numpy(x)[None])
     np.testing.assert_allclose(power[0].permute(1, 0, 2).numpy(), powers_ref, rtol=1e-9, atol=1e-12)
     parts = dsp.synthesize(spec, torch.from_numpy(masks.transpose(1, 0, 2))[None])

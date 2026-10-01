@@ -1,0 +1,1 @@
+{"frames": 64, "features": 468, "layout": "float32 LE: powers[frames][features], masks[frames][features]"}
