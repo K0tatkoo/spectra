@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.Settings as AndroidSettings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -82,6 +83,9 @@ class MainActivity : ComponentActivity() {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
             SpectraTheme(settings.theme) {
                 var showSettings by remember { mutableStateOf(false) }
+                // Settings is a screen inside this one Activity, so without this
+                // the system back gesture closed the whole app instead of it.
+                BackHandler(enabled = showSettings) { showSettings = false }
                 if (showSettings) {
                     SettingsScreen(
                         viewModel = viewModel,
