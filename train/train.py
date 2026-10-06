@@ -316,9 +316,17 @@ def main():
     log.close()
     sys.stdout.flush()
     sys.stderr.flush()
-    # Leave without the interpreter's teardown: on Windows it takes CUDA down
-    # before the loaders' workers and dies with 0xC0000409, after everything is
-    # written but with a failing exit code.
+    # Leave without any teardown: on Windows a CUDA library's unload hook dies
+    # with 0xC0000409 after everything is written, failing the exit code — and
+    # os._exit still runs those hooks; TerminateProcess does not.
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        k32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        k32.TerminateProcess(k32.GetCurrentProcess(), 0)
     os._exit(0)
 
 
