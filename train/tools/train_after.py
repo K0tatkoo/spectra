@@ -5,7 +5,8 @@
 With --wait it first waits for tools/prepare_all.py to log "all done"; with
 --wait-step STEP, for one of its steps ("procedural-slakh") to be done; with
 --after NAME, for run NAME to finish (to queue a second run behind a first).
-Several can be given; it waits for all of them. Then:
+Several can be given; it waits for all of them. A failed step or run counts as
+finished too, so a queue left alone overnight never waits forever. Then:
 train.py (everything after -- is passed on) -> evaluate.py on best.pt ->
 export.py -> evaluate.py on the export, as the phone would run it -> the
 listening songs in <root>/listen rendered through it. Run folder
@@ -63,8 +64,8 @@ def main():
     # Whole lines only, as the two scripts write them ("[Tue 01:02:03] all done ·…",
     # "[Tue 04:05:06] third: all done"): a substring would match this run's own "waiting" line.
     waits = ([re.compile(r"^\[[^\]]+\] all done\b")] if args.wait else []) + \
-        [re.compile(rf"^\[[^\]]+\] {re.escape(step)}: done\b") for step in args.wait_step] + \
-        ([re.compile(rf"^\[[^\]]+\] {re.escape(args.after)}: all done$")] if args.after else [])
+        [re.compile(rf"^\[[^\]]+\] {re.escape(step)}: (done|FAILED)\b") for step in args.wait_step] + \
+        ([re.compile(rf"^\[[^\]]+\] {re.escape(args.after)}: (all done|finished without a model)$")] if args.after else [])
     if waits:
         log("waiting for " + " and ".join((["the corpus"] if args.wait else []) + [f"step {s}" for s in args.wait_step]
                                           + ([f"run {args.after}"] if args.after else [])))
@@ -79,7 +80,8 @@ def main():
     trained = run("train", "train.py", "--data", corpus, "--out", run_dir, *passed)
     result = run_dir / "result.json"
     if not trained and not (result.exists() and result.stat().st_mtime > started):
-        return 1  # a crash after result.json is written (Windows, on exit) still counts as trained
+        log("finished without a model")  # what a run queued --after this one waits for, as well as "all done"
+        return 1  # (a crash after result.json is written — Windows, on exit — still counts as trained)
     ckpt = "best.pt" if (run_dir / "best.pt").exists() else "checkpoint.pt"
     run("eval", "evaluate.py", "--data", corpus, "--run", run_dir, "--ckpt", ckpt, "--out", run_dir / "eval.json")
     onnx = run_dir / "synth-split.onnx"
