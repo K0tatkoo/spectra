@@ -1,7 +1,7 @@
 """Builds the whole corpus, step by step, with nobody watching. Any OS.
 
     python tools/prepare_all.py --root D:/synthsplit
-    python tools/prepare_all.py --root D:/synthsplit --moisesdb D:/synthsplit/moisesdb/moisesdb_v0.1
+    python tools/prepare_all.py --root D:/synthsplit --moisesdb C:/Users/Kotatko/Downloads/moisesdb.zip
 
 Expects the downloads already running or done (tools/fetch_parallel.py for
 MUSDB18-HQ into <root>/downloads, tools/fetch_slakh.py into <root>/slakh), and
@@ -11,7 +11,12 @@ then, in order:
    held-out mixtures to listen to (<root>/listen);
 2. Slakh songs as their stems land, until the download is done (prepare/slakh.py --watch);
 3. made-up synths over Slakh backing tracks (prepare/procedural.py);
-4. with --moisesdb: MoisesDB itself, then made-up synths over its backing tracks.
+4. with --moisesdb: waits for it to be there (fetch_parallel.py only gives the
+   zip its name once its CRCs check out), then MoisesDB itself, then made-up
+   synths over its backing tracks.
+
+Each step logs "<step>: done" to pipeline.log, so a training run can start
+after any of them (tools/train_after.py --wait-step).
 
 Every step skips what is already done, so running it again carries on. The
 corpus lands in <root>/corpus, logs in <root>/logs (pipeline.log says what
@@ -47,10 +52,16 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", required=True, type=Path)
-    ap.add_argument("--moisesdb", type=Path, help="the unpacked MoisesDB (folder holding the provider folders)")
-    ap.add_argument("--workers", type=int, default=14, help="stem model processes (one core each)")
+    ap.add_argument("--moisesdb", type=Path, help="moisesdb.zip, or the folder it was unpacked to")
+    ap.add_argument("--workers", type=int, default=14,
+                    help="stem model processes for whole songs (one core each; ~1 GB each while a song is loaded)")
+    ap.add_argument("--light-workers", type=int, default=0,
+                    help="stem model processes for the made-up-synth songs, which are short (default: --workers)")
+    ap.add_argument("--moisesdb-workers", type=int, default=0,
+                    help="stem model processes for MoisesDB, fewer if a training run shares the machine (default: --workers)")
     ap.add_argument("--procedural", type=int, default=1600, help="made-up-synth training songs per backing corpus")
     args = ap.parse_args()
+    light = args.light_workers or args.workers
 
     root = args.root
     logs = root / "logs"
@@ -101,15 +112,19 @@ def main():
 
     # 3. Made-up synths over Slakh backing.
     run("procedural-slakh", "prepare/procedural.py", "--source", "slakh", "--slakh", root / "slakh", "--vocals", vocals,
-        "--out", corpus, "--train", args.procedural, "--valid", 80, "--workers", args.workers)
+        "--out", corpus, "--train", args.procedural, "--valid", 80, "--workers", light)
 
     # 4. MoisesDB, and made-up synths over its backing.
     if args.moisesdb:
+        if not args.moisesdb.exists():
+            log(f"waiting for {args.moisesdb}")
+            while not args.moisesdb.exists():
+                time.sleep(60)
         run("moisesdb-prepare", "prepare/moisesdb.py", "--moisesdb", args.moisesdb, "--out", corpus,
-            "--workers", args.workers)
+            "--workers", args.moisesdb_workers or args.workers)
         run("procedural-moisesdb", "prepare/procedural.py", "--source", "moisesdb", "--moisesdb", args.moisesdb,
             "--vocals", vocals, "--out", corpus, "--train", args.procedural // 2, "--valid", 40,
-            "--workers", args.workers)
+            "--workers", args.moisesdb_workers or light)
     songs = {d.name: len(list(d.glob("*/meta.json"))) for d in sorted(corpus.glob("*")) if d.is_dir()}
     log(f"all done · corpus: {songs}")
     return 0

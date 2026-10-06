@@ -3,7 +3,9 @@
     python tools/train_after.py --root D:/synthsplit --run third --wait -- --steps 120000 --workers 8
 
 With --wait it first waits for tools/prepare_all.py to log "all done"; with
---after NAME, for run NAME to finish (to queue a second run behind a first). Then:
+--wait-step STEP, for one of its steps ("procedural-slakh") to be done; with
+--after NAME, for run NAME to finish (to queue a second run behind a first).
+Several can be given; it waits for all of them. Then:
 train.py (everything after -- is passed on) -> evaluate.py on best.pt ->
 export.py -> evaluate.py on the export, as the phone would run it -> the
 listening songs in <root>/listen rendered through it. Run folder
@@ -36,6 +38,7 @@ def main():
     ap.add_argument("--root", required=True, type=Path)
     ap.add_argument("--run", required=True)
     ap.add_argument("--wait", action="store_true", help="wait for prepare_all.py to finish first")
+    ap.add_argument("--wait-step", action="append", default=[], help="wait for this prepare_all.py step")
     ap.add_argument("--after", help="wait for this run to finish first")
     args = ap.parse_args(argv[:argv.index("--")] if "--" in argv else argv)
 
@@ -60,9 +63,11 @@ def main():
     # Whole lines only, as the two scripts write them ("[Tue 01:02:03] all done ·…",
     # "[Tue 04:05:06] third: all done"): a substring would match this run's own "waiting" line.
     waits = ([re.compile(r"^\[[^\]]+\] all done\b")] if args.wait else []) + \
+        [re.compile(rf"^\[[^\]]+\] {re.escape(step)}: done\b") for step in args.wait_step] + \
         ([re.compile(rf"^\[[^\]]+\] {re.escape(args.after)}: all done$")] if args.after else [])
     if waits:
-        log("waiting for " + " and ".join((["the corpus"] if args.wait else []) + ([f"run {args.after}"] if args.after else [])))
+        log("waiting for " + " and ".join((["the corpus"] if args.wait else []) + [f"step {s}" for s in args.wait_step]
+                                          + ([f"run {args.after}"] if args.after else [])))
         while True:
             lines = pipeline.read_text(encoding="utf-8", errors="replace").splitlines() if pipeline.exists() else []
             if all(any(w.match(line) for line in lines) for w in waits):
