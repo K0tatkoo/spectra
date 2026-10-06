@@ -134,26 +134,29 @@ def prepare(track: str, out_root: str) -> str:
     if (out / "meta.json").exists():
         return f"skip {sid}"
     data = song_data(track)
-    groups: dict[str, list[np.ndarray]] = {g: [] for g in corpus.GROUPS}
+    # Each stem is added to its group as soon as it is decoded: holding every stem of a
+    # song first took 1.5–2 GB a worker.
+    groups: dict[str, np.ndarray] = {}
     kinds: dict[str, list[str]] = {g: [] for g in corpus.GROUPS}
     for rel, g, kind in stems(track, data):
         raw = read_bytes(track, rel)
         if raw is None:
             continue
-        groups[g].append(decode(raw, f"{sid}/{rel}"))
+        a = decode(raw, f"{sid}/{rel}")
+        del raw
+        n = max([a.shape[1]] + [v.shape[1] for v in groups.values()])
+        for k in corpus.GROUPS:  # every group as long as the longest stem so far
+            v = groups.get(k)
+            if v is None or v.shape[1] < n:
+                grown = np.zeros((2, n), dtype=np.float32)
+                if v is not None:
+                    grown[:, :v.shape[1]] = v
+                groups[k] = grown
+        groups[g][:, :a.shape[1]] += a
         kinds[g].append(kind)
-    lengths = [a.shape[1] for v in groups.values() for a in v]
-    if not lengths:
+    if not groups:
         return f"empty {sid}"
-    total = max(lengths)
-
-    def summed(arrs):
-        acc = np.zeros((2, total), dtype=np.float32)
-        for a in arrs:
-            acc[:, :a.shape[1]] += a
-        return acc
-
-    stacked = {g: summed(v) for g, v in groups.items()}
+    stacked = groups
     meta = corpus.write_song(
         out, "moisesdb", sid, split_for(data.get("artist", "")), stacked, _sg,
         extra={"artist": data.get("artist", ""), "song": data.get("song", ""), "genre": data.get("genre", ""),

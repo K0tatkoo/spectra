@@ -95,51 +95,67 @@ def pick_vocal(rng, vocals_dir: Path, split: str, length: int):
     return audio[:, start:start + length], v["song"]
 
 
+def read_window(path: Path, start: int, stop: int) -> np.ndarray:
+    audio, rate = sf.read(str(path), start=start, stop=stop, dtype="float32", always_2d=True)
+    if rate != stemgen.SAMPLE_RATE:
+        raise ValueError(f"{path}: {rate} Hz, expected {stemgen.SAMPLE_RATE}")
+    audio = audio.T
+    return np.repeat(audio, 2, axis=0) if audio.shape[0] == 1 else audio[:2]
+
+
 def prepare(track_dir: str, split: str, out_root: str, keep: float, vocals_dir: str | None, vocals_share: float) -> str:
+    """Only the synth stems are read whole (to find the stretch with the most synth); every
+    other stem only for the kept stretch and the stem model's warm-up before it. Read whole,
+    a Slakh song held 1.5–2 GB per worker, and 14 workers ran the desktop out of memory."""
     track = Path(track_dir)
     out = Path(out_root) / "slakh" / track.name
     if (out / "meta.json").exists():
         return f"skip {track.name}"
     meta = yaml.safe_load((track / "metadata.yaml").read_text()) or {}
-    arrays: dict[str, list[np.ndarray]] = {g: [] for g in corpus.GROUPS}
-    classes: dict[str, list[str]] = {g: [] for g in corpus.GROUPS}
+    stems = []  # (path, group, label)
     for sid, info in (meta.get("stems") or {}).items():
         path = track / "stems" / f"{sid}.flac"
         if not info.get("audio_rendered", True) or not path.exists():
             continue
         g = classify(info.get("inst_class", ""), bool(info.get("is_drum", False)), info.get("program_num"))
-        if g is None:
-            continue
-        arrays[g].append(load_stereo(path))
-        classes[g].append(f"{info.get('inst_class')}/{info.get('midi_program_name', '')}")
-    lengths = [a.shape[1] for v in arrays.values() for a in v]
-    if not lengths:
+        if g is not None:
+            stems.append((path, g, f"{info.get('inst_class')}/{info.get('midi_program_name', '')}"))
+    if not stems:
         return f"empty {track.name}"
-    total = max(lengths)
-
-    def summed(arrs):
-        acc = np.zeros((2, total), dtype=np.float32)
-        for a in arrs:
-            acc[:, :a.shape[1]] += a
-        return acc
-
-    groups = {g: summed(v) for g, v in arrays.items()}
-    start, end = corpus.choose_window(groups, keep)
-    extra = {"sources": classes, "slakh_split": track.parent.name}
+    total = max(sf.info(str(path)).frames for path, _, _ in stems)
+    synth = np.zeros((2, total), dtype=np.float32)
+    for path, g, _ in stems:
+        if g == "synth":
+            a = load_stereo(path)
+            synth[:, :a.shape[1]] += a
+    keep_n = int(keep * stemgen.SAMPLE_RATE)
+    start, end = (corpus.synth_window(synth, keep_n), 0) if keep_n and total > keep_n else (0, total)
+    end = end or start + keep_n
+    pre = min(start, corpus.PREROLL)
+    w0 = start - pre  # every array below covers [w0, end): warm-up, then the kept stretch
+    groups = {g: np.zeros((2, end - w0), dtype=np.float32) for g in corpus.GROUPS}
+    groups["synth"][:] = synth[:, w0:end]
+    del synth
+    classes: dict[str, list[str]] = {g: [] for g in corpus.GROUPS}
+    for path, g, label in stems:
+        classes[g].append(label)
+        if g != "synth":
+            a = read_window(path, w0, end)
+            groups[g][:, :a.shape[1]] += a
+    extra = {"sources": classes, "slakh_split": track.parent.name, "kept_from_s": round(start / stemgen.SAMPLE_RATE, 2)}
     rng = np.random.default_rng(zlib.crc32(track.name.encode()))
     if vocals_dir and rng.random() < vocals_share:
-        pre = min(start, corpus.PREROLL)
-        vocal, song = pick_vocal(rng, Path(vocals_dir), split, end - start + pre)
+        vocal, song = pick_vocal(rng, Path(vocals_dir), split, end - w0)
         if vocal is not None:
-            mix = sum(groups.values())[:, start:end]
+            mix = sum(groups.values())[:, pre:]
             sung = vocal[:, pre:]
             voiced = np.abs(sung).max(axis=0) > 1e-3
             loud = float(np.sqrt(np.mean(np.square(sung[:, voiced])))) if voiced.any() else 0.0
             if loud > 0:
                 target = float(np.sqrt(np.mean(np.square(mix)))) * 10 ** (rng.uniform(-4.0, 2.0) / 20)
-                groups["vocals"][:, start - pre:end] += vocal * (target / loud)
+                groups["vocals"] += vocal * (target / loud)
                 extra["vocals_from"] = f"musdb18hq/{song}"
-    result = corpus.write_song(out, "slakh", track.name, split, groups, _sg, extra=extra, window=(start, end))
+    result = corpus.write_song(out, "slakh", track.name, split, groups, _sg, extra=extra, window=(pre, end - w0))
     return f"done {track.name} ({split}, synth {result['rms_db']['synth']} dB{', + vocals' if 'vocals_from' in extra else ''})"
 
 
