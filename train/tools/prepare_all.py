@@ -10,10 +10,15 @@ then, in order:
 1. waits for musdb18hq.zip, takes its vocals (prepare/musdb_vocals.py) and two
    held-out mixtures to listen to (<root>/listen);
 2. Slakh songs as their stems land, until the download is done (prepare/slakh.py --watch);
-3. made-up synths over Slakh backing tracks (prepare/procedural.py);
-4. with --moisesdb: waits for it to be there (fetch_parallel.py only gives the
-   zip its name once its CRCs check out), then MoisesDB itself, then made-up
-   synths over its backing tracks.
+3. with --moisesdb: waits for it to be there (fetch_parallel.py only gives the
+   zip its name once its CRCs check out), then MoisesDB itself;
+4. made-up synths over Slakh backing tracks (prepare/procedural.py), then
+   over MoisesDB's.
+
+The real corpora come first, so a run on real music alone can start while
+the made-up synths are still being made. The stem model is the cost: about
+4.5 s of audio a second on the desktop (one call per 128 samples, 11 ms, no
+batching), so the sizes below are what fits in a night.
 
 Each step logs "<step>: done" to pipeline.log, so a training run can start
 after any of them (tools/train_after.py --wait-step).
@@ -59,7 +64,13 @@ def main():
                     help="stem model processes for the made-up-synth songs, which are short (default: --workers)")
     ap.add_argument("--moisesdb-workers", type=int, default=0,
                     help="stem model processes for MoisesDB, fewer if a training run shares the machine (default: --workers)")
-    ap.add_argument("--procedural", type=int, default=1600, help="made-up-synth training songs per backing corpus")
+    ap.add_argument("--slakh-train", type=int, default=750, help="Slakh training songs (plus 60 held out)")
+    ap.add_argument("--moisesdb-seconds", type=float, default=0,
+                    help="keep this much of each MoisesDB song, where its synth is (0 = whole songs)")
+    ap.add_argument("--procedural", type=int, default=1600, help="made-up-synth training songs over Slakh backing")
+    ap.add_argument("--procedural-moisesdb", type=int, default=-1,
+                    help="... over MoisesDB backing (default: half of --procedural)")
+    ap.add_argument("--procedural-seconds", type=float, default=40)
     args = ap.parse_args()
     light = args.light_workers or args.workers
 
@@ -105,26 +116,28 @@ def main():
 
     # 2. Slakh, as its stems arrive; returns once the download is done.
     run("slakh-prepare", "prepare/slakh.py", "--slakh", root / "slakh", "--vocals", vocals, "--out", corpus,
-        "--workers", args.workers, "--watch")
+        "--workers", args.workers, "--watch", "--max-train", args.slakh_train, "--max-valid", 60)
     if not (root / "slakh" / "DOWNLOAD_DONE").exists():
         log("slakh download not finished: stopping here (run again once it is)")
         return 1
 
-    # 3. Made-up synths over Slakh backing.
-    run("procedural-slakh", "prepare/procedural.py", "--source", "slakh", "--slakh", root / "slakh", "--vocals", vocals,
-        "--out", corpus, "--train", args.procedural, "--valid", 80, "--workers", light)
-
-    # 4. MoisesDB, and made-up synths over its backing.
+    # 3. MoisesDB.
     if args.moisesdb:
         if not args.moisesdb.exists():
             log(f"waiting for {args.moisesdb}")
             while not args.moisesdb.exists():
                 time.sleep(60)
         run("moisesdb-prepare", "prepare/moisesdb.py", "--moisesdb", args.moisesdb, "--out", corpus,
-            "--workers", args.moisesdb_workers or args.workers)
+            "--workers", args.moisesdb_workers or args.workers, "--max-seconds", args.moisesdb_seconds)
+
+    # 4. Made-up synths over Slakh backing, then over MoisesDB's.
+    seconds = ("--seconds", args.procedural_seconds)
+    run("procedural-slakh", "prepare/procedural.py", "--source", "slakh", "--slakh", root / "slakh", "--vocals", vocals,
+        "--out", corpus, "--train", args.procedural, "--valid", 80, "--workers", light, *seconds)
+    if args.moisesdb:
+        count = args.procedural // 2 if args.procedural_moisesdb < 0 else args.procedural_moisesdb
         run("procedural-moisesdb", "prepare/procedural.py", "--source", "moisesdb", "--moisesdb", args.moisesdb,
-            "--vocals", vocals, "--out", corpus, "--train", args.procedural // 2, "--valid", 40,
-            "--workers", args.moisesdb_workers or light)
+            "--vocals", vocals, "--out", corpus, "--train", count, "--valid", 40, "--workers", light, *seconds)
     songs = {d.name: len(list(d.glob("*/meta.json"))) for d in sorted(corpus.glob("*")) if d.is_dir()}
     log(f"all done · corpus: {songs}")
     return 0

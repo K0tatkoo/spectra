@@ -128,39 +128,65 @@ def _init(model_path: str):
     _sg = stemgen.StemgenRT(Path(model_path))
 
 
-def prepare(track: str, out_root: str) -> str:
+def prepare(track: str, out_root: str, keep: float = 0) -> str:
+    """keep > 0 keeps only that many seconds: where the synth is, or the middle of a song
+    with none. The synth stems are decoded whole to find the place; every other stem only
+    for the kept stretch and the stem model's warm-up before it."""
     sid = song_id(track)
     out = Path(out_root) / "moisesdb" / sid
     if (out / "meta.json").exists():
         return f"skip {sid}"
     data = song_data(track)
-    # Each stem is added to its group as soon as it is decoded: holding every stem of a
-    # song first took 1.5–2 GB a worker.
-    groups: dict[str, np.ndarray] = {}
-    kinds: dict[str, list[str]] = {g: [] for g in corpus.GROUPS}
-    for rel, g, kind in stems(track, data):
+    listed = [(rel, g, kind) for rel, g, kind in stems(track, data)]
+    present = []
+    total = 0
+    synth = None
+    for rel, g, kind in listed:
         raw = read_bytes(track, rel)
         if raw is None:
             continue
-        a = decode(raw, f"{sid}/{rel}")
-        del raw
-        n = max([a.shape[1]] + [v.shape[1] for v in groups.values()])
-        for k in corpus.GROUPS:  # every group as long as the longest stem so far
-            v = groups.get(k)
-            if v is None or v.shape[1] < n:
-                grown = np.zeros((2, n), dtype=np.float32)
-                if v is not None:
-                    grown[:, :v.shape[1]] = v
-                groups[k] = grown
-        groups[g][:, :a.shape[1]] += a
-        kinds[g].append(kind)
-    if not groups:
+        present.append((rel, g, kind))
+        total = max(total, frames(raw))
+        if g == "synth":
+            a = decode(raw, f"{sid}/{rel}")
+            if synth is None or synth.shape[1] < a.shape[1]:
+                grown = np.zeros((2, max(a.shape[1], 0 if synth is None else synth.shape[1])), dtype=np.float32)
+                if synth is not None:
+                    grown[:, :synth.shape[1]] = synth
+                synth = grown
+            synth[:, :a.shape[1]] += a
+    if not present:
         return f"empty {sid}"
-    stacked = groups
+    keep_n = int(keep * stemgen.SAMPLE_RATE)
+    if keep_n and total > keep_n:
+        if synth is not None and np.any(synth):
+            padded = np.zeros((2, total), dtype=np.float32)
+            padded[:, :synth.shape[1]] = synth
+            begin = corpus.synth_window(padded, keep_n)
+        else:
+            begin = (total - keep_n) // 2 // stemgen.SAMPLE_RATE * stemgen.SAMPLE_RATE
+        stop = begin + keep_n
+    else:
+        begin, stop = 0, total
+    pre = min(begin, corpus.PREROLL)
+    w0 = begin - pre  # every array covers [w0, stop): warm-up, then the kept stretch
+    groups = {g: np.zeros((2, stop - w0), dtype=np.float32) for g in corpus.GROUPS}
+    if synth is not None:
+        seg = synth[:, w0:stop]
+        groups["synth"][:, :seg.shape[1]] = seg
+    del synth
+    kinds: dict[str, list[str]] = {g: [] for g in corpus.GROUPS}
+    for rel, g, kind in present:
+        kinds[g].append(kind)
+        if g == "synth":
+            continue
+        a = decode(read_bytes(track, rel), f"{sid}/{rel}", w0, stop - w0)
+        groups[g][:, :a.shape[1]] += a
     meta = corpus.write_song(
-        out, "moisesdb", sid, split_for(data.get("artist", "")), stacked, _sg,
+        out, "moisesdb", sid, split_for(data.get("artist", "")), groups, _sg, window=(pre, stop - w0),
         extra={"artist": data.get("artist", ""), "song": data.get("song", ""), "genre": data.get("genre", ""),
-               "sources": kinds},
+               "sources": kinds, "kept_from_s": round(begin / stemgen.SAMPLE_RATE, 2),
+               "song_seconds": round(total / stemgen.SAMPLE_RATE, 1)},
     )
     return f"done {sid} ({meta['split']}, synth {meta['rms_db']['synth']} dB)"
 
@@ -170,6 +196,8 @@ def main():
     ap.add_argument("--moisesdb", required=True, type=Path, help="moisesdb.zip, or the folder it was unpacked to")
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--max-seconds", type=float, default=0,
+                    help="keep only this much of each song, where its synth is (0 = all of it)")
     ap.add_argument("--model-cache", type=Path, default=Path("models/stemgen-rt-08424ca9.onnx"))
     args = ap.parse_args()
 
@@ -177,7 +205,7 @@ def main():
     songs = tracks(args.moisesdb)
     print(f"{len(songs)} MoisesDB songs", flush=True)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(str(model),)) as pool:
-        futures = [pool.submit(prepare, t, str(args.out)) for t in songs]
+        futures = [pool.submit(prepare, t, str(args.out), args.max_seconds) for t in songs]
         for i, f in enumerate(as_completed(futures), 1):
             print(f"[{i}/{len(songs)}] {f.result()}", flush=True)
 
