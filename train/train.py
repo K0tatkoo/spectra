@@ -36,6 +36,7 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 import argparse
 import copy
 import dataclasses
+import gc
 import json
 import math
 import time
@@ -302,6 +303,10 @@ def main():
         if step % args.save_every == 0:
             save()
     save()
+    # Shut the training loader's workers down now: left to interpreter exit, Windows
+    # tears CUDA down first and the process dies with 0xC0000409 after its work is done.
+    del batches
+    gc.collect()
     ema.eval()
     final = validate(dsp, ema, valid_loaders, device, hop, args.select)
     final["step"] = step

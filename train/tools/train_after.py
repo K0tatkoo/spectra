@@ -61,8 +61,11 @@ def main():
             time.sleep(60)
     corpus = args.root / "corpus"
     log(f"training: {' '.join(passed)}")
-    if not run("train", "train.py", "--data", corpus, "--out", run_dir, *passed):
-        return 1
+    started = time.time()
+    trained = run("train", "train.py", "--data", corpus, "--out", run_dir, *passed)
+    result = run_dir / "result.json"
+    if not trained and not (result.exists() and result.stat().st_mtime > started):
+        return 1  # a crash after result.json is written (Windows, on exit) still counts as trained
     ckpt = "best.pt" if (run_dir / "best.pt").exists() else "checkpoint.pt"
     run("eval", "evaluate.py", "--data", corpus, "--run", run_dir, "--ckpt", ckpt, "--out", run_dir / "eval.json")
     onnx = run_dir / "synth-split.onnx"
