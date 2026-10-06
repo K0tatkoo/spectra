@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,8 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
@@ -86,9 +87,14 @@ fun NeuWell(
 }
 
 /**
- * Press animation copied from the site's `.btn`: a squash on the way down
- * (narrower than it is shorter), the shadows flipping to inset, then a jelly
- * overshoot on release. Without the overshoot the control feels dead.
+ * The sites' `.btn` on a touch screen: raised at rest, pressed into the surface
+ * while a finger is on it, raised again when it lifts. Nothing squashes or
+ * bounces. The press used to shrink the button and wobble it back on a "jelly"
+ * overshoot; every site dropped that for this one motion on 2026-09-18, and
+ * Spectra followed on 2026-10-06 so the family moves alike.
+ *
+ * A primary button is one flat violet (`Palette.accentFill`), never a gradient,
+ * and stays violet while pressed: only its shadows move inside.
  */
 @Composable
 fun NeuButton(
@@ -102,25 +108,18 @@ fun NeuButton(
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed && enabled) 0.965f else 1f,
-        animationSpec = tween(if (pressed) 110 else Motion.JELLY_MS, easing = if (pressed) Motion.Out else Motion.Jelly),
-        label = "btnScale",
-    )
+    val down = pressed && enabled
 
     Box(
         modifier
-            .scale(scale)
-            .then(if (pressed && enabled) Modifier.neuInset(radius, Neumorph.DepthSm) else Modifier.neuRaised(radius))
+            // One draw modifier in every state, so the chain keeps its shape and
+            // the click handler after it is never rebuilt mid-press.
             .then(
-                if (primary) Modifier
-                    .clip(RoundedCornerShape(radius))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(palette.gradA.toComposeColor(), palette.gradB.toComposeColor()),
-                        ),
-                    )
-                else Modifier,
+                when {
+                    primary -> Modifier.neuFilled(palette.accentFill.toComposeColor(), pressed = down, radius = radius)
+                    down -> Modifier.neuInset(radius, Neumorph.DepthSm)
+                    else -> Modifier.neuRaised(radius)
+                },
             )
             .clickableNoRipple(interaction, enabled, onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
@@ -139,26 +138,26 @@ fun NeuButton(
     }
 }
 
+/**
+ * A square button with one of the sites' line icons ([NeuIcons]). Pressed in
+ * while held, and kept pressed in while [active], the way a latching switch on
+ * a desk would be.
+ */
 @Composable
 fun NeuIconButton(
     onClick: () -> Unit,
+    icon: ImageVector,
+    contentDescription: String,
     modifier: Modifier = Modifier,
-    glyph: String,
     active: Boolean = false,
     size: Dp = 46.dp,
 ) {
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.94f else 1f,
-        animationSpec = tween(if (pressed) 110 else Motion.JELLY_MS, easing = if (pressed) Motion.Out else Motion.Jelly),
-        label = "iconScale",
-    )
     Box(
         modifier
             .size(size)
-            .scale(scale)
             .then(
                 if (pressed || active) Modifier.neuInset(Neumorph.RadiusMd, Neumorph.DepthSm)
                 else Modifier.neuRaised(Neumorph.RadiusMd, Neumorph.DepthSm),
@@ -166,11 +165,11 @@ fun NeuIconButton(
             .clickableNoRipple(interaction, true, onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            glyph,
-            color = if (active) palette.accent.toComposeColor() else palette.textDim.toComposeColor(),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = if (active) palette.accent.toComposeColor() else palette.textDim.toComposeColor(),
+            modifier = Modifier.size(ICON_SIZE),
         )
     }
 }
@@ -299,8 +298,8 @@ fun NeuSlider(
         ) {
             Box(Modifier.fillMaxWidth().height(trackHeight).neuInset(Neumorph.RadiusPill, 3.dp))
 
-            // Filled portion. Clipped to the track so the accent never spills
-            // past the rounded end.
+            // Filled portion: one flat violet, never a gradient. Clipped to the
+            // track so it never spills past the rounded end.
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -311,11 +310,7 @@ fun NeuSlider(
                     Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(animatedFraction)
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(palette.gradA.toComposeColor(), palette.accent.toComposeColor()),
-                            ),
-                        ),
+                        .background(palette.accentFill.toComposeColor()),
                 )
             }
 
@@ -337,9 +332,11 @@ fun NeuSlider(
             val thumbOffset = with(density) {
                 ((widthPx - thumbSize.toPx()) * animatedFraction).toDp()
             }
+            // The knob grows a little under the finger, so it shows round the
+            // fingertip; on the sites' button ease, without a wobble.
             val thumbScale by animateFloatAsState(
                 targetValue = if (dragging) 1.12f else 1f,
-                animationSpec = tween(Motion.JELLY_MS, easing = Motion.Jelly),
+                animationSpec = tween(Motion.T, easing = Motion.Ease),
                 label = "thumbScale",
             )
             Box(
@@ -426,9 +423,10 @@ fun <T> NeuSegmented(
 
     BoxWithConstraints(modifier.height(44.dp).neuInset(Neumorph.RadiusPill, 3.dp)) {
         val slot = maxWidth / options.size
+        // The sites' sliding tab tile: .38s on the shared button ease.
         val pillOffset by animateDpAsState(
             targetValue = slot * index,
-            animationSpec = tween(Motion.MID, easing = Motion.Spring),
+            animationSpec = tween(Motion.TILE, easing = Motion.Ease),
             label = "segPill",
         )
         Box(
@@ -503,7 +501,12 @@ fun <T> NeuPicker(
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                 )
-                Text("▾", color = palette.textFaint.toComposeColor(), fontSize = 13.sp)
+                Icon(
+                    NeuIcons.ChevronDown,
+                    contentDescription = null,
+                    tint = palette.textFaint.toComposeColor(),
+                    modifier = Modifier.size(18.dp),
+                )
             }
             DropdownMenu(
                 expanded = open,
@@ -542,14 +545,8 @@ fun NeuChip(
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = tween(if (pressed) 110 else Motion.JELLY_MS, easing = if (pressed) Motion.Out else Motion.Jelly),
-        label = "chipScale",
-    )
     Box(
         modifier
-            .scale(scale)
             .then(
                 if (selected || pressed) Modifier.neuInset(Neumorph.RadiusPill, 3.dp)
                 else Modifier.neuRaised(Neumorph.RadiusPill, 3.dp),
@@ -568,24 +565,25 @@ fun NeuChip(
     }
 }
 
-/** Bare text that behaves like a button, for dismissals and inline links. */
+/** A bare icon that behaves like a button, for dismissals: a ghost, no surface. */
 @Composable
-fun NeuTextAction(
-    label: String,
+fun NeuIconAction(
+    icon: ImageVector,
+    contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     color: Color? = null,
 ) {
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
-    Text(
-        label,
-        color = color ?: palette.textDim.toComposeColor(),
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
+    Icon(
+        icon,
+        contentDescription = contentDescription,
+        tint = color ?: palette.textDim.toComposeColor(),
         modifier = modifier
             .clickableNoRipple(interaction, true, onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(6.dp)
+            .size(16.dp),
     )
 }
 
@@ -644,3 +642,6 @@ private fun Modifier.clickableNoRipple(
 
 /** Two taps closer together than this reset a slider to its default. */
 private const val DOUBLE_TAP_MS = 350L
+
+/** The sites' `.ico`: 1.15em of a 1.1rem icon button, about 20 px. */
+private val ICON_SIZE = 20.dp

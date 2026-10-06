@@ -59,6 +59,16 @@ object Neu2D {
         }
     }
 
+    /**
+     * A filled control: a primary button, the selected tab. The shadows of
+     * [raised] around ONE flat colour, never a gradient: the sites' rule for
+     * every filled control since 2026-09-28, Spectra's since 2026-10-06.
+     */
+    fun filled(g: Graphics2D, b: Box, radius: Float, palette: Palette, depth: Float, color: Int) {
+        raised(g, b, radius, palette, depth, fill = false)
+        g.fillRound(b, radius, color)
+    }
+
     /** A control pressed into the surface: a well, a track, a graph area. */
     fun inset(
         g: Graphics2D,

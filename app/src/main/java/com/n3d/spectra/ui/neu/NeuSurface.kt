@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
@@ -43,22 +44,39 @@ import kotlin.math.ceil
  *
  * The raised surfaces' diagonal fill depends on the whole size, so it is not
  * part of the bitmap: it is a gradient drawn on top, the same order [Neu.raised]
- * paints in.
+ * paints in. That sheen is the store's `--surface` and stays; coloured fills
+ * are flat (see [neuFilled]).
  */
 @Composable
 fun Modifier.neuRaised(
     radius: Dp = Neumorph.RadiusMd,
     depth: Dp = Neumorph.DepthMd,
-): Modifier = neuSurface(radius, depth, inset = false)
+): Modifier = neuSurface(radius, depth, inset = false, fill = null)
 
 @Composable
 fun Modifier.neuInset(
     radius: Dp = Neumorph.RadiusMd,
     depth: Dp = Neumorph.DepthSm,
-): Modifier = neuSurface(radius, depth, inset = true)
+): Modifier = neuSurface(radius, depth, inset = true, fill = null)
+
+/**
+ * A filled control, such as a primary button: ONE flat colour where a raised
+ * surface has its sheen, never a gradient (the sites' rule since 2026-09-28).
+ * Raised, the colour stands proud of the page. [pressed], the inset shadows
+ * fall on the colour itself, which is the order CSS paints an inset
+ * `box-shadow` over a background in: a pressed primary button on the store is
+ * still violet, only pushed in.
+ */
+@Composable
+fun Modifier.neuFilled(
+    color: Color,
+    pressed: Boolean,
+    radius: Dp = Neumorph.RadiusMd,
+    depth: Dp = if (pressed) Neumorph.DepthSm else Neumorph.DepthMd,
+): Modifier = neuSurface(radius, depth, inset = pressed, fill = color)
 
 @Composable
-private fun Modifier.neuSurface(radius: Dp, depth: Dp, inset: Boolean): Modifier {
+private fun Modifier.neuSurface(radius: Dp, depth: Dp, inset: Boolean, fill: Color?): Modifier {
     val palette = LocalPalette.current
     val density = LocalDensity.current
     val radiusPx = with(density) { radius.toPx() }
@@ -69,15 +87,21 @@ private fun Modifier.neuSurface(radius: Dp, depth: Dp, inset: Boolean): Modifier
         val h = size.height
         if (w < 1f || h < 1f) return@drawWithCache onDrawBehind {}
         val r = radiusPx.coerceAtMost(minOf(w, h) / 2f)
-        val slices = NeuSlices.of(palette, w, h, r, depthPx, inset)
-        val fill = if (inset) null else Brush.linearGradient(
+        val corner = CornerRadius(r, r)
+        // A well is filled with the deep background; a pressed filled control
+        // keeps its own colour, so its inset is the two shadows alone. (Raised
+        // templates have no fill either way, so they all share one key.)
+        val slices = NeuSlices.of(palette, w, h, r, depthPx, inset, well = !inset || fill == null)
+        val sheen = if (inset || fill != null) null else Brush.linearGradient(
             listOf(palette.surfaceHigh.toComposeColor(), palette.surfaceLow.toComposeColor()),
             start = Offset.Zero,
             end = Offset(w, h),
         )
         onDrawBehind {
+            if (fill != null && inset) drawRoundRect(fill, cornerRadius = corner)
             slices.draw(this)
-            if (fill != null) drawRoundRect(fill, cornerRadius = CornerRadius(r, r))
+            if (sheen != null) drawRoundRect(sheen, cornerRadius = corner)
+            if (fill != null && !inset) drawRoundRect(fill, cornerRadius = corner)
         }
     }
 }
@@ -106,7 +130,7 @@ private class NeuSlices(private val image: ImageBitmap, private val x: List<Piec
     }
 
     companion object {
-        fun of(palette: Palette, w: Float, h: Float, radius: Float, depth: Float, inset: Boolean): NeuSlices {
+        fun of(palette: Palette, w: Float, h: Float, radius: Float, depth: Float, inset: Boolean, well: Boolean): NeuSlices {
             val pad = if (inset) 0 else ceil(depth * 3f).toInt()
             // How far in from an edge the corners still show. The shadow is
             // offset by the depth and blurred to about three sigma past it, on
@@ -118,7 +142,7 @@ private class NeuSlices(private val image: ImageBitmap, private val x: List<Piec
             val span = corner * 2 + 1
             val tw = if (w > span) span.toFloat() else w
             val th = if (h > span) span.toFloat() else h
-            val image = Template.get(Template.Key(palette, tw, th, radius, depth, pad, inset))
+            val image = Template.get(Template.Key(palette, tw, th, radius, depth, pad, inset, well))
             return NeuSlices(image, pieces(w, tw, pad, corner), pieces(h, th, pad, corner))
         }
 
@@ -155,6 +179,8 @@ private object Template {
         val depth: Float,
         val pad: Int,
         val inset: Boolean,
+        /** An inset filled with the deep background, as every well is; false for shadows alone. */
+        val well: Boolean,
     )
 
     private const val BUDGET_BYTES = 8L shl 20
@@ -183,7 +209,7 @@ private object Template {
         val pad = key.pad.toFloat()
         val rect = RectF(pad, pad, pad + key.width, pad + key.height)
         if (key.inset) {
-            Neu.inset(canvas, rect, key.radius, key.palette, key.depth)
+            Neu.inset(canvas, rect, key.radius, key.palette, key.depth, fillColor = if (key.well) key.palette.bgDeep else 0)
         } else {
             Neu.raised(canvas, rect, key.radius, key.palette, key.depth, fill = false)
         }

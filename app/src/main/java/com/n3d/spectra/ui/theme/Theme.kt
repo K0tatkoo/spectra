@@ -15,17 +15,28 @@ import com.n3d.spectra.settings.ThemeMode
 
 val LocalPalette = staticCompositionLocalOf { Palette.DARK }
 
-/** The n3d motion tokens, one for one with the CSS custom properties. */
+/**
+ * The n3d motion tokens, one for one with the CSS custom properties.
+ *
+ * There is no "jelly" any more. Buttons used to squash on the way down and
+ * wobble back up; the sites dropped that on 2026-09-18 for one shared motion,
+ * and the owner asked for the same here on 2026-10-06. A control now presses
+ * into the surface and comes back out, and anything that slides or grows does
+ * it on [Ease], the sites' `--ease`.
+ */
 object Motion {
     val Spring = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
     val Out = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-    /** Overshoots ~4 % past the target before settling — the wobble in "jelly". */
-    val Jelly = CubicBezierEasing(0.2f, 1.72f, 0.36f, 1f)
+    /** `--ease`: the one button motion every site shares. Overshoots a little, then settles. */
+    val Ease = CubicBezierEasing(0.34f, 1.4f, 0.64f, 1f)
 
     const val FAST = 140
     const val MID = 260
     const val SLOW = 420
-    const val JELLY_MS = 340
+    /** `--t`: how long a button's motion takes. */
+    const val T = 220
+    /** The sliding tab tile's .38s, the same on every site. */
+    const val TILE = 380
 }
 
 /** Radii and shadow depths, matching `--r-*` and `--d-*`. */

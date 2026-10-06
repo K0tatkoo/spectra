@@ -217,7 +217,7 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
         intArrayOf(
             Palette.withAlpha(palette.accent2, 0.95f),
             Palette.withAlpha(palette.accent, 0.75f),
-            Palette.withAlpha(palette.gradA, 0.25f),
+            Palette.withAlpha(palette.accentFill, 0.25f),
         ),
         floatArrayOf(0f, 0.55f, 1f),
     )
@@ -368,7 +368,7 @@ class VizPainter2D(var palette: Palette = Palette.DARK) {
         path.closePath()
         g.paint = vGradient(
             r.top, r.bottom,
-            Palette.withAlpha(palette.accent, 0.85f), Palette.withAlpha(palette.gradA, 0.1f),
+            Palette.withAlpha(palette.accent, 0.85f), Palette.withAlpha(palette.accentFill, 0.1f),
         )
         g.fill(path)
     }

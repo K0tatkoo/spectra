@@ -40,6 +40,7 @@ import com.n3d.spectra.ui.MainViewModel
 import com.n3d.spectra.ui.neu.NeuButton
 import com.n3d.spectra.ui.neu.NeuCard
 import com.n3d.spectra.ui.neu.NeuIconButton
+import com.n3d.spectra.ui.neu.NeuIcons
 import com.n3d.spectra.ui.neu.NeuPicker
 import com.n3d.spectra.ui.neu.NeuSegmented
 import com.n3d.spectra.ui.neu.NeuSlider
@@ -86,7 +87,7 @@ fun SettingsScreen(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NeuIconButton(onClick = onBack, glyph = "‹", size = 42.dp)
+            NeuIconButton(onClick = onBack, icon = NeuIcons.ArrowLeft, contentDescription = "Back", size = 42.dp)
             Text(
                 "  Settings",
                 color = palette.text.toComposeColor(),

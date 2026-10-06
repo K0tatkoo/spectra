@@ -32,13 +32,25 @@ class Palette(
     val textFaint: Int,
     val accent: Int,
     val accent2: Int,
-    val gradA: Int,
-    val gradB: Int,
+    /**
+     * Every filled control — a primary button, a slider's travelled part, a
+     * progress bar, and on Windows the selected tab and a switch that is on —
+     * is this ONE flat violet, never a gradient. It is the sites'
+     * `--accent-fill` (owner's call for the sites on 2026-09-28, for Spectra on
+     * 2026-10-06): the deep end of the violet ramp the fills used to blend
+     * along. White on it clears 5.4:1 dark and 7.2:1 light. The graphs keep
+     * their colour fades and use it as their deepest violet.
+     */
+    val accentFill: Int,
     val good: Int,
     val warn: Int,
     val bad: Int,
 ) {
-    /** Top-left end of the raised-surface gradient: 88 % bg, 12 % light. */
+    /**
+     * Top-left end of the raised-surface gradient: 88 % bg, 12 % light. This
+     * one stays: it is the store's `--surface`, a sheen on the neutral
+     * surface rather than a coloured fill.
+     */
     val surfaceHigh: Int = mix(bg, light, 0.12f)
     /** Bottom-right end. Without this a large card reads as a flat slab. */
     val surfaceLow: Int = mix(bg, dark, 0.12f)
@@ -74,8 +86,7 @@ class Palette(
             textFaint = 0xFF737B8C.toInt(),
             accent = 0xFF9B7CFF.toInt(),
             accent2 = 0xFF34E3FF.toInt(),
-            gradA = 0xFF6A45FF.toInt(),
-            gradB = 0xFF9A6BFF.toInt(),
+            accentFill = 0xFF6A45FF.toInt(),
             good = 0xFF4ADE80.toInt(),
             warn = 0xFFF5C451.toInt(),
             bad = 0xFFFF6B6B.toInt(),
@@ -93,8 +104,7 @@ class Palette(
             textFaint = 0xFF7B8394.toInt(),
             accent = 0xFF5F43E8.toInt(),
             accent2 = 0xFF0A9FBD.toInt(),
-            gradA = 0xFF5734DB.toInt(),
-            gradB = 0xFF7D54EF.toInt(),
+            accentFill = 0xFF5734DB.toInt(),
             good = 0xFF17914D.toInt(),
             warn = 0xFFA06F04.toInt(),
             bad = 0xFFCF3535.toInt(),

@@ -43,9 +43,10 @@ import com.n3d.spectra.ui.MainViewModel
 import com.n3d.spectra.ui.VizSurface
 import com.n3d.spectra.ui.neu.NeuButton
 import com.n3d.spectra.ui.neu.NeuChip
+import com.n3d.spectra.ui.neu.NeuIconAction
 import com.n3d.spectra.ui.neu.NeuIconButton
+import com.n3d.spectra.ui.neu.NeuIcons
 import com.n3d.spectra.ui.neu.NeuSegmented
-import com.n3d.spectra.ui.neu.NeuTextAction
 import com.n3d.spectra.ui.neu.NeuWell
 import com.n3d.spectra.ui.theme.LocalPalette
 import com.n3d.spectra.ui.theme.Neumorph
@@ -97,7 +98,7 @@ fun HomeScreen(
                     fontSize = 11.sp,
                 )
             }
-            NeuIconButton(onClick = onOpenSettings, glyph = "⚙")
+            NeuIconButton(onClick = onOpenSettings, icon = NeuIcons.Tune, contentDescription = "Settings")
         }
 
         Spacer(Modifier.height(12.dp))
@@ -193,10 +194,11 @@ fun HomeScreen(
             )
             NeuIconButton(
                 onClick = { AudioEngine.setPaused(!paused) },
-                glyph = if (paused) "▶" else "⏸",
+                icon = if (paused) NeuIcons.Play else NeuIcons.Pause,
+                contentDescription = if (paused) "Resume" else "Pause",
                 active = paused,
             )
-            NeuIconButton(onClick = viewModel::resetMeters, glyph = "⟲")
+            NeuIconButton(onClick = viewModel::resetMeters, icon = NeuIcons.Reset, contentDescription = "Reset meters")
         }
     }
 }
@@ -223,7 +225,7 @@ private fun Banner(text: String, tone: Int, onDismiss: (() -> Unit)?) {
         )
         if (onDismiss != null) {
             Spacer(Modifier.width(8.dp))
-            NeuTextAction("✕", onDismiss)
+            NeuIconAction(NeuIcons.Close, "Dismiss", onDismiss)
         }
     }
 }
@@ -294,7 +296,12 @@ private fun ScopeControls(
             val steps = Settings.OSC_TIME_DIVS
             val at = steps.indices.minBy { kotlin.math.abs(steps[it] - timeDivMs) }
             Spacer(Modifier.width(10.dp))
-            NeuIconButton(onClick = { onTimeDiv(steps[(at - 1).coerceAtLeast(0)]) }, glyph = "−", size = 44.dp)
+            NeuIconButton(
+                onClick = { onTimeDiv(steps[(at - 1).coerceAtLeast(0)]) },
+                icon = NeuIcons.Minus,
+                contentDescription = "Less time per division",
+                size = 44.dp,
+            )
             Text(
                 oscTimeLabel(steps[at]),
                 color = palette.text.toComposeColor(),
@@ -304,7 +311,12 @@ private fun ScopeControls(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(62.dp),
             )
-            NeuIconButton(onClick = { onTimeDiv(steps[(at + 1).coerceAtMost(steps.lastIndex)]) }, glyph = "+", size = 44.dp)
+            NeuIconButton(
+                onClick = { onTimeDiv(steps[(at + 1).coerceAtMost(steps.lastIndex)]) },
+                icon = NeuIcons.Plus,
+                contentDescription = "More time per division",
+                size = 44.dp,
+            )
         }
     }
 }

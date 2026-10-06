@@ -251,7 +251,7 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         intArrayOf(
             Palette.withAlpha(palette.accent2, 0.95f),
             Palette.withAlpha(palette.accent, 0.75f),
-            Palette.withAlpha(palette.gradA, 0.25f),
+            Palette.withAlpha(palette.accentFill, 0.25f),
         ),
         floatArrayOf(0f, 0.55f, 1f),
         Shader.TileMode.CLAMP,
@@ -454,7 +454,7 @@ class VizPainter(var palette: Palette = Palette.DARK) {
         paint.shader = LinearGradient(
             0f, r.top, 0f, r.bottom,
             Palette.withAlpha(palette.accent, 0.85f),
-            Palette.withAlpha(palette.gradA, 0.1f),
+            Palette.withAlpha(palette.accentFill, 0.1f),
             Shader.TileMode.CLAMP,
         )
         canvas.drawPath(path, paint)

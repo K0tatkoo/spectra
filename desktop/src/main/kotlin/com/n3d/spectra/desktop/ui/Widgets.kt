@@ -42,6 +42,21 @@ abstract class NeuComponent(protected var palette: Palette) : JComponent() {
     protected var hovered = false
     protected var pressed = false
 
+    /**
+     * True for the controls that move like the sites' `.btn`: lifted while
+     * hovered, dropped back and pressed in while held. See [SiteEase].
+     */
+    protected open val lifts: Boolean = false
+    private val lift = Tween(this)
+
+    /** 0 at rest, 1 hovered, eased between and overshooting a hair on the way up. */
+    protected fun lift(): Float = lift.value
+
+    private fun moved() {
+        if (lifts) lift.moveTo(if (hovered && !pressed && isEnabled) 1f else 0f)
+        repaint()
+    }
+
     /** Multiplies every dimension, so the whole UI can be scaled from settings. */
     var scale: Float = 1f
         set(value) {
@@ -54,13 +69,13 @@ abstract class NeuComponent(protected var palette: Palette) : JComponent() {
         isOpaque = false
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         val handler = object : MouseAdapter() {
-            override fun mouseEntered(e: MouseEvent) { hovered = true; repaint() }
-            override fun mouseExited(e: MouseEvent) { hovered = false; pressed = false; repaint() }
+            override fun mouseEntered(e: MouseEvent) { hovered = true; moved() }
+            override fun mouseExited(e: MouseEvent) { hovered = false; pressed = false; moved() }
             override fun mousePressed(e: MouseEvent) {
                 if (!isEnabled) return
                 pressed = true
                 onPress(e)
-                repaint()
+                moved()
             }
             override fun mouseDragged(e: MouseEvent) {
                 if (!isEnabled) return
@@ -71,7 +86,7 @@ abstract class NeuComponent(protected var palette: Palette) : JComponent() {
                 val was = pressed
                 pressed = false
                 if (was) onRelease(e)
-                repaint()
+                moved()
             }
         }
         addMouseListener(handler)
@@ -89,6 +104,13 @@ abstract class NeuComponent(protected var palette: Palette) : JComponent() {
 
     protected fun dp(v: Float) = v * scale
     protected fun bounds0() = Box(0f, 0f, width.toFloat(), height.toFloat())
+
+    /** The control's face, 2 dp in from its bounds, raised by [up] × 2 dp. */
+    protected fun liftedBox(up: Float): Box {
+        val b = bounds0().inset(dp(2f), dp(2f))
+        val dy = dp(2f) * up
+        return Box(b.left, b.top - dy, b.right, b.bottom - dy)
+    }
 
     override fun paintComponent(gr: Graphics) {
         val g = (gr as Graphics2D).quality()
@@ -212,7 +234,7 @@ class NeuToggle(
             dp(2f), height / 2f + dp(3.5f), Fonts.sans(dp(10.5f)),
             if (isEnabled) palette.text else palette.textFaint,
         )
-        Neu2D.inset(g, track, h / 2f, palette, dp(2f), if (value) Palette.withAlpha(palette.gradA, 0.9f) else palette.bgDeep)
+        Neu2D.inset(g, track, h / 2f, palette, dp(2f), if (value) palette.accentFill else palette.bgDeep)
         val knobR = h / 2f - dp(3f)
         val cx = if (value) track.right - knobR - dp(3f) else track.left + knobR + dp(3f)
         g.fillRound(
@@ -222,13 +244,19 @@ class NeuToggle(
     }
 }
 
-/** A raised pill that does something when clicked. */
+/**
+ * A raised pill that does something when clicked. Moves like the sites'
+ * `.btn`: 2 px up and a bigger shadow while hovered, pressed in while held.
+ * The accent one is one flat violet, never a gradient.
+ */
 class NeuButton(
     private var label: String,
     palette: Palette,
     private val accent: Boolean = false,
     private val onClick: () -> Unit,
 ) : NeuComponent(palette) {
+
+    override val lifts = true
 
     init { sized(34f) }
 
@@ -239,23 +267,23 @@ class NeuButton(
     }
 
     override fun paintNeu(g: Graphics2D) {
-        val b = bounds0().inset(dp(2f), dp(2f))
+        val up = lift()
+        val b = liftedBox(up)
         val radius = b.height() / 2f
-        if (pressed) {
-            Neu2D.inset(g, b, radius, palette, dp(3f), if (accent) palette.gradA else palette.bg)
-        } else {
-            Neu2D.raised(
-                g, b, radius, palette, dp(if (hovered) 5f else 4f),
-                fillFrom = if (accent) palette.gradB else palette.surfaceHigh,
-                fillTo = if (accent) palette.gradA else palette.surfaceLow,
-            )
+        // Small shadow pair at rest, the medium one when lifted (4 → 7 px, the
+        // sites' --sh-out-sm → --sh-out), the small inset pair while pressed.
+        val depth = dp(4f + 3f * up)
+        when {
+            pressed -> Neu2D.inset(g, b, radius, palette, dp(3f), if (accent) palette.accentFill else palette.bg)
+            accent -> Neu2D.filled(g, b, radius, palette, depth, palette.accentFill)
+            else -> Neu2D.raised(g, b, radius, palette, depth)
         }
         val color = when {
             !isEnabled -> palette.textFaint
             accent -> 0xFFFFFFFF.toInt()
             else -> palette.text
         }
-        g.text(label, width / 2f, height / 2f + dp(4f), Fonts.sans(dp(11f), bold = true), color, Align.CENTER)
+        g.text(label, width / 2f, b.centerY() + dp(4f), Fonts.sans(dp(11f), bold = true), color, Align.CENTER)
     }
 }
 
@@ -349,10 +377,7 @@ class NeuSegmented<T>(
                 cells[i] = box
                 val selected = items[i] == value
                 if (selected) {
-                    Neu2D.raised(
-                        g, box, box.height() / 2f, palette, dp(3f),
-                        fillFrom = palette.gradB, fillTo = palette.gradA,
-                    )
+                    Neu2D.filled(g, box, box.height() / 2f, palette, dp(3f), palette.accentFill)
                 } else {
                     Neu2D.inset(g, box, box.height() / 2f, palette, dp(2f))
                 }
@@ -437,10 +462,8 @@ class NeuSlider(
         val f = ((value - min) / (max - min)).coerceIn(0f, 1f)
         val fillTo = t.left + t.width() * f
         if (fillTo > t.left + 1f) {
-            g.paint = com.n3d.spectra.desktop.paint.hGradient(
-                t.left, t.right, intArrayOf(palette.gradA, palette.accent2), floatArrayOf(0f, 1f),
-            )
-            g.fillRound(Box(t.left, t.top, max(fillTo, t.left + t.height()), t.bottom), t.height() / 2f)
+            // The travelled part: one flat violet, never a gradient.
+            g.fillRound(Box(t.left, t.top, max(fillTo, t.left + t.height()), t.bottom), t.height() / 2f, palette.accentFill)
         }
         val knobR = dp(6.5f)
         val cx = (t.left + t.width() * f).coerceIn(t.left + knobR, t.right - knobR)
@@ -463,6 +486,8 @@ class NeuDropdown<T>(
 
     var value: T? = initial
         set(v) { field = v; repaint() }
+
+    override val lifts = true
 
     init { sized(50f) }
 
@@ -493,8 +518,9 @@ class NeuDropdown<T>(
 
     override fun paintNeu(g: Graphics2D) {
         g.text(label, dp(2f), dp(11f), Fonts.sans(dp(9.5f)), palette.textDim)
-        val b = Box(dp(2f), dp(16f), width - dp(2f), height - dp(2f))
-        if (pressed) Neu2D.inset(g, b, dp(9f), palette, dp(3f)) else Neu2D.raised(g, b, dp(9f), palette, dp(if (hovered) 5f else 4f))
+        val up = lift()
+        val b = Box(dp(2f), dp(16f) - dp(2f) * up, width - dp(2f), height - dp(2f) - dp(2f) * up)
+        if (pressed) Neu2D.inset(g, b, dp(9f), palette, dp(3f)) else Neu2D.raised(g, b, dp(9f), palette, dp(4f + 3f * up))
         val font = Fonts.sans(dp(10.5f))
         val caret = dp(16f)
         val text = value?.let { render(it) } ?: "—"
@@ -551,7 +577,7 @@ class PageBar<T>(
             cells[i] = box
             val selected = items[i] == value
             if (selected) {
-                Neu2D.raised(g, box, box.height() / 2f, palette, dp(4f), fillFrom = palette.gradB, fillTo = palette.gradA)
+                Neu2D.filled(g, box, box.height() / 2f, palette, dp(4f), palette.accentFill)
             } else {
                 Neu2D.inset(g, box, box.height() / 2f, palette, dp(2f))
             }
