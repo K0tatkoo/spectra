@@ -13,7 +13,10 @@ Two kinds, because each fixes the other's weakness:
   vocals with no synth at all, and synth with no vocals.
 
 Every example also gets a random level, and some have no synth at all, so the
-network learns that silence is an answer too.
+network learns that silence is an answer too. A real example "with no synth"
+is cut from a stretch of a song where the synth is silent — the stem model's
+take on guitars, pianos and voices with nothing to find in it, which is what
+the second run got wrong on songs it had not heard.
 """
 
 from __future__ import annotations
@@ -49,7 +52,17 @@ class Song:
         self.meta = json.loads((path / "meta.json").read_text())
         self.corpus = self.meta["corpus"]
         self.samples = int(self.meta["samples"])
-        self.active = [i for i, db in enumerate(self.meta.get("synth_activity_db", [])) if db > ACTIVE_DB]
+        activity = self.meta.get("synth_activity_db", [])
+        self.active = [i for i, db in enumerate(activity) if db > ACTIVE_DB]
+        # Runs of whole seconds with no synth in them: (first second, seconds).
+        self.quiet: list[tuple[int, int]] = []
+        first = None
+        for i, db in enumerate(list(activity) + [0.0]):
+            if db <= ACTIVE_DB and first is None:
+                first = i
+            elif db > ACTIVE_DB and first is not None:
+                self.quiet.append((first, i - first))
+                first = None
         self.has_vocals = self.meta["rms_db"].get("vocals", -200) > -60
         self._arrays = None
 
@@ -85,6 +98,9 @@ class SplitDataset(Dataset):
         for s in self.songs:
             self.by_corpus.setdefault(s.corpus, []).append(s)
         self.with_synth = {c: [s for s in v if s.active] for c, v in self.by_corpus.items()}
+        self.quiet_seconds = -(-crop // 44100) + 1  # whole seconds a quiet run needs to hold a crop anywhere in it
+        self.with_quiet = {c: [s for s in v if any(n >= self.quiet_seconds for _, n in s.quiet)]
+                           for c, v in self.by_corpus.items()}
         self.with_vocals = [s for s in self.songs if s.has_vocals]
         weights = self.mix.corpus_weights or {c: 1.0 for c in self.by_corpus}
         names = [c for c in self.by_corpus if weights.get(c, 0) > 0]
@@ -96,13 +112,22 @@ class SplitDataset(Dataset):
 
     # -- picking ---------------------------------------------------------------
 
-    def _song(self, rng, want_synth: bool) -> Song:
+    def _song(self, rng, want_synth: bool, quiet: bool = False) -> Song:
         corpus = self.corpora[rng.choice(len(self.corpora), p=self.corpus_p)]
-        pool = self.with_synth[corpus] if want_synth and self.with_synth[corpus] else self.by_corpus[corpus]
+        if quiet and self.with_quiet[corpus]:
+            pool = self.with_quiet[corpus]
+        else:
+            pool = self.with_synth[corpus] if want_synth and self.with_synth[corpus] else self.by_corpus[corpus]
         return pool[rng.integers(len(pool))]
 
-    def _start(self, song: Song, rng, want_synth: bool) -> int:
+    def _start(self, song: Song, rng, want_synth: bool, quiet: bool = False) -> int:
         span = song.samples - self.crop_len
+        runs = [(a, n) for a, n in song.quiet if n >= self.quiet_seconds] if quiet else []
+        if runs:
+            # Anywhere inside a run of seconds with no synth.
+            a, n = runs[rng.integers(len(runs))]
+            lo = a * 44100
+            return int(np.clip(lo + rng.integers(n * 44100 - self.crop_len + 1), 0, span))
         if want_synth and song.active:
             # Centre the crop on a second that has synth in it.
             second = song.active[rng.integers(len(song.active))]
@@ -117,13 +142,14 @@ class SplitDataset(Dataset):
     # -- examples ----------------------------------------------------------------
 
     def _real(self, rng, want_synth: bool):
-        song = self._song(rng, want_synth)
-        start = self._start(song, rng, want_synth)
+        quiet = not want_synth
+        song = self._song(rng, want_synth, quiet)
+        start = self._start(song, rng, want_synth, quiet)
         n = self.crop_len
         v, o, s = song.crop("sg_vocals", start, n), song.crop("sg_other", start, n), song.crop("synth", start, n)
         if not self.real_only and rng.random() < self.mix.second_song_share:
-            other = self._song(rng, want_synth)
-            at = self._start(other, rng, want_synth)
+            other = self._song(rng, want_synth, quiet)
+            at = self._start(other, rng, want_synth, quiet)
             g = self._db(rng, (-12.0, 0.0))
             v = v + g * other.crop("sg_vocals", at, n)
             o = o + g * other.crop("sg_other", at, n)

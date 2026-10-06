@@ -197,8 +197,12 @@ def main():
     by_corpus: dict[str, list] = {}
     for song in valid_songs:
         by_corpus.setdefault(json.loads((song / "meta.json").read_text())["corpus"], []).append(song)
-    valid_loaders = {c: DataLoader(SplitDataset(v, long_crop, args.valid_examples, 12345, real_only=True),
-                                   batch_size=long_batch, num_workers=args.workers)
+    # A third of the held-out crops are cut where the synth is silent, so _silent has numbers behind it.
+    # Few workers: each one is a process with torch in it (~0.9 GB of commit on Windows), and these
+    # start while the training loader's are still alive.
+    valid_loaders = {c: DataLoader(SplitDataset(v, long_crop, args.valid_examples, 12345, Mix(no_synth_share=0.33),
+                                                real_only=True),
+                                   batch_size=long_batch, num_workers=min(args.workers, 3))
                      for c, v in sorted(by_corpus.items())}
     if args.select == "auto":
         args.select = "moisesdb" if "moisesdb" in valid_loaders else "slakh" if "slakh" in valid_loaders else next(iter(valid_loaders))
@@ -224,6 +228,7 @@ def main():
         net.std.copy_(std)
         ema = copy.deepcopy(net)
     ema.requires_grad_(False)
+    ema.gru.flatten_parameters()  # a deep copy's GRU weights are no longer one block: cuDNN would re-pack them every call
 
     if args.resume and ckpt_path.exists() and "steps" in ckpt:
         args.steps = int(ckpt["steps"])  # keep the schedule the run was started with
