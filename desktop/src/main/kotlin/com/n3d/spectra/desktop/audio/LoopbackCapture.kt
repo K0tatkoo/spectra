@@ -37,6 +37,8 @@ class LoopbackCapture(
     private val device: InputDevice,
     private val requestedRate: Int,
     requestedStereo: Boolean,
+    /** False forces the mix-format fallback, so the checks can exercise it on a driver that would convert. */
+    internal val allowConversion: Boolean = true,
 ) : AudioCapture {
 
     private val followDefault = device.outputId == Devices.DEFAULT_OUTPUT_ID
@@ -155,7 +157,7 @@ class LoopbackCapture(
             if (!Wasapi.isActive(dev)) throw notConnected(outputName)
             val name = Wasapi.nameOf(dev) ?: outputName
             val next = try {
-                LoopbackStream.open(dev, requestedRate)
+                LoopbackStream.open(dev, requestedRate, allowConversion)
             } catch (e: HResultException) {
                 throw explain(e, name)
             }

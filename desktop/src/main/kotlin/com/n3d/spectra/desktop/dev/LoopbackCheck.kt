@@ -118,16 +118,24 @@ fun main(args: Array<String>) {
     check("the Source list offers system audio", Devices.SYSTEM_DEFAULT.name in listed, listed.joinToString(" | "))
 
     // 48 kHz stereo is usually the mix format already; 44.1 kHz mono makes
-    // Windows resample and down-mix, which is the path most likely to be refused.
-    for ((rate, stereo) in listOf(48000 to true, 44100 to false)) {
-        val label = "$rate Hz ${if (stereo) "stereo" else "mono"}"
-        val cap = LoopbackCapture(Devices.SYSTEM_DEFAULT, rate, requestedStereo = stereo)
+    // Windows resample and down-mix. The third run refuses Windows' conversion,
+    // which is what a driver that will not convert gets: the raw mix format,
+    // converted by PcmConverter.
+    class Run(val rate: Int, val stereo: Boolean, val convert: Boolean)
+    for (run in listOf(Run(48000, true, true), Run(44100, false, true), Run(44100, true, false))) {
+        val label = "${run.rate} Hz ${if (run.stereo) "stereo" else "mono"}${if (run.convert) "" else ", mix format"}"
+        val cap = LoopbackCapture(Devices.SYSTEM_DEFAULT, run.rate, requestedStereo = run.stereo, allowConversion = run.convert)
         val started = runCatching { cap.start() }
         check("default output opens in loopback at $label", started.isSuccess, started.exceptionOrNull()?.message ?: cap.describe)
         if (started.isFailure) continue
         try {
-            check("the stream runs at the rate asked for ($label)", cap.sampleRate == rate && cap.channelCount == (if (stereo) 2 else 1),
-                "${cap.sampleRate} Hz, ${cap.channelCount} ch")
+            if (run.convert) {
+                check("the stream runs at the rate asked for ($label)", cap.sampleRate == run.rate && cap.channelCount == (if (run.stereo) 2 else 1),
+                    "${cap.sampleRate} Hz, ${cap.channelCount} ch")
+            } else {
+                check("the stream runs at the endpoint's own rate ($label)", cap.sampleRate > 0 && cap.channelCount == 2 && cap.describe.contains(" · ${cap.sampleRate} Hz"),
+                    cap.describe)
+            }
             // However quiet the machine, the stream has to keep time.
             val quiet = capture(cap, 1.0)
             val seconds = quiet.size.toDouble() / cap.channelCount / cap.sampleRate

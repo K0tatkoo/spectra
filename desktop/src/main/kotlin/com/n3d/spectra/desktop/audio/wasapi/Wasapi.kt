@@ -201,14 +201,17 @@ internal class LoopbackStream private constructor(
         /** A fifth of a second, in 100 ns units — the same margin the microphone path keeps. */
         private const val BUFFER_HNS = 2_000_000L
 
-        fun open(device: ComPtr, rate: Int): LoopbackStream {
+        /** [allowConversion] false skips straight to the mix format; only the checks do that. */
+        fun open(device: ComPtr, rate: Int, allowConversion: Boolean = true): LoopbackStream {
             // First choice: Windows resamples and down-mixes to float stereo at the
             // rate the user picked, so the stream matches every other source.
-            val wanted = PcmFormat.float32(rate, 2)
-            val wantedBytes = wanted.toWaveFormatEx()
-            val wantedMem = Memory(wantedBytes.size.toLong()).apply { write(0, wantedBytes, 0, wantedBytes.size) }
-            tryInit(device, wantedMem, wanted, STREAMFLAGS_AUTOCONVERTPCM or STREAMFLAGS_SRC_DEFAULT_QUALITY)
-                ?.let { return it }
+            if (allowConversion) {
+                val wanted = PcmFormat.float32(rate, 2)
+                val wantedBytes = wanted.toWaveFormatEx()
+                val wantedMem = Memory(wantedBytes.size.toLong()).apply { write(0, wantedBytes, 0, wantedBytes.size) }
+                tryInit(device, wantedMem, wanted, STREAMFLAGS_AUTOCONVERTPCM or STREAMFLAGS_SRC_DEFAULT_QUALITY)
+                    ?.let { return it }
+            }
 
             // Fallback: the endpoint's own mix format, converted on our side.
             val client = Wasapi.activateAudioClient(device)

@@ -7,8 +7,9 @@ analysis engine:
   Runtime, and only for the [Stems page](#stems--live-source-separation);
   everything else is plain Kotlin on AndroidX. Built for the Galaxy S24 Ultra but
   nothing in it is device-specific.
-- **`desktop/`** — Windows. Kotlin + Swing/Java2D, one dependency (the Kotlin
-  stdlib), shipped as a self-contained `.exe`.
+- **`desktop/`** — Windows. Kotlin + Swing/Java2D, two dependencies (the Kotlin
+  stdlib, and JNA for [system audio](#system-audio)), shipped as a
+  self-contained `.exe`.
 
 The desktop module compiles the whole `com.n3d.spectra.dsp` package — the 2A03
 tracker and the held-still scopes included — `Settings`, `Palette` and the
@@ -318,11 +319,37 @@ each where it uses it:
 
 To run it on the Mac during development: `./gradlew :desktop:runApp`.
 
+### System audio
+
+Source → **System audio · default output** captures what Windows is playing,
+the desktop twin of the phone's Device audio; there is also one entry per active
+output. It is WASAPI loopback, which the JDK has no API for, so
+`desktop/audio/wasapi/` calls it through JNA: a COM interface is a pointer to a
+table of function pointers, and JNA can call a function pointer, so there is no
+native code to build and the cross-build above is unchanged.
+
+- Windows is asked for float stereo at the chosen rate
+  (`AUTOCONVERTPCM`). A driver that refuses gets its own mix format taken as-is,
+  and `PcmConverter` handles 16/24/32-bit, 24-in-32 and surround (ITU fold, LFE
+  dropped).
+- Loopback delivers **no packets** while nothing plays. `LoopbackCapture`
+  generates the silence at the stream's rate, or every meter would freeze on its
+  last value.
+- The default-output entry checks once a second and follows a change; a named
+  output that is unplugged fails with its own name rather than becoming the
+  microphone. `AUDCLNT_E_DEVICE_INVALIDATED` is answered by reopening.
+- **Wine cannot test it.** Wine runs the COM path up to `Initialize` and answers
+  `E_NOTIMPL`, so `.github/workflows/windows-system-audio.yml` runs
+  `:desktop:loopbackCheck --tone` on a GitHub Windows runner with a virtual
+  sound card: a quiet tone played through Windows has to come back out of
+  loopback, at 48 kHz stereo and through Windows' resampler at 44.1 kHz mono.
+
 Checks, none of which need a display:
 
 | Task | What it does |
 |---|---|
 | `:desktop:trackerCheck` | Synthesises 2A03 audio and asserts the tracker's behaviour, including stationarity and the limits it cannot beat |
+| `:desktop:loopbackCheck` | Checks system audio's sample conversion; on Windows it also captures live (see [System audio](#system-audio)) |
 | `:desktop:uiShots` | Renders every page of the real window to PNGs |
 | `:desktop:crtShots` | Renders the Oscilloscope page from known signals on a simulated clock, and times it |
 | `:desktop:oscDemoWav` | Writes the built-in oscilloscope demo to a WAV, to play into a phone |
@@ -342,10 +369,10 @@ wine desktop/build/windows/image/Spectra/runtime/bin/java.exe \
 Waveform page → **2A03 triangle** on the phone, Waveform page → Mode → **NES
 2A03 triangle** on Windows. Same tracker on both (`dsp/nes`).
 
-On the phone it has the one thing the desktop lacks: device audio. Played
-through a speaker into a microphone the staircase arrives smeared by the room
-and the speaker's own phase, and the lock never settles; captured digitally it
-locks at a fit of 1.00.
+Feed it digital audio — Device audio on the phone, System audio on Windows.
+Played through a speaker into a microphone the staircase arrives smeared by the
+room and the speaker's own phase, and the lock never settles; captured
+digitally it locks at a fit of 1.00.
 
 The NES triangle channel is not a triangle wave: it is a 4-bit DAC walking a
 fixed 32-step sequence clocked straight off the CPU, so its output is a staircase
@@ -536,11 +563,10 @@ energy fading with the phosphor (`Crt.kt`, shared with Windows).
   confirmed before the service that owns the capture ever starts, and a
   revocation in between arrives as the `SecurityException` the surrounding catch
   already handles.
-- The Windows build cannot capture system audio on its own. The JDK has no
-  WASAPI loopback, so it can only open the recording endpoints the driver
-  exposes — "Stereo Mix" or a virtual cable. A small JNI DLL around `IAudioClient`
-  would fix it and is not in this build; the app says so rather than sitting on a
-  silent input.
+- ~~The Windows build cannot capture system audio on its own.~~ Fixed
+  2026-10-06: WASAPI loopback through JNA, see [System audio](#system-audio).
+  What it still cannot capture is an output another app holds in exclusive mode
+  (ASIO, WASAPI-exclusive players): Windows locks everyone out while that lasts.
 - The Windows `.exe` is not code-signed, so SmartScreen warns on first run.
 - Stems are separated at about 4.5 dB SDR — good enough to hold a bass line or a
   voice still, not to hear as a clean stem. Four stems only: two guitars are one
