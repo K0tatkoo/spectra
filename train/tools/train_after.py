@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -56,12 +57,15 @@ def main():
         log(f"{name} {'done' if rc == 0 else f'FAILED (exit {rc})'} · {(lines[-1] if lines else '')[:300]}")
         return rc == 0
 
-    waits = (["] all done"] if args.wait else []) + ([f"] {args.after}: all done"] if args.after else [])
+    # Whole lines only, as the two scripts write them ("[Tue 01:02:03] all done ·…",
+    # "[Tue 04:05:06] third: all done"): a substring would match this run's own "waiting" line.
+    waits = ([re.compile(r"^\[[^\]]+\] all done\b")] if args.wait else []) + \
+        ([re.compile(rf"^\[[^\]]+\] {re.escape(args.after)}: all done$")] if args.after else [])
     if waits:
-        log(f"waiting for: {', '.join(waits)}")
+        log("waiting for " + " and ".join((["the corpus"] if args.wait else []) + ([f"run {args.after}"] if args.after else [])))
         while True:
-            text = pipeline.read_text(encoding="utf-8", errors="replace") if pipeline.exists() else ""
-            if all(w in text for w in waits):
+            lines = pipeline.read_text(encoding="utf-8", errors="replace").splitlines() if pipeline.exists() else []
+            if all(any(w.match(line) for line in lines) for w in waits):
                 break
             time.sleep(60)
     corpus = args.root / "corpus"
