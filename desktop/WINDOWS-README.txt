@@ -16,22 +16,30 @@ GETTING AUDIO IN
 
 Pick an input under Source on the right.
 
-To analyse a microphone or a line input, just choose it.
-
 To analyse what is *playing* — an emulator, a music player, a browser tab —
-Windows needs a loopback recording endpoint, and this app can only open the
-endpoints the sound driver exposes. Look for:
+choose one of the "System audio" inputs:
 
-  * "Stereo Mix", "What U Hear", "Wave Out Mix" — built into many Realtek and
-    Creative drivers, and usually DISABLED out of the box. Enable it in
-    Settings -> Sound -> More sound settings -> Recording -> right-click in the
-    empty space -> Show Disabled Devices -> enable Stereo Mix.
-  * A virtual cable such as VB-Audio Virtual Cable or VoiceMeeter, if your
-    driver has no loopback endpoint at all. Set it as the playback device and
-    select its output here.
+  * "System audio · default output" listens to whatever Windows is playing
+    through its default output, and follows it when that changes (plugging in
+    headphones, picking another output from the volume icon). This is what a
+    fresh install starts on.
+  * "System audio · <output name>" listens to one particular output and stays
+    on it. If that output is unplugged, the app says so instead of switching to
+    something else behind your back.
 
-If nothing suitable exists, the app says so in the Source panel rather than
-sitting on a silent input and pretending.
+System audio is a straight digital copy of what Windows sends to the output
+(WASAPI loopback, the same thing OBS and Audacity use). Nothing has to be
+enabled first, no "Stereo Mix" and no virtual cable. When nothing is playing,
+the graphs settle to silence, and after a few seconds the app says nothing is
+coming out of that output, in case the sound is going somewhere else.
+
+Two things it cannot capture: an app that holds the output in exclusive mode
+(some ASIO or "WASAPI exclusive" players; Windows locks everyone else out while
+that lasts), and audio that never reaches Windows' mixer at all.
+
+To analyse a microphone or a line input, just choose it. Driver-provided
+loopback endpoints ("Stereo Mix", virtual cables) still appear in the list
+too, and still work.
 
 There is also a "Built-in 2A03 demo signal" input. It generates a NES bass line
 in software, so you can see the app working — and see what the 2A03 mode is
@@ -108,6 +116,6 @@ KNOWN LIMITS
   * The Explorer icon, the taskbar icon and the window icon are all in place,
     but the executable is not code-signed, so SmartScreen will warn on first run
     ("More info" -> "Run anyway").
-  * System-audio capture depends entirely on the sound driver exposing a
-    loopback endpoint; see GETTING AUDIO IN above.
+  * System audio cannot capture an output another app is holding in exclusive
+    mode; see GETTING AUDIO IN above.
   * 64-bit Windows 10 or later, x64. There is no ARM64 build.

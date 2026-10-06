@@ -10,10 +10,8 @@ import kotlin.random.Random
  *
  * Two things make this worth shipping rather than keeping in a test:
  *
- *  * The Windows loopback problem is real (see [Devices]) and a user whose
- *    machine has no "Stereo Mix" has, until they fix that, no way to tell a
- *    broken install from a missing endpoint. This gives them a signal that is
- *    definitely there.
+ *  * It is a signal that is definitely there. When every real input shows
+ *    nothing, it tells a broken install apart from a quiet or misrouted source.
  *  * The 2A03 view is unusual enough that seeing it work on known-good audio is
  *    the fastest way to understand what it is showing — the staircase, the timer
  *    readout and the fold depth all mean more when you already know the answer.

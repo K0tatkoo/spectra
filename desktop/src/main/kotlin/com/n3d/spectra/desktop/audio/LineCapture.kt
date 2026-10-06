@@ -2,6 +2,8 @@ package com.n3d.spectra.desktop.audio
 
 import com.n3d.spectra.audio.AudioCapture
 import com.n3d.spectra.audio.CaptureException
+import com.n3d.spectra.desktop.audio.wasapi.SystemAudioSupport
+import com.n3d.spectra.desktop.audio.wasapi.Wasapi
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
@@ -13,28 +15,38 @@ import javax.sound.sampled.TargetDataLine
 class InputDevice(
     val name: String,
     val description: String,
-    /** Null for the built-in demo generator, which is not a mixer at all. */
+    /** Null for the built-in generators and for system audio, which are not mixers. */
     val mixer: Mixer.Info?,
     /** Looks like a "record what is playing" device rather than a physical input. */
     val loopback: Boolean,
+    /**
+     * Set for system audio: the playback endpoint to capture with WASAPI loopback,
+     * [Devices.DEFAULT_OUTPUT_ID] to follow Windows' default output, or empty for
+     * a saved output that is no longer connected.
+     */
+    val outputId: String? = null,
 )
 
 /**
- * What the machine can record from, and the honest story about system audio.
+ * What the machine can record from.
  *
- * On Android, Spectra can capture another app's playback directly — that is what
- * `AudioPlaybackCapture` is for. **The JDK has no equivalent on Windows.**
- * `javax.sound.sampled` can only open the recording endpoints the driver exposes,
- * and WASAPI loopback is not one of them. So there is no code here that can
- * "capture the desktop"; there is only code that opens whatever the sound card
- * offers, which on most machines includes a loopback endpoint under one of the
- * names in [LOOPBACK_HINTS] — usually disabled until the user turns it on.
+ * Two kinds of source, because `javax.sound.sampled` only reaches one of them:
  *
- * The alternative would be shipping a small JNI DLL around `IAudioClient` in
- * loopback mode. That is the right long-term answer and it is not what this build
- * does; saying so plainly in the UI is better than a mystery silent input.
+ *  * **System audio** — what an output is playing — comes from WASAPI loopback
+ *    ([LoopbackCapture]). The JDK has no way to ask for it, so it goes straight
+ *    to Windows' audio service through JNA. Listed once per active output, plus
+ *    one entry that follows the default output.
+ *  * **Physical inputs** — microphones, line-ins, and any "Stereo Mix" or virtual
+ *    cable the driver exposes as a recording endpoint — come from
+ *    `javax.sound.sampled` ([LineCapture]), as before.
  */
 object Devices {
+
+    /** Every system-audio entry's name starts with this; saved names are matched on it. */
+    const val SYSTEM_AUDIO_PREFIX = "System audio · "
+
+    /** The [InputDevice.outputId] of the entry that follows Windows' default output. */
+    const val DEFAULT_OUTPUT_ID = "default"
 
     /**
      * Endpoint names that mean "whatever is coming out of the speakers".
@@ -65,10 +77,31 @@ object Devices {
         loopback = false,
     )
 
+    /** "Whatever Windows is playing", following the default output. Only listed on Windows. */
+    val SYSTEM_DEFAULT = InputDevice(
+        name = "${SYSTEM_AUDIO_PREFIX}default output",
+        description = "Everything playing through Windows' default output, following it when that changes",
+        mixer = null,
+        loopback = true,
+        outputId = DEFAULT_OUTPUT_ID,
+    )
+
     fun list(): List<InputDevice> {
         val out = ArrayList<InputDevice>()
         out += DEMO
         out += OSC_DEMO
+        if (SystemAudioSupport.available) {
+            out += SYSTEM_DEFAULT
+            for (endpoint in runCatching { Wasapi.outputs() }.getOrDefault(emptyList())) {
+                out += InputDevice(
+                    name = SYSTEM_AUDIO_PREFIX + endpoint.name,
+                    description = "Everything playing through ${endpoint.name}",
+                    mixer = null,
+                    loopback = true,
+                    outputId = endpoint.id,
+                )
+            }
+        }
         for (info in AudioSystem.getMixerInfo()) {
             val mixer = runCatching { AudioSystem.getMixer(info) }.getOrNull() ?: continue
             val supportsCapture = mixer.targetLineInfo.any { it is DataLine.Info && TargetDataLine::class.java.isAssignableFrom(it.lineClass) }
@@ -87,11 +120,22 @@ object Devices {
         return out.distinctBy { it.name }
     }
 
-    fun find(name: String?): InputDevice? =
-        if (name == null) null else list().firstOrNull { it.name == name }
+    fun find(name: String?): InputDevice? {
+        if (name == null) return null
+        list().firstOrNull { it.name == name }?.let { return it }
+        // A saved output that has gone away (headphones unplugged) must fail with
+        // its own name, not quietly turn into the default microphone.
+        if (name.startsWith(SYSTEM_AUDIO_PREFIX)) {
+            return InputDevice(name, "Not connected", mixer = null, loopback = true, outputId = "")
+        }
+        return null
+    }
 
-    /** True when nothing on this machine looks like a system-audio endpoint. */
-    fun hasLoopback(): Boolean = list().any { it.loopback }
+    /** What to open when the user has never picked a source: what is playing, where that is possible. */
+    fun initial(): InputDevice? = if (SystemAudioSupport.available) SYSTEM_DEFAULT else null
+
+    /** True when something on this machine can capture what is playing. */
+    fun hasLoopback(): Boolean = SystemAudioSupport.available || list().any { it.loopback }
 }
 
 /**

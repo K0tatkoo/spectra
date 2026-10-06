@@ -3,6 +3,7 @@ package com.n3d.spectra.desktop.audio
 import com.n3d.spectra.audio.AudioCapture
 import com.n3d.spectra.audio.CaptureException
 import com.n3d.spectra.audio.MonoRing
+import com.n3d.spectra.desktop.audio.wasapi.SystemAudioSupport
 import com.n3d.spectra.dsp.nes.NesOptions
 import com.n3d.spectra.dsp.nes.NesReading
 import com.n3d.spectra.dsp.nes.PitchPreFilter
@@ -31,7 +32,8 @@ class DesktopFrame(val analysis: AnalysisFrame, val nes: NesReading?)
  * shared DSP objects, the same conflate-don't-block contract — with three
  * differences that the platform forces:
  *
- *  * capture is a `TargetDataLine` rather than an `AudioRecord`;
+ *  * capture is a `TargetDataLine` or a WASAPI loopback stream rather than an
+ *    `AudioRecord`;
  *  * there is no coroutine machinery, so the newest frame sits in a volatile
  *    field and the UI's repaint timer reads it. That is what a conflated
  *    `StateFlow` did anyway: a slow consumer drops frames instead of pushing back
@@ -201,21 +203,32 @@ object DesktopEngine {
         var silentMs = 0f
         var warnedSilent = false
         var clipHoldMs = 0f
+        var shownDescribe = cap.describe
 
         while (running && !Thread.currentThread().isInterrupted) {
+            var failure: CaptureException? = null
             val read = try {
                 cap.read(interleaved)
+            } catch (e: CaptureException) {
+                failure = e
+                -1
             } catch (t: Throwable) {
                 -1
             }
             if (read < 0) {
                 state = State.Failed(
-                    CaptureException.Kind.UNAVAILABLE,
-                    "The audio input stopped delivering samples. Another app may have taken it.",
+                    failure?.kind ?: CaptureException.Kind.UNAVAILABLE,
+                    failure?.message ?: "The audio input stopped delivering samples. Another app may have taken it.",
                 )
                 break
             }
             if (read == 0) continue
+            // System audio follows the default output, so what is being listened
+            // to can change under a running stream.
+            if (cap.describe !== shownDescribe && running) {
+                shownDescribe = cap.describe
+                state = State.Running(shownDescribe)
+            }
 
             if (settings !== s) {
                 val next = settings
@@ -283,7 +296,7 @@ object DesktopEngine {
             val blockMs = frames * 1000f / rate
             if (allSilent) silentMs += blockMs else silentMs = 0f
             clipHoldMs = if (clipped) CLIP_HOLD_MS else (clipHoldMs - blockMs).coerceAtLeast(0f)
-            warnedSilent = updateSilenceWarning(silentMs, warnedSilent)
+            warnedSilent = updateSilenceWarning(cap, silentMs, warnedSilent)
 
             if (paused) continue
 
@@ -375,14 +388,20 @@ object DesktopEngine {
      * Digital silence is ambiguous, so say what it might mean rather than guess.
      *
      * The Windows version of the Android problem: there, a DRM-protected app opts
-     * out of capture and the OS hands back silence. Here, the usual cause is a
+     * out of capture and the OS hands back silence. Here, the usual causes are a
      * physical input selected while the audio the user wants is coming out of the
-     * speakers — which needs a loopback endpoint, not a microphone.
+     * speakers, or system audio from an output that is not the one playing.
      */
-    private fun updateSilenceWarning(silentMs: Float, alreadyWarned: Boolean): Boolean {
+    private fun updateSilenceWarning(cap: AudioCapture, silentMs: Float, alreadyWarned: Boolean): Boolean {
         if (silentMs > SILENCE_WARN_MS) {
             if (!alreadyWarned) {
-                warning = if (Devices.hasLoopback()) {
+                warning = if (cap is LoopbackCapture) {
+                    "Nothing is playing through \"${cap.outputName}\". If you can hear sound, it is " +
+                        "going to a different output — choose that one under Source."
+                } else if (SystemAudioSupport.available) {
+                    "The selected input is delivering digital silence. If you meant to measure what " +
+                        "is playing rather than what the microphone hears, choose System audio in Source."
+                } else if (Devices.hasLoopback()) {
                     "The selected input is delivering digital silence. If you meant to measure what " +
                         "is playing rather than what the microphone hears, choose the loopback input " +
                         "(\"Stereo Mix\" or similar) in Source."

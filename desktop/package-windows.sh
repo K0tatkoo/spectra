@@ -71,11 +71,12 @@ ICO="$HERE/build/icon/spectra.ico"
 say "Windows Java runtime (jlink, cross-target)"
 RUNTIME="$WORK/runtime"
 rm -rf "$RUNTIME"
-# java.desktop pulls in java.datatransfer, java.xml and java.prefs; those five
-# modules are the whole of what jdeps reports for the jar.
+# java.desktop pulls in java.datatransfer, java.xml and java.prefs; java.logging
+# is JNA's (it logs through java.util.logging). That is the whole of what
+# `jdeps --print-module-deps` reports for the jar.
 "$JAVA_BIN/jlink" \
   --module-path "$WIN_JDK/jmods" \
-  --add-modules java.base,java.desktop \
+  --add-modules java.base,java.desktop,java.logging \
   --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
   --output "$RUNTIME"
 echo "    $(du -sh "$RUNTIME" | cut -f1)"

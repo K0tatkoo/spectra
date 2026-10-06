@@ -11,9 +11,11 @@ plugins {
  * drift on what a dB or an LUFS means. Everything Android-shaped — capture,
  * painting, persistence, the UI — is re-implemented here against the JDK.
  *
- * The only dependency is the Kotlin stdlib. That is deliberate: it keeps the
- * shipped Windows runtime down to a jlink image of java.desktop and lets the
- * whole thing be cross-built from a Mac.
+ * Dependencies are kept to the Kotlin stdlib and JNA. That is deliberate: it
+ * keeps the shipped Windows runtime down to a small jlink image and lets the
+ * whole thing be cross-built from a Mac. JNA is there for one job — reaching
+ * WASAPI loopback (system audio), which the JDK has no API for — and it is a
+ * plain jar with its native half inside, so it needs no Windows toolchain.
  */
 kotlin {
     jvmToolchain(21)
@@ -38,7 +40,18 @@ sourceSets.main {
 
 dependencies {
     implementation(kotlin("stdlib"))
+    implementation(libs.jna)
 }
+
+/**
+ * JNA carries its native library for some twenty platforms. The shipped jar only
+ * ever runs on x64 Windows, and the WASAPI code is never touched anywhere else.
+ */
+val jnaForeignNatives = listOf(
+    "com/sun/jna/aix-*/**", "com/sun/jna/darwin*/**", "com/sun/jna/dragonflybsd-*/**",
+    "com/sun/jna/freebsd-*/**", "com/sun/jna/linux-*/**", "com/sun/jna/openbsd-*/**",
+    "com/sun/jna/sunos-*/**", "com/sun/jna/win32-x86/**", "com/sun/jna/win32-aarch64/**",
+)
 
 val appMainClass = "com.n3d.spectra.desktop.MainKt"
 
@@ -81,6 +94,7 @@ val fatJar by tasks.registering(Jar::class) {
         // Signature files from a signed dependency jar make the merged jar
         // refuse to load. Nothing here is signed today; this keeps it that way.
         exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/versions/9/module-info.class")
+        exclude(jnaForeignNatives)
     }
 }
 
@@ -132,6 +146,13 @@ tasks.register<JavaExec>("appIcon") {
     // year and a committed PNG set is far less fragile than wiring a JavaExec
     // into the resource-processing graph.
     args = listOf("../app/src/main/res/drawable", "src/main/resources/icon", "build/icon")
+}
+
+tasks.register<JavaExec>("loopbackCheck") {
+    group = "verification"
+    description = "Checks the system-audio sample conversion; on Windows also captures what is playing, live."
+    mainClass.set("com.n3d.spectra.desktop.dev.LoopbackCheckKt")
+    classpath = sourceSets.main.get().runtimeClasspath
 }
 
 tasks.register<JavaExec>("crtShots") {

@@ -1,0 +1,36 @@
+# The Windows build's system-audio capture, tested on real Windows.
+#
+# WASAPI loopback cannot be tested from the Mac this project is built on: Wine
+# runs the whole COM path up to IAudioClient::Initialize and then answers
+# E_NOTIMPL. So this runs the live half of :desktop:loopbackCheck on a GitHub
+# Windows runner, with a virtual sound card (VB-CABLE, via LABSN's helper) as
+# the default output: it plays a quiet tone through Windows and checks that
+# loopback hears it, at the mix rate and through Windows' resampler.
+name: Windows system audio
+
+on:
+  push:
+    paths:
+      - "desktop/**"
+      - "gradle/libs.versions.toml"
+      - ".github/workflows/windows-system-audio.yml"
+  workflow_dispatch:
+
+jobs:
+  loopback:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      # v1.0.4, pinned: it installs a kernel driver, so not a moving tag.
+      - uses: LABSN/sound-ci-helpers@d08c889a7bba7d9b1b059f8f76dac4672ea3a9cf
+      - name: Build the desktop jar
+        shell: bash
+        run: ./gradlew --console=plain --no-daemon :desktop:devJar
+      - name: Capture what Windows is playing
+        shell: bash
+        run: java -cp desktop/build/libs/spectra-dev.jar com.n3d.spectra.desktop.dev.LoopbackCheckKt --tone

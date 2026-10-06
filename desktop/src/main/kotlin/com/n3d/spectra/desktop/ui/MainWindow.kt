@@ -4,6 +4,7 @@ import com.n3d.spectra.desktop.audio.DesktopEngine
 import com.n3d.spectra.desktop.audio.Devices
 import com.n3d.spectra.desktop.audio.InputDevice
 import com.n3d.spectra.desktop.audio.LineCapture
+import com.n3d.spectra.desktop.audio.LoopbackCapture
 import com.n3d.spectra.desktop.audio.OscDemoCapture
 import com.n3d.spectra.desktop.audio.SyntheticCapture
 import com.n3d.spectra.dsp.nes.Nes2A03
@@ -165,8 +166,9 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         DesktopEngine.updateSettings(state.settings)
         DesktopEngine.updateNes(state.nes)
         DesktopEngine.nesActive = state.page == DesktopPage.WAVEFORM && state.waveMode == WaveMode.NES
-        val device = Devices.find(state.deviceName)
+        val device = chosenDevice()
         val source = when {
+            device?.outputId != null -> LoopbackCapture(device, state.settings.sampleRate, state.settings.stereo)
             device?.name == OscDemoCapture.NAME -> OscDemoCapture(state.settings.sampleRate, state.settings.stereo)
             device != null && device.mixer == null ->
                 SyntheticCapture(state.settings.sampleRate, state.settings.stereo, state.nes.region)
@@ -239,6 +241,17 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         devices = Devices.list()
     }
 
+    /**
+     * The source the saved state points at. Someone who has never picked one gets
+     * what is playing (on Windows); a saved choice is always honoured, including
+     * one that has since been unplugged — that fails with its name rather than
+     * quietly becoming a different input.
+     */
+    private fun chosenDevice(): InputDevice? =
+        devices.firstOrNull { it.name == state.deviceName }
+            ?: Devices.find(state.deviceName)
+            ?: if (state.deviceName == null) Devices.initial() else null
+
     // ---- sidebar -----------------------------------------------------------
 
     private fun add(c: javax.swing.JComponent) {
@@ -278,7 +291,7 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         add(SectionLabel("Source", palette))
         add(
             NeuDropdown(
-                "Input", devices, Devices.find(state.deviceName) ?: devices.firstOrNull(), palette,
+                "Input", devices, chosenDevice() ?: devices.firstOrNull(), palette,
                 {
                 when {
                     it.mixer == null -> it.name
@@ -294,9 +307,9 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         if (devices.none { it.loopback }) {
             add(
                 NoteLabel(
-                    "No loopback input found. Windows only lets an app record what is playing " +
-                        "through a loopback endpoint — enable \"Stereo Mix\" in Sound settings → " +
-                        "Recording, or install a virtual cable, then pick it above.",
+                    "System audio is not available here, so only recording inputs are listed. To " +
+                        "measure what is playing, enable \"Stereo Mix\" in Sound settings → Recording, " +
+                        "or route it through a virtual cable, then pick it above.",
                     palette, warn = true,
                 ),
             )
@@ -540,7 +553,7 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
                     "For oscilloscope music: tracks written so that the left channel moves the beam " +
                         "across and the right moves it up, which draws pictures. Anything else draws a " +
                         "tangle around the diagonal. It needs both channels exactly as they were played — " +
-                        "a loopback input (Stereo Mix, a virtual cable), not a microphone."
+                        "choose System audio under Source, not a microphone."
                 } else {
                     "Sweeps the beam across in time and starts each sweep where the mix crosses zero " +
                         "going up, like a bench scope's trigger in AUTO. A single tone stands still; a " +
