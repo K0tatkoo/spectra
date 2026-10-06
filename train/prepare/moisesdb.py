@@ -5,7 +5,11 @@ keys", which is exactly the synth stem (Leads + pads; synth bass stays in
 bass, where MoisesDB already puts it). The whole mix is also run through the
 app's stem model, so the splitter trains on what it will really be handed.
 
-    python prepare/moisesdb.py --moisesdb D:/data/moisesdb/moisesdb_v0.1 --out D:/data/synthsplit --workers 8
+    python prepare/moisesdb.py --moisesdb C:/Users/Kotatko/Downloads/moisesdb.zip --out D:/synthsplit/corpus --workers 14
+
+--moisesdb is the downloaded moisesdb.zip itself (read in place: unpacked it
+is 149 GB more on disk) or the folder it was unpacked to. Inside, each song is
+moisesdb_v0.1/<song id>/data.json with its stems at <stem name>/<track id>.wav.
 
 Resumable: a song whose meta.json exists is skipped. About 10 % of artists are
 held out for validation, chosen by a hash of the artist's name so the split
@@ -24,8 +28,10 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 import argparse
 import hashlib
+import io
 import json
 import sys
+import zipfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -55,14 +61,66 @@ def split_for(artist: str) -> str:
     return "valid" if h % 10 == 0 else "train"
 
 
-def load_stereo(path: Path) -> np.ndarray:
-    audio, rate = sf.read(str(path), dtype="float32", always_2d=True)
+# -- songs, from the zip or from folders ------------------------------------------------
+# A song is named by a string: its folder, or "<zip>!<folder inside the zip>".
+
+_zips: dict[str, zipfile.ZipFile] = {}
+
+
+def _zip(path: str) -> zipfile.ZipFile:
+    if path not in _zips:  # once per process: each worker opens its own
+        _zips[path] = zipfile.ZipFile(path)
+    return _zips[path]
+
+
+def tracks(root: Path) -> list[str]:
+    if root.suffix.lower() == ".zip":
+        return sorted(f"{root}!{n[:-len('/data.json')]}" for n in _zip(str(root)).namelist() if n.endswith("/data.json"))
+    return sorted(str(p.parent) for p in root.glob("**/data.json"))
+
+
+def song_id(track: str) -> str:
+    return track.replace("\\", "/").rstrip("/").rpartition("/")[2]
+
+
+def read_bytes(track: str, rel: str) -> bytes | None:
+    if "!" in track:
+        zpath, inner = track.split("!", 1)
+        try:
+            return _zip(zpath).read(f"{inner}/{rel}")
+        except KeyError:
+            return None
+    path = Path(track) / rel
+    return path.read_bytes() if path.exists() else None
+
+
+def song_data(track: str) -> dict:
+    return json.loads(read_bytes(track, "data.json"))
+
+
+def stems(track: str, data: dict | None = None):
+    """(relative path, group, track type) of every track the song has audio for."""
+    for stem in (data or song_data(track)).get("stems", []):
+        name = stem.get("stemName", "")
+        for t in stem.get("tracks", []):
+            yield f"{name}/{t['id']}.{t.get('extension', 'wav')}", classify(name, t.get("trackType", "")), \
+                f"{name}/{t.get('trackType', '')}"
+
+
+def decode(data: bytes, where: str = "", start: int = 0, length: int | None = None) -> np.ndarray:
+    """WAV bytes -> stereo float32 (2, T), optionally only `length` samples from `start`."""
+    stop = None if length is None else start + length
+    audio, rate = sf.read(io.BytesIO(data), start=start, stop=stop, dtype="float32", always_2d=True)
     if rate != stemgen.SAMPLE_RATE:
-        raise ValueError(f"{path}: {rate} Hz, expected {stemgen.SAMPLE_RATE}")
+        raise ValueError(f"{where}: {rate} Hz, expected {stemgen.SAMPLE_RATE}")
     audio = audio.T
     if audio.shape[0] == 1:
         audio = np.repeat(audio, 2, axis=0)
     return audio[:2]
+
+
+def frames(data: bytes) -> int:
+    return sf.info(io.BytesIO(data)).frames
 
 
 def _init(model_path: str):
@@ -70,27 +128,23 @@ def _init(model_path: str):
     _sg = stemgen.StemgenRT(Path(model_path))
 
 
-def prepare(track_dir: str, out_root: str) -> str:
-    track = Path(track_dir)
-    data = json.loads((track / "data.json").read_text())
-    song_id = track.name
-    out = Path(out_root) / "moisesdb" / song_id
+def prepare(track: str, out_root: str) -> str:
+    sid = song_id(track)
+    out = Path(out_root) / "moisesdb" / sid
     if (out / "meta.json").exists():
-        return f"skip {song_id}"
+        return f"skip {sid}"
+    data = song_data(track)
     groups: dict[str, list[np.ndarray]] = {g: [] for g in corpus.GROUPS}
     kinds: dict[str, list[str]] = {g: [] for g in corpus.GROUPS}
-    for stem in data.get("stems", []):
-        name = stem.get("stemName", "")
-        for t in stem.get("tracks", []):
-            path = track / name / f"{t['id']}.{t.get('extension', 'wav')}"
-            if not path.exists():
-                continue
-            g = classify(name, t.get("trackType", ""))
-            groups[g].append(load_stereo(path))
-            kinds[g].append(f"{name}/{t.get('trackType', '')}")
+    for rel, g, kind in stems(track, data):
+        raw = read_bytes(track, rel)
+        if raw is None:
+            continue
+        groups[g].append(decode(raw, f"{sid}/{rel}"))
+        kinds[g].append(kind)
     lengths = [a.shape[1] for v in groups.values() for a in v]
     if not lengths:
-        return f"empty {song_id}"
+        return f"empty {sid}"
     total = max(lengths)
 
     def summed(arrs):
@@ -101,28 +155,28 @@ def prepare(track_dir: str, out_root: str) -> str:
 
     stacked = {g: summed(v) for g, v in groups.items()}
     meta = corpus.write_song(
-        out, "moisesdb", song_id, split_for(data.get("artist", "")), stacked, _sg,
+        out, "moisesdb", sid, split_for(data.get("artist", "")), stacked, _sg,
         extra={"artist": data.get("artist", ""), "song": data.get("song", ""), "genre": data.get("genre", ""),
                "sources": kinds},
     )
-    return f"done {song_id} ({meta['split']}, synth {meta['rms_db']['synth']} dB)"
+    return f"done {sid} ({meta['split']}, synth {meta['rms_db']['synth']} dB)"
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--moisesdb", required=True, type=Path, help="folder holding the provider folders")
+    ap.add_argument("--moisesdb", required=True, type=Path, help="moisesdb.zip, or the folder it was unpacked to")
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--model-cache", type=Path, default=Path("models/stemgen-rt-08424ca9.onnx"))
     args = ap.parse_args()
 
     model = stemgen.fetch_model(args.model_cache)
-    tracks = sorted(p.parent for p in args.moisesdb.glob("*/*/data.json"))
-    print(f"{len(tracks)} MoisesDB tracks")
+    songs = tracks(args.moisesdb)
+    print(f"{len(songs)} MoisesDB songs", flush=True)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(str(model),)) as pool:
-        futures = [pool.submit(prepare, str(t), str(args.out)) for t in tracks]
+        futures = [pool.submit(prepare, t, str(args.out)) for t in songs]
         for i, f in enumerate(as_completed(futures), 1):
-            print(f"[{i}/{len(tracks)}] {f.result()}", flush=True)
+            print(f"[{i}/{len(songs)}] {f.result()}", flush=True)
 
 
 if __name__ == "__main__":

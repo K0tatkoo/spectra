@@ -26,7 +26,6 @@ import os
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 import argparse
-import json
 import sys
 import zlib
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -85,38 +84,58 @@ def slakh_stems(track: Path):
 
 
 def moisesdb_tracks(root: Path) -> list[tuple[str, str]]:
-    out = []
-    for data in sorted(root.glob("*/*/data.json")):
-        artist = json.loads(data.read_text()).get("artist", "")
-        out.append((str(data.parent), moises.split_for(artist)))
-    return out
+    return [(t, moises.split_for(moises.song_data(t).get("artist", ""))) for t in moises.tracks(root)]
 
 
-def moisesdb_stems(track: Path):
-    data = json.loads((track / "data.json").read_text())
-    for stem in data.get("stems", []):
-        name = stem.get("stemName", "")
-        for t in stem.get("tracks", []):
-            path = track / name / f"{t['id']}.{t.get('extension', 'wav')}"
-            if path.exists():
-                yield path, moises.classify(name, t.get("trackType", ""))
+class FileStem:
+    def __init__(self, path: Path):
+        self.path = path
+
+    def frames(self) -> int:
+        return sf.info(str(self.path)).frames
+
+    def read(self, start: int, length: int) -> np.ndarray:
+        return _read(self.path, start, length)
 
 
-SOURCES = {"slakh": (slakh_tracks, slakh_stems), "moisesdb": (moisesdb_tracks, moisesdb_stems)}
+class ZipStem:
+    """A MoisesDB track, in the zip or a folder: decompressed again for each use, so a worker holds one at a time."""
+
+    def __init__(self, track: str, rel: str):
+        self.track, self.rel = track, rel
+
+    def frames(self) -> int:
+        return moises.frames(moises.read_bytes(self.track, self.rel))
+
+    def read(self, start: int, length: int) -> np.ndarray:
+        return moises.decode(moises.read_bytes(self.track, self.rel), self.rel, start, length)
 
 
-def backing(source: str, track: Path, rng, length: int) -> tuple[dict[str, np.ndarray], int] | None:
+def slakh_stem_readers(track: str):
+    for path, g in slakh_stems(Path(track)):
+        yield FileStem(path), g
+
+
+def moisesdb_stem_readers(track: str):
+    for rel, g, _ in moises.stems(track):
+        yield ZipStem(track, rel), g
+
+
+SOURCES = {"slakh": (slakh_tracks, slakh_stem_readers), "moisesdb": (moisesdb_tracks, moisesdb_stem_readers)}
+
+
+def backing(source: str, track: str, rng, length: int) -> tuple[dict[str, np.ndarray], int] | None:
     """The song's groups over a random `length`-sample stretch, with no synth in them."""
-    stems = [(p, g) for p, g in SOURCES[source][1](track) if g is not None and g != "synth"]
+    stems = [(s, g) for s, g in SOURCES[source][1](track) if g is not None and g != "synth"]
     if not stems:
         return None
-    frames = min(sf.info(str(p)).frames for p, _ in stems)
+    frames = min(s.frames() for s, _ in stems)
     if frames < length:
         return None
     start = int(rng.integers(0, frames - length + 1))
     groups = {g: np.zeros((2, length), dtype=np.float32) for g in corpus.GROUPS}
-    for path, g in stems:
-        a = _read(path, start, length)
+    for stem, g in stems:
+        a = stem.read(start, length)
         groups[g][:, :a.shape[1]] += a
     return groups, start
 
@@ -134,9 +153,10 @@ def make(i: int, split: str, source: str, track: str, out_root: str, seconds: fl
     rng = np.random.default_rng((seed, zlib.crc32(source.encode()), 0 if split == "train" else 1, i))
     pre = corpus.PREROLL
     length = int(seconds * RATE) + pre
-    got = backing(source, Path(track), rng, length)
+    got = backing(source, track, rng, length)
+    name = moises.song_id(track) if source == "moisesdb" else Path(track).name
     if got is None:
-        return f"short {song_id} ({Path(track).name})"
+        return f"short {song_id} ({name})"
     groups, start = got
     arrangement = []
     if rng.random() < 0.05:
@@ -159,7 +179,7 @@ def make(i: int, split: str, source: str, track: str, out_root: str, seconds: fl
     playing = np.abs(synth).max(axis=0) > 1e-4
     groups["synth"] = synth * (level / max(rms(synth[:, playing]) if playing.any() else 1.0, 1e-6))
     meta = corpus.write_song(out, "procedural", song_id, split, groups, _sg, window=(pre, length),
-                             extra={"backing": f"{source}/{Path(track).name}", "backing_from_s": round(start / RATE, 2),
+                             extra={"backing": f"{source}/{name}", "backing_from_s": round(start / RATE, 2),
                                     "arrangement": arrangement, "synths": info})
     return f"done {song_id} ({split}, synth {meta['rms_db']['synth']} dB, {' + '.join(info['parts'])})"
 
@@ -168,7 +188,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--source", choices=sorted(SOURCES), required=True)
     ap.add_argument("--slakh", type=Path, help="folder holding slakh2100_flac_redux/")
-    ap.add_argument("--moisesdb", type=Path, help="folder holding the provider folders")
+    ap.add_argument("--moisesdb", type=Path, help="moisesdb.zip, or the folder it was unpacked to")
     ap.add_argument("--vocals", type=Path, help="prepare/musdb_vocals.py output")
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--train", type=int, default=1600)
