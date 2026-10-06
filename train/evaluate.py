@@ -5,9 +5,11 @@
 
 Every held-out song is run from its start in 30 s excerpts, as the app's stem
 model heard it, and the synth lane is scored (floored SDR, dB) against the
-song's true synth — next to the answers that need no network. With --onnx the
-exported file is run frame by frame through the reference signal path, so the
-number is the one the phone would get.
+song's true synth — next to the answers that need no network. Excerpts with
+synth playing and excerpts without (under −30 dB of the inputs) are summed up
+apart: the second run's trouble was calling other instruments synth, which
+only the silent ones show. With --onnx the exported file is run frame by frame
+through the reference signal path, so the number is the one the phone would get.
 """
 
 from __future__ import annotations
@@ -104,12 +106,11 @@ def main():
             x = np.stack([np.asarray(arrays["sg_vocals"][start:start + excerpt], dtype=np.float64),
                           np.asarray(arrays["sg_other"][start:start + excerpt], dtype=np.float64)])
             ref = np.asarray(arrays["synth"][start:start + excerpt - lay.hop], dtype=np.float64)
-            if np.sqrt(np.mean(ref ** 2)) < 10 ** (-50 / 20):
-                continue  # no synth to speak of in this excerpt
             est = run(x)
             warm = 44100 // 2
             inputs = x[:, warm:excerpt - lay.hop].sum(0)
-            row = {"song": song_dir.name, "corpus": meta["corpus"], "start_s": start / 44100,
+            playing = float(np.sum(ref[warm:] ** 2)) >= 1e-3 * float(np.sum(inputs ** 2))
+            row = {"song": song_dir.name, "corpus": meta["corpus"], "start_s": start / 44100, "playing": playing,
                    "sdr": sdr(est[warm:], ref[warm:], inputs),
                    "none": sdr(np.zeros_like(ref[warm:]), ref[warm:], inputs),
                    "other": sdr(x[1, warm:excerpt - lay.hop], ref[warm:], inputs),
@@ -117,9 +118,11 @@ def main():
             rows.append(row)
             print(json.dumps(row), flush=True)
     for corpus in sorted({r["corpus"] for r in rows}):
-        rs = [r for r in rows if r["corpus"] == corpus]
-        means = {k: round(float(np.mean([r[k] for r in rs])), 2) for k in ("sdr", "none", "other", "vocals_other")}
-        print(f"{corpus}: {len(rs)} excerpts · {means}")
+        for playing, label in ((True, "synth playing"), (False, "no synth")):
+            rs = [r for r in rows if r["corpus"] == corpus and r["playing"] == playing]
+            if rs:
+                means = {k: round(float(np.mean([r[k] for r in rs])), 2) for k in ("sdr", "none", "other", "vocals_other")}
+                print(f"{corpus} ({label}): {len(rs)} excerpts · {means}")
     if args.out:
         args.out.write_text(json.dumps(rows, indent=1) + "\n")
 

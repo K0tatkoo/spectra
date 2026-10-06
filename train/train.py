@@ -15,6 +15,12 @@ is on held-out songs as the app's stem model heard them, scored against three
 answers that need no network: no synth at all, "all of other is synth", and
 "all of vocals and other is synth". A model that cannot beat those is not
 worth shipping.
+
+Each corpus is validated on its own (<corpus>_sdr), and within it crops with
+synth playing (_playing) apart from crops without (_silent): the second run
+looked fine overall while calling guitars synth in songs it had not heard,
+which only the silent crops show. best.pt follows --select: MoisesDB when it
+has held-out songs (real music), else Slakh.
 """
 
 from __future__ import annotations
@@ -86,9 +92,12 @@ def measure_features(dsp, loader, device, batches: int, features: int):
     return mean.float().to(device), std.float().to(device)
 
 
+SILENT = 1e-3  # a crop whose synth has under a thousandth of the inputs' energy (−30 dB) has "no synth"
+
+
 @torch.no_grad()
-def validate(dsp, net, loader, device, hop: int):
-    losses, zero, other, both = [], [], [], []
+def validate_one(dsp, net, loader, device, hop: int) -> dict:
+    losses, zero, other, both, silent = [], [], [], [], []
     for x, s in loader:
         x, s = x.to(device), s.to(device)
         loss, _ = score(dsp, net, x, s, hop)
@@ -96,12 +105,25 @@ def validate(dsp, net, loader, device, hop: int):
         end = x.shape[-1] - hop
         energy = x[:, :, WARM:end].sum(1).square().sum(-1)
         ref = s[:, WARM:end]
+        silent.append(ref.square().sum(-1) < SILENT * energy)
         zero.append(floored_sdr_loss(torch.zeros_like(ref), ref, energy))
         other.append(floored_sdr_loss(x[:, 1, WARM:end], ref, energy))
         both.append(floored_sdr_loss(x[:, :, WARM:end].sum(1), ref, energy))
-    sdr = lambda v: -torch.cat(v).mean().item()  # noqa: E731
-    return {"valid_sdr": sdr(losses), "baseline_none": sdr(zero), "baseline_other": sdr(other),
-            "baseline_vocals_other": sdr(both)}
+    quiet = torch.cat(silent)
+    mean = lambda v, m=None: (-torch.cat(v)[m].mean().item() if m is None or m.any() else None)  # noqa: E731
+    return {"sdr": mean(losses), "sdr_playing": mean(losses, ~quiet), "sdr_silent": mean(losses, quiet),
+            "silent_share": round(quiet.float().mean().item(), 3),
+            "baseline_none": mean(zero), "baseline_other": mean(other), "baseline_vocals_other": mean(both)}
+
+
+def validate(dsp, net, loaders: dict, device, hop: int, select: str) -> dict:
+    """Every corpus's held-out songs on their own; valid_sdr is the --select corpus's score."""
+    row = {}
+    for corpus, loader in loaders.items():
+        for k, v in validate_one(dsp, net, loader, device, hop).items():
+            row[f"{corpus}_{k}"] = v
+    row["valid_sdr"] = row[f"{select}_sdr"]
+    return row
 
 
 def lr_at(step: int, args) -> float:
@@ -137,7 +159,11 @@ def main():
     ap.add_argument("--report-every", type=int, default=200)
     ap.add_argument("--valid-every", type=int, default=2500)
     ap.add_argument("--save-every", type=int, default=1000)
-    ap.add_argument("--valid-examples", type=int, default=384)
+    ap.add_argument("--valid-examples", type=int, default=256, help="per corpus")
+    ap.add_argument("--corpus-weights", default="",
+                    help="how often each corpus is drawn, e.g. slakh=1,procedural=1,moisesdb=2 (default: equal)")
+    ap.add_argument("--no-synth-share", type=float, default=0.15, help="share of training examples with no synth")
+    ap.add_argument("--select", default="auto", help="corpus whose held-out score picks best.pt (auto: moisesdb, else slakh)")
     args = ap.parse_args()
 
     device = pick_device(args.device)
@@ -153,11 +179,22 @@ def main():
     print(f"{len(train_songs)} training songs, {len(valid_songs)} held out · device {device}")
     long_crop = crop_samples(args.long_crop_seconds, hop)
     long_batch = max(1, round(args.batch * crop / long_crop))
+    weights = {k: float(v) for k, v in (kv.split("=") for kv in args.corpus_weights.split(",") if kv)} or None
+    mix = Mix(corpus_weights=weights, no_synth_share=args.no_synth_share)
     # Long enough for any run; example i is the same on every run either way.
-    train_ds = SplitDataset(train_songs, crop, 1 << 31, args.seed, Mix())
-    long_ds = SplitDataset(train_songs, long_crop, 1 << 31, args.seed + 1, Mix())
-    valid_ds = SplitDataset(valid_songs, long_crop, args.valid_examples, 12345, real_only=True)
-    valid_loader = DataLoader(valid_ds, batch_size=long_batch, num_workers=args.workers)
+    train_ds = SplitDataset(train_songs, crop, 1 << 31, args.seed, mix)
+    long_ds = SplitDataset(train_songs, long_crop, 1 << 31, args.seed + 1, mix)
+    print("training corpora: " + ", ".join(f"{c} {len(v)} songs ({p:.0%})" for c, v, p in
+                                           zip(train_ds.corpora, (train_ds.by_corpus[c] for c in train_ds.corpora), train_ds.corpus_p)))
+    by_corpus: dict[str, list] = {}
+    for song in valid_songs:
+        by_corpus.setdefault(json.loads((song / "meta.json").read_text())["corpus"], []).append(song)
+    valid_loaders = {c: DataLoader(SplitDataset(v, long_crop, args.valid_examples, 12345, real_only=True),
+                                   batch_size=long_batch, num_workers=args.workers)
+                     for c, v in sorted(by_corpus.items())}
+    if args.select == "auto":
+        args.select = "moisesdb" if "moisesdb" in valid_loaders else "slakh" if "slakh" in valid_loaders else next(iter(valid_loaders))
+    print(f"held out: " + ", ".join(f"{c} {len(v)} songs" for c, v in sorted(by_corpus.items())) + f" · best.pt by {args.select}")
 
     dsp = SplitDSP(layout).to(device)
     net = SynthSplitNet(layout, args.hidden, args.layers, args.dropout).to(device)
@@ -240,7 +277,7 @@ def main():
             running, seen, t0 = 0.0, 0, time.time()
             if step % args.valid_every == 0:
                 ema.eval()
-                row.update(validate(dsp, ema, valid_loader, device, hop))
+                row.update(validate(dsp, ema, valid_loaders, device, hop, args.select))
                 # Kept apart: the network that did best on songs it never trained on.
                 if row["valid_sdr"] > best:
                     best = row["valid_sdr"]
@@ -253,7 +290,7 @@ def main():
             save()
     save()
     ema.eval()
-    final = validate(dsp, ema, valid_loader, device, hop)
+    final = validate(dsp, ema, valid_loaders, device, hop, args.select)
     final["step"] = step
     (args.out / "result.json").write_text(json.dumps(final, indent=1) + "\n")
     print("final", json.dumps(final))

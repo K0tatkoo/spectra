@@ -8,4 +8,6 @@ onnxruntime==1.26.0
 soundfile>=0.12
 pyyaml>=6.0
 soxr>=0.5
+# Filters and reverb for the made-up synths (synthsplit/procsynth.py).
+scipy>=1.13
 pytest>=8
