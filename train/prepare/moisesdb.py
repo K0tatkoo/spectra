@@ -14,6 +14,14 @@ never moves between runs.
 
 from __future__ import annotations
 
+import os
+
+# numpy's and scipy's bundled OpenBLAS reserve memory for every core in every
+# process the moment they are imported: 1.5 GB a process on the 24-thread
+# desktop, so a pool of workers hits Windows' commit limit. Each worker here
+# computes on one thread anyway.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+
 import argparse
 import hashlib
 import json
