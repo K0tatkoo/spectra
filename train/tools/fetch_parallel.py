@@ -22,6 +22,10 @@ case the writer stopped mid-block — so a stopped download needs only a fresh
 link, never a fresh start. An expired or refused link stops it at once
 instead of retrying. Without --size the size is asked of the server; without
 --md5 a zip is checked with its own CRCs instead.
+
+A signed link is a password to the file for as long as it lives: pass it as
+@<file holding the link> to keep it off command lines (and out of cmd, which
+would read its & and %).
 """
 
 from __future__ import annotations
@@ -150,7 +154,7 @@ def file_md5(path: Path, upto: int) -> "hashlib._Hash":
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("url")
+    ap.add_argument("url", help="the URL, or @file holding it")
     ap.add_argument("--size", type=int, default=0, help="bytes (default: ask the server)")
     ap.add_argument("--md5", default="")
     ap.add_argument("--out", type=Path, help="write here instead of stdout")
@@ -159,6 +163,8 @@ def main():
     ap.add_argument("--segment", type=int, default=32 << 20)
     ap.add_argument("--ahead", type=int, default=16, help="segments fetched ahead of the writer")
     args = ap.parse_args()
+    if args.url.startswith("@"):
+        args.url = Path(args.url[1:]).read_text(encoding="utf-8").strip()
 
     size = args.size or remote_size(args.url)
     if args.out and args.out.exists() and args.out.stat().st_size == size:
