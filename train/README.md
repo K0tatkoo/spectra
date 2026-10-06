@@ -104,34 +104,67 @@ On real Slakh songs StemgenRT puts a median 39 % of the synth in vocals and
 46 % in other (45 % / 44 % when someone sings): reading only "other" would
 miss half of it.
 
+### What the second night taught (2026-10-02)
+
+Relabelled corpus, dropout, EQ, more song mixing: the same plateau. Best
+held-out score **+0.40 dB at step 10 000**, worse after. On held-out songs a
+crop with synth playing scored +0.6 dB (a mask that knows the answer: +4.7),
+and a crop with **no synth −5.0 dB** (−1.2 on training songs): it called other
+instruments synth in songs it had not heard. Slakh renders every synth with a
+few hundred patches, and the network learned those rather than "synth".
+
+Hence the third run's data: **made-up synths** (`synthsplit/procsynth.py`,
+`prepare/procedural.py`) — new patches for every song, laid over real backing
+tracks — and **MoisesDB**, real music with real instruments as the negatives.
+Validation now scores each corpus on its own, and crops with synth playing
+apart from crops without (`slakh_sdr_silent` and so on), since an average hid
+run 2's false alarms.
+
 ## Running it (Windows desktop, NVIDIA GPU)
 
+The desktop (`desktop-nrrcqj4` on the tailnet; RTX 4060 Ti 16 GB, Ryzen 9
+7900X, 31 GB) works in `D:\synthsplit` — `spectra\` is the checkout,
+`slakh\`, `downloads\`, `musdb-vocals\`, `corpus\`, `runs\` and `logs\`
+sit beside it. D: is exFAT, so git wants
+`git config --global --add safe.directory D:/synthsplit/spectra`.
+
 ```powershell
-cd "Claudes Projects\android\Spectra\train"
-uv venv --python 3.12; .venv\Scripts\activate
+cd D:\synthsplit\spectra\train
+uv venv --python 3.12; $env:UV_LINK_MODE = "copy"
 uv pip install torch --index-url https://download.pytorch.org/whl/cu128
 uv pip install -r requirements.txt
-python -m pytest tests                      # torch DSP = reference, streaming = batch, export round trip
-python export.py --contract-fixture         # then commit app/src/test/resources/synthsplit/net-fixture.*
+.venv\Scripts\python -m pytest tests
 
-python prepare\moisesdb.py --moisesdb D:\data\moisesdb\moisesdb_v0.1 --out D:\data\synthsplit --workers 8
-python prepare\slakh.py --tar "https://zenodo.org/records/4599666/files/slakh2100_flac_redux.tar.gz?download=1" `
-    --out D:\data\synthsplit --workers 8 --max-tracks 800
+# Downloads (no sign-up): MUSDB18-HQ whole, Slakh unpacked on the fly, metadata + stems only.
+.venv\Scripts\python tools\fetch_parallel.py https://zenodo.org/api/records/3338373/files/musdb18hq.zip/content `
+    --size 22656664047 --md5 12d4f2ecd55245a4688754dd76363103 --out D:\synthsplit\downloads\musdb18hq.zip
+.venv\Scripts\python tools\fetch_slakh.py --out D:\synthsplit\slakh
 
-python train.py --data D:\data\synthsplit --out runs\first          # --resume after any stop
-python evaluate.py --data D:\data\synthsplit --run runs\first
-python export.py --run runs\first --out ..\app\src\main\assets\stems\synth-split.onnx
-python evaluate.py --data D:\data\synthsplit --onnx ..\app\src\main\assets\stems\synth-split.onnx
-python tools\render_split.py some-hardstyle.flac --onnx ..\app\src\main\assets\stems\synth-split.onnx --out renders\song
+# Everything else, in order, resumable: MUSDB vocals -> Slakh -> made-up synths over Slakh
+# (-> MoisesDB and made-up synths over it, with --moisesdb).
+.venv\Scripts\python tools\prepare_all.py --root D:\synthsplit --workers 14
+
+.venv\Scripts\python train.py --data D:\synthsplit\corpus --out D:\synthsplit\runs\third --workers 10
+.venv\Scripts\python evaluate.py --data D:\synthsplit\corpus --run D:\synthsplit\runs\third
+.venv\Scripts\python export.py --run D:\synthsplit\runs\third --out ..\app\src\main\assets\stems\synth-split.onnx
+.venv\Scripts\python tools\render_split.py some-hardstyle.flac --onnx ..\app\src\main\assets\stems\synth-split.onnx --out renders\song
 ```
 
-Estimates, not yet measured: preparing is CPU-bound (the stem model runs
-at roughly half real time per core) — about an hour for MoisesDB and one to
-two for 800 Slakh tracks on 8 cores, plus the Slakh download. Training
-100 k steps of 32 × 4 s should take a few hours on a recent GPU. The prepared
-corpus is ~30 GB for MoisesDB and ~40 GB for Slakh (120 s kept per track).
+Things about Windows worth knowing:
+
+- **Never pipe binary data through PowerShell** (5.1 re-encodes a pipe as
+  text): that is why the downloads write files or unpack in Python, not
+  `fetch | tar`.
+- Long jobs started over SSH die with the session. Start them through WMI
+  (`Invoke-CimMethod Win32_Process -MethodName Create`, `cmd /c … > log 2>&1`)
+  and they run on, detached; each shows as two `python.exe` (the venv's
+  launcher and the interpreter).
+- The stem model runs at about 0.6× real time per core on the 7900X: 14
+  workers prepare an hour of audio in about seven minutes.
 
 **Is it good enough?** `train.py` and `evaluate.py` score it against three
 answers that need no network: no synth, "all of other is synth", and "all of
-vocals and other is synth". It must beat all three on held-out songs — then
-listen to `render_split.py` on real hardstyle before it goes near the app.
+vocals and other is synth". It must beat all three on held-out songs — on
+MoisesDB, real music, above all, and on crops with no synth as much as on
+crops with it — then listen to `render_split.py` on real hardstyle before it
+goes near the app.
