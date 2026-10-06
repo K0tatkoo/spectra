@@ -38,6 +38,10 @@ from pathlib import Path
 
 T = Path(__file__).resolve().parents[1]  # train/
 PY = sys.executable
+# Children write their logs in UTF-8 and so does this; Windows would use cp1252,
+# which cannot print the "·" the scripts' summaries use, and a print would crash this.
+ENV = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main():
@@ -64,7 +68,7 @@ def main():
     def run(name: str, *argv) -> bool:
         log(f"{name}: start")
         with open(logs / f"{name}.log", "a", encoding="utf-8") as out:
-            rc = subprocess.call([PY, "-u", *map(str, argv)], cwd=T, stdout=out, stderr=subprocess.STDOUT)
+            rc = subprocess.call([PY, "-u", *map(str, argv)], cwd=T, env=ENV, stdout=out, stderr=subprocess.STDOUT)
         tail = (logs / f"{name}.log").read_text(encoding="utf-8", errors="replace").strip().splitlines()[-1:] or [""]
         log(f"{name}: {'done' if rc == 0 else f'FAILED (exit {rc})'} · {tail[0][:200]}")
         return rc == 0

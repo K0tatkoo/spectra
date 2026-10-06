@@ -14,6 +14,7 @@ Run again with --resume after -- to carry on a stopped run.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -21,6 +22,10 @@ from pathlib import Path
 
 T = Path(__file__).resolve().parents[1]  # train/
 PY = sys.executable
+# Children write their logs in UTF-8 and so does this; Windows would use cp1252,
+# which cannot print the "·" the scripts' summaries use, and a print would crash this.
+ENV = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main():
@@ -46,7 +51,7 @@ def main():
 
     def run(name: str, *cmd) -> bool:
         with open(logs / f"{args.run}-{name}.log", "a", encoding="utf-8") as out:
-            rc = subprocess.call([PY, "-u", *map(str, cmd)], cwd=T, stdout=out, stderr=subprocess.STDOUT)
+            rc = subprocess.call([PY, "-u", *map(str, cmd)], cwd=T, env=ENV, stdout=out, stderr=subprocess.STDOUT)
         lines = (logs / f"{args.run}-{name}.log").read_text(encoding="utf-8", errors="replace").strip().splitlines()
         log(f"{name} {'done' if rc == 0 else f'FAILED (exit {rc})'} · {(lines[-1] if lines else '')[:300]}")
         return rc == 0

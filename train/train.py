@@ -39,6 +39,7 @@ import dataclasses
 import gc
 import json
 import math
+import sys
 import time
 from pathlib import Path
 
@@ -312,6 +313,13 @@ def main():
     final["step"] = step
     (args.out / "result.json").write_text(json.dumps(final, indent=1) + "\n")
     print("final", json.dumps(final))
+    log.close()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    # Leave without the interpreter's teardown: on Windows it takes CUDA down
+    # before the loaders' workers and dies with 0xC0000409, after everything is
+    # written but with a failing exit code.
+    os._exit(0)
 
 
 if __name__ == "__main__":
