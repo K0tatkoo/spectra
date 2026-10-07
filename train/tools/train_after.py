@@ -55,8 +55,12 @@ def main():
             f.write(line + "\n")
 
     def run(name: str, *cmd) -> bool:
+        # Normal priority on Windows even when this waits at below-normal: the loader feeding the
+        # GPU must win the CPU from data preparation, or the GPU starves (0.41 s a step, not 0.1).
+        flags = getattr(subprocess, "NORMAL_PRIORITY_CLASS", 0) if name == "train" else 0
         with open(logs / f"{args.run}-{name}.log", "a", encoding="utf-8") as out:
-            rc = subprocess.call([PY, "-u", *map(str, cmd)], cwd=T, env=ENV, stdout=out, stderr=subprocess.STDOUT)
+            rc = subprocess.call([PY, "-u", *map(str, cmd)], cwd=T, env=ENV, stdout=out, stderr=subprocess.STDOUT,
+                                 creationflags=flags)
         lines = (logs / f"{args.run}-{name}.log").read_text(encoding="utf-8", errors="replace").strip().splitlines()
         log(f"{name} {'done' if rc == 0 else f'FAILED (exit {rc})'} · {(lines[-1] if lines else '')[:300]}")
         return rc == 0
