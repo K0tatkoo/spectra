@@ -22,6 +22,7 @@ the second run got wrong on songs it had not heard.
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,6 +33,11 @@ from torch.utils.data import Dataset
 from .corpus import GROUPS, REAL
 
 ACTIVE_DB = -45.0  # a one-second window with synth louder than this counts as "has synth"
+# Songs a loader process keeps memory-mapped at once. Unbounded, a worker ends a long run with
+# every song it ever touched mapped (~1,400 songs x 6 files) and Windows refuses the next
+# mapping with "[Errno 22] Invalid argument" (third-moises-only, step ~29,500).
+OPEN_SONGS = 96
+_open: "OrderedDict[int, Song]" = OrderedDict()
 
 
 @dataclass
@@ -67,9 +73,15 @@ class Song:
         self._arrays = None
 
     def arrays(self) -> dict:
-        # Opened lazily, in whichever DataLoader worker first needs them.
+        # Opened lazily, in whichever DataLoader worker first needs them; the least recently
+        # used song is closed once OPEN_SONGS are open.
         if self._arrays is None:
             self._arrays = {k: np.load(self.path / f"{k}.npy", mmap_mode="r") for k in GROUPS + REAL}
+            while len(_open) >= OPEN_SONGS:
+                _, old = _open.popitem(last=False)
+                old._arrays = None
+        _open[id(self)] = self
+        _open.move_to_end(id(self))
         return self._arrays
 
     def crop(self, key: str, start: int, length: int) -> np.ndarray:
@@ -101,9 +113,10 @@ class SplitDataset(Dataset):
         self.quiet_seconds = -(-crop // 44100) + 1  # whole seconds a quiet run needs to hold a crop anywhere in it
         self.with_quiet = {c: [s for s in v if any(n >= self.quiet_seconds for _, n in s.quiet)]
                            for c, v in self.by_corpus.items()}
-        self.with_vocals = [s for s in self.songs if s.has_vocals]
         weights = self.mix.corpus_weights or {c: 1.0 for c in self.by_corpus}
         names = [c for c in self.by_corpus if weights.get(c, 0) > 0]
+        # Vocals for remixes come only from the corpora being drawn from.
+        self.with_vocals = [s for s in self.songs if s.has_vocals and s.corpus in names]
         w = np.array([weights[c] for c in names], dtype=np.float64)
         self.corpora, self.corpus_p = names, w / w.sum()
 
