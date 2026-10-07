@@ -38,7 +38,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from prepare import moisesdb as moises  # noqa: E402
 from prepare.slakh import SPLITS, classify, pick_vocal  # noqa: E402
-from synthsplit import corpus, procsynth, stemgen  # noqa: E402
+from synthsplit import corpus, hardstyle, procsynth, stemgen  # noqa: E402
 
 RATE = stemgen.SAMPLE_RATE
 _sg = None
@@ -184,9 +184,51 @@ def make(i: int, split: str, source: str, track: str, out_root: str, seconds: fl
     return f"done {song_id} ({split}, synth {meta['rms_db']['synth']} dB, {' + '.join(info['parts'])})"
 
 
+# Hardstyle songs lean on leads and supersaws (KINDS: lead, pad, arp, stab, supersaw).
+HARDSTYLE_KIND_P = (0.35, 0.15, 0.08, 0.1, 0.32)
+
+
+def make_hardstyle(i: int, split: str, out_root: str, seconds: float, vocals_dir: str | None, seed: int) -> str:
+    """A made-up hardstyle song: synthsplit/hardstyle.py's kick, bass and hats (not synth), made-up
+    leads in the same tempo and key ducked under the kick (synth), sometimes a MUSDB vocal.
+    Corpus "hardstyle"; ~10 % have no synth at all, and every song has its kick-less breakdowns."""
+    song_id = f"hardstyle-{split}-{i:05d}"
+    out = Path(out_root) / "hardstyle" / song_id
+    if (out / "meta.json").exists():
+        return f"skip {song_id}"
+    rng = np.random.default_rng((seed, zlib.crc32(b"hardstyle"), 0 if split == "train" else 1, i))
+    pre = corpus.PREROLL
+    length = int(seconds * RATE) + pre
+    mu = hardstyle.music(rng, length / RATE)
+    drums, kenv, drum_info = hardstyle.render_drums(rng, mu, length)
+    groups = {g: np.zeros((2, length), dtype=np.float32) for g in corpus.GROUPS}
+    groups["bassdrums"] = drums / max(rms(drums), 1e-6) * 0.25
+    arrangement = []
+    if vocals_dir and rng.random() < 0.5:
+        vocal, song = pick_vocal(rng, Path(vocals_dir), split, length)
+        if vocal is not None:
+            groups["vocals"] = vocal * (rms(groups["bassdrums"]) / max(rms(vocal), 1e-4) * 10 ** (rng.uniform(-8, 0) / 20))
+            arrangement.append(f"vocals musdb18hq/{song}")
+    info = {"parts": ["none"]}
+    if rng.random() >= 0.1:
+        synth, info = procsynth.render_synths(rng, length / RATE, mu=mu, kind_p=HARDSTYLE_KIND_P)
+        if rng.random() < 0.85:
+            synth = hardstyle.sidechain(synth, kenv, float(rng.uniform(0.3, 0.9)))
+        playing = np.abs(synth).max(axis=0) > 1e-4
+        level = rms(groups["bassdrums"]) * 10 ** (rng.uniform(-8, 3) / 20)
+        groups["synth"] = synth * (level / max(rms(synth[:, playing]) if playing.any() else 1.0, 1e-6))
+    else:
+        arrangement.append("no synth")
+    meta = corpus.write_song(out, "hardstyle", song_id, split, groups, _sg, window=(pre, length),
+                             extra={"drums": drum_info, "arrangement": arrangement, "synths": info,
+                                    "bpm": round(mu.bpm, 1)})
+    return f"done {song_id} ({split}, synth {meta['rms_db']['synth']} dB, {drum_info['kick']} kick, {' + '.join(info['parts'])})"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--source", choices=sorted(SOURCES), required=True)
+    ap.add_argument("--source", choices=sorted(SOURCES) + ["hardstyle"], required=True,
+                    help="whose backing tracks; hardstyle makes its own (synthsplit/hardstyle.py)")
     ap.add_argument("--slakh", type=Path, help="folder holding slakh2100_flac_redux/")
     ap.add_argument("--moisesdb", type=Path, help="moisesdb.zip, or the folder it was unpacked to")
     ap.add_argument("--vocals", type=Path, help="prepare/musdb_vocals.py output")
@@ -199,13 +241,22 @@ def main():
     ap.add_argument("--model-cache", type=Path, default=Path("models/stemgen-rt-08424ca9.onnx"))
     args = ap.parse_args()
 
+    model = stemgen.fetch_model(args.model_cache)
+    vocals = str(args.vocals) if args.vocals else None
+    if args.source == "hardstyle":
+        jobs = [(i, split) for split, count in (("train", args.train), ("valid", args.valid)) for i in range(count)]
+        print(f"hardstyle: {args.train} training and {args.valid} held-out songs", flush=True)
+        with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(str(model),)) as ex:
+            futures = [ex.submit(make_hardstyle, i, split, str(args.out), args.seconds, vocals, args.seed) for i, split in jobs]
+            for n, f in enumerate(as_completed(futures), 1):
+                print(f"[{n}/{len(futures)}] {f.result()}", flush=True)
+        return
     root = args.slakh if args.source == "slakh" else args.moisesdb
     if root is None:
         ap.error(f"--{args.source} is needed")
     tracks = SOURCES[args.source][0](root)
     by_split = {s: [t for t, sp in tracks if sp == s] for s in ("train", "valid")}
     print(f"{args.source}: {len(by_split['train'])} training and {len(by_split['valid'])} held-out backing tracks", flush=True)
-    model = stemgen.fetch_model(args.model_cache)
     jobs = []
     for split, count in (("train", args.train), ("valid", args.valid)):
         pool = by_split[split]
@@ -214,7 +265,6 @@ def main():
         pick = np.random.default_rng((args.seed, 0 if split == "train" else 1))
         for i in range(count):
             jobs.append((i, split, pool[int(pick.integers(len(pool)))]))
-    vocals = str(args.vocals) if args.vocals else None
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(str(model),)) as ex:
         futures = [ex.submit(make, i, split, args.source, track, str(args.out), args.seconds, vocals, args.seed)
                    for i, split, track in jobs]

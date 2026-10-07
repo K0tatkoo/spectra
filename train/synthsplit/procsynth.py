@@ -60,14 +60,15 @@ class Note:
 class Music:
     """Tempo, key, scale, a chord per bar, and which bars each part plays in."""
 
-    def __init__(self, rng: np.random.Generator, seconds: float):
-        self.bpm = float(rng.choice([rng.uniform(70, 110), rng.uniform(110, 135), rng.uniform(135, 160), rng.uniform(140, 180)],
-                                    p=[0.2, 0.35, 0.3, 0.15]))
+    def __init__(self, rng: np.random.Generator, seconds: float, bpm: float | None = None,
+                 scales: tuple[str, ...] | None = None):
+        self.bpm = bpm or float(rng.choice([rng.uniform(70, 110), rng.uniform(110, 135), rng.uniform(135, 160),
+                                            rng.uniform(140, 180)], p=[0.2, 0.35, 0.3, 0.15]))
         self.beat = 60.0 / self.bpm
         self.bar = 4 * self.beat
         self.step = self.beat / 4  # a sixteenth
         self.root = int(rng.integers(12))
-        self.scale_name = str(rng.choice(list(SCALES)))
+        self.scale_name = str(rng.choice(list(scales or SCALES)))
         self.scale = SCALES[self.scale_name]
         self.seconds = seconds
         self.bars = int(math.ceil(seconds / self.bar)) + 1
@@ -711,12 +712,13 @@ def render_part(rng, mu: Music, kind: str, total: int) -> tuple[np.ndarray, str]
     return (x / rms if rms > 0 else x), p.describe()
 
 
-def render_synths(rng, seconds: float) -> tuple[np.ndarray, dict]:
-    """1–3 synth parts over one piece of music -> stereo float32 (2, N), peak ≤ 1, and what was played."""
-    mu = Music(rng, seconds)
+def render_synths(rng, seconds: float, mu: Music | None = None, kind_p=KIND_P) -> tuple[np.ndarray, dict]:
+    """1–3 synth parts over one piece of music -> stereo float32 (2, N), peak ≤ 1, and what was played.
+    `mu` lets the caller share the tempo and key (synthsplit/hardstyle.py's drums); `kind_p` weighs KINDS."""
+    mu = mu or Music(rng, seconds)
     total = int(seconds * SR)
     count = int(rng.choice([1, 2, 3], p=[0.55, 0.35, 0.1]))
-    kinds = [str(k) for k in rng.choice(KINDS, size=count, p=KIND_P)]
+    kinds = [str(k) for k in rng.choice(KINDS, size=count, p=kind_p)]
     out = np.zeros((2, total))
     parts = []
     for k in kinds:
