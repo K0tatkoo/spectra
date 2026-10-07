@@ -11,9 +11,9 @@ app's stem model, so the splitter trains on what it will really be handed.
 is 149 GB more on disk) or the folder it was unpacked to. Inside, each song is
 moisesdb_v0.1/<song id>/data.json with its stems at <stem name>/<track id>.wav.
 
-Resumable: a song whose meta.json exists is skipped. About 10 % of artists are
-held out for validation, chosen by a hash of the artist's name so the split
-never moves between runs.
+Resumable: a song whose meta.json exists is skipped. A tenth of the artists'
+hash range is held out for validation (split_for), so the split never moves
+between runs; tools/resplit_moisesdb.py relabels prepared songs if it changes.
 """
 
 from __future__ import annotations
@@ -57,8 +57,12 @@ def classify(stem_name: str, track_type: str) -> str:
 
 
 def split_for(artist: str) -> str:
+    # The lowest tenth of artist hashes: 23 of the 240 songs from 5 artists, 10 of them with
+    # synth. (The first rule, h % 10 == 0, held out 9 songs — too few to choose a model by.)
+    # MoisesDB has 43 artists and one of them has 60 songs, so a share of artists is a lumpy
+    # share of songs: check the counts before changing this.
     h = int(hashlib.sha1(artist.strip().lower().encode()).hexdigest(), 16)
-    return "valid" if h % 10 == 0 else "train"
+    return "valid" if h % 100 < 10 else "train"
 
 
 # -- songs, from the zip or from folders ------------------------------------------------
