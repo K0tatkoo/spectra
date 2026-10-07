@@ -163,6 +163,9 @@ def main():
     ap.add_argument("--hidden", type=int, default=256)
     ap.add_argument("--layers", type=int, default=2)
     ap.add_argument("--dropout", type=float, default=0.2)
+    ap.add_argument("--front", choices=("linear", "conv"), default="linear",
+                    help="conv: convolutions across the bands before the GRU (synthsplit/model.py)")
+    ap.add_argument("--channels", type=int, default=32, help="conv front's channels")
     ap.add_argument("--weight-decay", type=float, default=1e-3)
     ap.add_argument("--ema", type=float, default=0.999)
     ap.add_argument("--workers", type=int, default=6)
@@ -212,7 +215,7 @@ def main():
     print(f"held out: " + ", ".join(f"{c} {len(v)} songs" for c, v in sorted(by_corpus.items())) + f" · best.pt by {args.select}")
 
     dsp = SplitDSP(layout).to(device)
-    net = SynthSplitNet(layout, args.hidden, args.layers, args.dropout).to(device)
+    net = SynthSplitNet(layout, args.hidden, args.layers, args.dropout, args.front, args.channels).to(device)
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, betas=(0.9, 0.99), weight_decay=args.weight_decay)
     best = float("-inf")
     step = 0
@@ -246,7 +249,8 @@ def main():
         tmp = path.with_suffix(".tmp")
         torch.save({"step": step, "steps": args.steps, "net": net.state_dict(), "ema": ema.state_dict(), "opt": opt.state_dict(),
                     "args": {k: str(v) for k, v in vars(args).items()},
-                    "layout": dataclasses.asdict(layout), "hidden": args.hidden, "layers": args.layers}, tmp)
+                    "layout": dataclasses.asdict(layout), "hidden": args.hidden, "layers": args.layers,
+                    "front": args.front, "channels": args.channels}, tmp)
         tmp.replace(path)
 
     log = open(args.out / "metrics.jsonl", "a")

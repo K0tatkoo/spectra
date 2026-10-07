@@ -26,7 +26,7 @@ from synthsplit.corpus import list_songs, load_song
 from synthsplit.dsp import SplitDSP
 from synthsplit.layout import Layout
 from synthsplit.losses import floored_sdr_loss
-from synthsplit.model import SynthSplitNet, split_batch
+from synthsplit.model import net_from_checkpoint, split_batch
 from synthsplit.reference import StreamSplit
 
 EXCERPT_SECONDS = float(os.environ.get("EVAL_EXCERPT_S", "30"))
@@ -86,7 +86,7 @@ def main():
         d = ckpt["layout"]
         lay = Layout(sample_rate=d["sample_rate"], n_fft=d["n_fft"], hop=d["hop"], inputs=tuple(d["inputs"]),
                      edges=tuple(d["edges"]))
-        net = SynthSplitNet(lay, int(ckpt["hidden"]), int(ckpt["layers"]))
+        net = net_from_checkpoint(ckpt, lay)
         net.load_state_dict(ckpt["ema"])
         net.eval()
         dsp = SplitDSP(lay)

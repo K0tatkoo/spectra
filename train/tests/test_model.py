@@ -69,3 +69,24 @@ def test_export_round_trip(tmp_path):
     meta = {p.key: p.value for p in onnx.load(str(path)).metadata_props}
     assert meta["spectra.format"] == "synth-split/1"
     assert meta["inputs"] == "vocals,other"
+
+
+def test_the_conv_front_runs_frame_by_frame_and_exports():
+    torch.manual_seed(0)
+    lay = Layout()
+    net = SynthSplitNet(lay, hidden=24, front="conv", channels=8).eval()
+    power = torch.rand(1, 30, lay.features) * 10
+    with torch.no_grad():
+        whole, _ = net(power)
+        state, steps = None, []
+        for f in range(power.shape[1]):
+            m, state = net(power[:, f:f + 1], state)
+            steps.append(m)
+    assert (torch.cat(steps, 1) - whole).abs().max() < 1e-5
+    import tempfile
+    from export import export, verify
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "conv.onnx"
+        export(net, path, {})
+        _, _, worst = verify(net, path, frames=60)
+    assert worst < 1e-4

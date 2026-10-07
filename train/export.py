@@ -31,7 +31,7 @@ import numpy as np
 import torch
 
 from synthsplit.layout import Layout
-from synthsplit.model import SplitStep, SynthSplitNet
+from synthsplit.model import SplitStep, SynthSplitNet, net_from_checkpoint
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
@@ -107,7 +107,7 @@ def main():
         ap.error("--run and --out are required (or --contract-fixture)")
     ckpt = torch.load(args.run / args.ckpt, map_location="cpu")
     lay = layout_from(ckpt["layout"])
-    net = SynthSplitNet(lay, int(ckpt["hidden"]), int(ckpt["layers"]))
+    net = net_from_checkpoint(ckpt, lay)
     net.load_state_dict(ckpt["ema"])
     net.eval()
     result = {}
@@ -118,7 +118,8 @@ def main():
         "spectra.steps": str(ckpt["step"]),
         "spectra.valid_sdr_db": f"{result.get('valid_sdr', float('nan')):.2f}",
         "spectra.data": "MoisesDB (CC BY-NC-SA 4.0), Slakh2100 (CC BY 4.0)",
-        "spectra.network": f"GRU {ckpt['layers']}x{ckpt['hidden']}",
+        "spectra.network": (f"conv {ckpt.get('channels', 32)}ch + " if ckpt.get("front") == "conv" else "")
+                           + f"GRU {ckpt['layers']}x{ckpt['hidden']}",
     }
     export(net, args.out, provenance)
     _, _, err = verify(net, args.out)
