@@ -187,18 +187,43 @@ class SplitDataset(Dataset):
             v, o, s = self._remix(rng, want_synth)
         g = 1.0 if self.real_only else self._db(rng, self.mix.gain_db)
         x = np.stack([v, o, s]).astype(np.float32) * g
-        if not self.real_only and rng.random() < self.mix.eq_share:
-            # The same filter on the inputs and the answer: a linear filter
-            # keeps the answer exact, and the network stops leaning on the
-            # exact timbre of the few hundred patches it trains on.
-            x = np.fft.irfft(np.fft.rfft(x, axis=-1) * random_eq(rng, x.shape[-1]), n=x.shape[-1], axis=-1).astype(np.float32)
-        return torch.from_numpy(np.ascontiguousarray(x[:2])), torch.from_numpy(np.ascontiguousarray(x[2]))
+        # The same filter on the inputs and the answer: a linear filter keeps the
+        # answer exact, and the network stops leaning on the exact timbre of the
+        # patches it trains on. Only drawn here; apply_eq runs it on the GPU, for
+        # the whole batch at once (in numpy it was most of the loader's time).
+        eq = random_eq_params(rng) if not self.real_only and rng.random() < self.mix.eq_share \
+            else np.zeros(EQ_PARAMS, dtype=np.float32)
+        return torch.from_numpy(x[:2].copy()), torch.from_numpy(x[2].copy()), torch.from_numpy(eq)
 
 
-def random_eq(rng, n: int, rate: int = 44100) -> np.ndarray:
+EQ_PARAMS = 8  # on (1/0), tilt dB per octave, then dB, centre (octaves from 1 kHz), width (octaves) of two bumps
+
+
+def random_eq_params(rng) -> np.ndarray:
     """A smooth random response over log frequency: a tilt and two broad bumps, within ±12 dB."""
-    lf = np.log2(np.maximum(np.fft.rfftfreq(n, 1 / rate), 20.0) / 1000.0)  # octaves from 1 kHz
-    db = rng.uniform(-1.5, 1.5) * lf
+    p = [1.0, rng.uniform(-1.5, 1.5)]
     for _ in range(2):
-        db += rng.uniform(-6, 6) * np.exp(-0.5 * ((lf - rng.uniform(-4, 4)) / rng.uniform(0.5, 2.0)) ** 2)
-    return (10 ** (np.clip(db, -12, 12) / 20)).astype(np.float32)
+        p += [rng.uniform(-6, 6), rng.uniform(-4, 4), rng.uniform(0.5, 2.0)]
+    return np.array(p, dtype=np.float32)
+
+
+def eq_response(params: torch.Tensor, n: int, rate: int = 44100) -> torch.Tensor:
+    """(B, EQ_PARAMS) -> (B, n // 2 + 1) gains; rows that are off are flat."""
+    f = torch.fft.rfftfreq(n, 1 / rate, device=params.device)
+    lf = torch.log2(f.clamp_min(20.0) / 1000.0)[None]
+    p = params[:, :, None]
+    db = p[:, 1] * lf
+    for k in (2, 5):
+        db = db + p[:, k] * torch.exp(-0.5 * ((lf - p[:, k + 1]) / p[:, k + 2]) ** 2)
+    gain = 10 ** (db.clamp(-12, 12) / 20)
+    return torch.where(p[:, 0] > 0, gain, torch.ones_like(gain))
+
+
+def apply_eq(x: torch.Tensor, s: torch.Tensor, params: torch.Tensor):
+    """The batch's EQs on inputs (B, K, T) and target (B, T) alike."""
+    if not bool((params[:, 0] > 0).any()):
+        return x, s
+    both = torch.cat([x, s[:, None]], 1)
+    n = both.shape[-1]
+    both = torch.fft.irfft(torch.fft.rfft(both, dim=-1) * eq_response(params, n)[:, None], n=n, dim=-1)
+    return both[:, :-1].contiguous(), both[:, -1].contiguous()

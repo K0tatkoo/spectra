@@ -47,7 +47,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from synthsplit.corpus import list_songs
-from synthsplit.data import Mix, SplitDataset
+from synthsplit.data import Mix, SplitDataset, apply_eq
 from synthsplit.dsp import SplitDSP
 from synthsplit.layout import Layout
 from synthsplit.losses import floored_sdr_loss
@@ -88,10 +88,11 @@ def measure_features(dsp, loader, device, batches: int, features: int):
     total = torch.zeros(features, dtype=torch.float64)
     square = torch.zeros_like(total)
     count = 0
-    for i, (x, _) in enumerate(loader):
+    for i, (x, s, eq) in enumerate(loader):
         if i >= batches:
             break
-        _, power = dsp.analyze(x.to(device))
+        x, _ = apply_eq(x.to(device), s.to(device), eq.to(device))
+        _, power = dsp.analyze(x)
         b, k, f, bands = power.shape
         logp = torch.log(power.permute(0, 2, 1, 3).reshape(b * f, k * bands) + LOG_EPS).cpu().double()
         total += logp.sum(0)
@@ -108,7 +109,7 @@ SILENT = 1e-3  # a crop whose synth has under a thousandth of the inputs' energy
 @torch.no_grad()
 def validate_one(dsp, net, loader, device, hop: int) -> dict:
     losses, zero, other, both, silent = [], [], [], [], []
-    for x, s in loader:
+    for x, s, _ in loader:  # held-out crops are never EQ'd
         x, s = x.to(device), s.to(device)
         loss, _ = score(dsp, net, x, s, hop)
         losses.append(loss)
@@ -260,10 +261,10 @@ def main():
             long = True
             batches = loader_for(True, step)
             print(f"step {step}: switching to {args.long_crop_seconds:g} s crops, batch {long_batch}", flush=True)
-        x, s = next(batches)
+        x, s, eq = next(batches)
         for g in opt.param_groups:
             g["lr"] = lr_at(step, args)
-        x, s = x.to(device, non_blocking=True), s.to(device, non_blocking=True)
+        x, s = apply_eq(x.to(device, non_blocking=True), s.to(device, non_blocking=True), eq.to(device, non_blocking=True))
         loss, _ = score(dsp, net, x, s, hop)
         loss = loss.mean()
         opt.zero_grad(set_to_none=True)
