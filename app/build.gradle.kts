@@ -97,8 +97,8 @@ android {
         // 29 is the floor for AudioPlaybackCapture (MediaProjection audio).
         minSdk = 29
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.4.2"
+        versionCode = 11
+        versionName = "1.5.0"
 
         ndk {
             // ONNX Runtime is native code, so the APK now carries it per ABI —
