@@ -122,7 +122,7 @@ run 2's false alarms.
 
 ## Running it (Windows desktop, NVIDIA GPU)
 
-The desktop (`desktop-nrrcqj4` on the tailnet; RTX 4060 Ti 16 GB, Ryzen 9
+The Windows desktop (RTX 4060 Ti 16 GB, Ryzen 9
 7900X, 31 GB) works in `D:\synthsplit` — `spectra\` is the checkout,
 `slakh\`, `downloads\`, `musdb-vocals\`, `corpus\`, `runs\` and `logs\`
 sit beside it. D: is exFAT, so git wants
