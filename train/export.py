@@ -13,10 +13,11 @@ above 1e-5 stops it.
 
     python export.py --contract-fixture
 
-writes instead a tiny untrained network (hidden 8) and what it answers to a
-fixed input, into app/src/test/resources/synthsplit/, for the app's
-OnnxMaskNetTest: the contract, checked from the Kotlin side through the same
-ONNX Runtime the phone uses.
+writes instead a tiny untrained network (conv front, 4 channels, hidden 8 —
+the shape of graph the app ships since run 4) and what it answers to a fixed
+input, into app/src/test/resources/synthsplit/, for the app's OnnxMaskNetTest:
+the contract, checked from the Kotlin side through the same ONNX Runtime the
+phone uses.
 """
 
 from __future__ import annotations
@@ -91,7 +92,7 @@ def main():
 
     if args.contract_fixture:
         torch.manual_seed(7)
-        net = SynthSplitNet(Layout(), hidden=8, layers=2).eval()
+        net = SynthSplitNet(Layout(), hidden=8, layers=2, front="conv", channels=4).eval()
         out = APP / "src/test/resources/synthsplit"
         model = out / "net-fixture.onnx"
         export(net, model, {"spectra.note": "untrained contract fixture, not a real model"})
@@ -117,7 +118,8 @@ def main():
         "spectra.trained": datetime.date.today().isoformat(),
         "spectra.steps": str(ckpt["step"]),
         "spectra.valid_sdr_db": f"{result.get('valid_sdr', float('nan')):.2f}",
-        "spectra.data": "MoisesDB (CC BY-NC-SA 4.0), Slakh2100 (CC BY 4.0)",
+        "spectra.data": "MoisesDB (CC BY-NC-SA 4.0), Slakh2100 (CC BY 4.0), MUSDB18-HQ vocals (non-commercial), "
+                        "made-up synths and hardstyle drums (synthsplit/procsynth.py, hardstyle.py)",
         "spectra.network": (f"conv {ckpt.get('channels', 32)}ch + " if ckpt.get("front") == "conv" else "")
                            + f"GRU {ckpt['layers']}x{ckpt['hidden']}",
     }
