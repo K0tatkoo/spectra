@@ -623,7 +623,9 @@ fun SettingsScreen(
                     SettingRow(
                         "Synth lane",
                         "Takes synth leads and pads out of the vocals and other stems into a lane of " +
-                            "their own. A second, much smaller network, on a core of its own.",
+                            "their own. Tuned for electronic music, hardstyle above all: in rock and pop it " +
+                            "can take some guitar or keys along. A second, much smaller network, on a core " +
+                            "of its own.",
                     ) {
                         NeuSwitch(s.stemSynth) { v -> edit { it.copy(stemSynth = v) } }
                     }
@@ -653,7 +655,8 @@ fun SettingsScreen(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Separation model: StemgenRT (HS-TasNet), MIT. Runtime: ONNX Runtime, MIT. " +
-                        (if (AudioEngine.synthModel != null) "Synth model: Spectra's own, trained on MoisesDB and Slakh2100. " else "") +
+                        (if (AudioEngine.synthModel != null) "Synth model: Spectra's own, trained on MoisesDB, Slakh2100 " +
+                            "and MUSDB18-HQ vocals; its weights are CC BY-NC-SA 4.0. " else "") +
                         "Their licence texts ship inside the app.",
                     color = palette.textFaint.toComposeColor(),
                     fontSize = 10.sp,
