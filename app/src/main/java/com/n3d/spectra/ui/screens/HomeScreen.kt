@@ -1,10 +1,12 @@
 package com.n3d.spectra.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,16 +14,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -82,16 +95,32 @@ fun HomeScreen(
             .fillMaxSize()
             .background(palette.bg.toComposeColor())
             .systemBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = GUTTER, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    "Spectra",
-                    color = palette.text.toComposeColor(),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                Row {
+                    Text(
+                        "Spectra",
+                        color = palette.text.toComposeColor(),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                    // The installed version, read off the package: what a bug
+                    // report or "is the update on?" needs, without opening Settings.
+                    val version = viewModel.updates.installedVersionName
+                    if (version.isNotEmpty()) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            version,
+                            color = palette.textFaint.toComposeColor(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                    }
+                }
                 Text(
                     statusText(state, paused),
                     color = palette.textFaint.toComposeColor(),
@@ -231,21 +260,77 @@ private fun Banner(text: String, tone: Int, onDismiss: (() -> Unit)?) {
     }
 }
 
+/** The page's side margin. Everything lines up on it; only the chip rows run past it. */
+private val GUTTER = 16.dp
+
+/**
+ * A row of chips wider than the screen, scrolled sideways.
+ *
+ * It spans the whole screen and pads its content by the [GUTTER] instead of
+ * sitting inside it. At rest the first chip still lines up with everything
+ * above it, but a chip scrolling away now runs on to the edge of the glass,
+ * and the chips at either end keep the whole of their shadow. Inside the
+ * gutter, a scroll row clips at the gutter: chips were sliced off 16 dp short
+ * of both screen edges, and the end chips' shadows were cut flat.
+ */
+@Composable
+private fun ChipRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .bleed(GUTTER)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = GUTTER),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+/** Lays this out [by] wider on each side than its parent allows, overhanging both edges equally. */
+private fun Modifier.bleed(by: Dp): Modifier = layout { measurable, constraints ->
+    val extra = if (constraints.hasBoundedWidth) by.roundToPx() * 2 else 0
+    val placeable = measurable.measure(
+        constraints.copy(minWidth = constraints.minWidth + extra, maxWidth = constraints.maxWidth + extra),
+    )
+    layout((placeable.width - extra).coerceAtLeast(constraints.minWidth), placeable.height) {
+        placeable.place(-extra / 2, 0)
+    }
+}
+
 @Composable
 private fun PageChips(selected: VizPage, onSelect: (VizPage) -> Unit) {
-    val scroll = rememberScrollState()
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(scroll),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    ChipRow {
         VizPage.entries.forEach { page ->
             NeuChip(
                 label = page.label,
                 selected = page == selected,
                 onClick = { onSelect(page) },
+                modifier = if (page == selected) Modifier.scrolledIntoView() else Modifier,
             )
         }
     }
+}
+
+/**
+ * Scrolls the row this sits in until all of it shows, a [GUTTER] clear of the
+ * screen edge, whenever it starts being drawn. The app reopens on the last
+ * page used, and Waveform, Oscilloscope and Stems sit past the right edge:
+ * without this the row opened with no chip lit at all. A chip tapped while
+ * half off the edge slides fully in the same way.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Modifier.scrolledIntoView(): Modifier {
+    val requester = remember { BringIntoViewRequester() }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val margin = with(LocalDensity.current) { GUTTER.toPx() }
+    LaunchedEffect(size) {
+        if (size != IntSize.Zero) {
+            requester.bringIntoView(Rect(-margin, 0f, size.width + margin, size.height.toFloat()))
+        }
+    }
+    return onSizeChanged { size = it }.bringIntoViewRequester(requester)
 }
 
 /**
@@ -255,12 +340,7 @@ private fun PageChips(selected: VizPage, onSelect: (VizPage) -> Unit) {
 @Composable
 private fun StemHoldChips(lanes: List<Stem>, isHeld: (Stem) -> Boolean, onToggle: (Stem) -> Unit) {
     val palette = LocalPalette.current
-    val scroll = rememberScrollState()
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(scroll),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    ChipRow {
         Text("Hold still", color = palette.textFaint.toComposeColor(), fontSize = 11.sp)
         lanes.forEach { stem ->
             NeuChip(
