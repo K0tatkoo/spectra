@@ -5,6 +5,15 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 1.5.1 — 2026-10-16
+
+New icon (an analog sine into the NES triangle's steps), the version beside the name, and page chips that run to the screen edge with the open page in view
+
+- New icon: an analog sine crest into the 2A03 triangle's steps
+- Windows: show the version beside the name, from the phone app's number
+- Header shows the version; page chips scroll to the screen edge
+- Training README: describe the desktop by its hardware, not its tailnet name
+
 ## 1.5.0 — 2026-10-08
 
 Synth lane on the Stems page: synth leads and pads in a lane of their own, tuned for hardstyle and electronic music
