@@ -654,7 +654,8 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
             val sc = state.uiScale
             g.text("SPECTRA", 18f * sc, 34f * sc, Fonts.sans(19f * sc, bold = true), palette.text)
             val wordmarkW: Float = g.textWidth("SPECTRA", Fonts.sans(19f * sc, bold = true))
-            g.text("for Windows", 18f * sc + wordmarkW + 8f * sc, 34f * sc, Fonts.sans(10f * sc), palette.textFaint)
+            val tagline = AppVersion.name?.let { "$it for Windows" } ?: "for Windows"
+            g.text(tagline, 18f * sc + wordmarkW + 8f * sc, 34f * sc, Fonts.sans(10f * sc), palette.textFaint)
 
             val warning = DesktopEngine.warning
             val engineState = DesktopEngine.state
@@ -686,6 +687,15 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
         }
     }
 
+}
+
+/** The version this build was made as (the phone app's), or null when run outside Gradle. */
+object AppVersion {
+    val name: String? by lazy {
+        AppVersion::class.java.getResourceAsStream("/spectra-version.txt")
+            ?.use { it.readBytes().decodeToString().trim() }
+            ?.takeIf { it.isNotEmpty() }
+    }
 }
 
 /** The window icon, loaded from the PNG set the Android launcher icon is rendered into. */

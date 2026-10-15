@@ -23,7 +23,9 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$HERE")"
-VERSION="${SPECTRA_VERSION:-1.0}"
+# The phone app's version, which is the window's too (see desktop/build.gradle.kts).
+APP_VERSION="$(sed -n 's/.*versionName *= *"\([^"]*\)".*/\1/p' "$ROOT/app/build.gradle.kts" | head -1)"
+VERSION="${SPECTRA_VERSION:-${APP_VERSION:-1.0}}"
 WORK="${SPECTRA_BUILD_DIR:-$HERE/build/windows}"
 CACHE="${SPECTRA_CACHE_DIR:-$HERE/build/cache}"
 JDK_VERSION="21.0.12.1+1"

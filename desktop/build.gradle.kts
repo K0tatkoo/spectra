@@ -21,7 +21,36 @@ kotlin {
     jvmToolchain(21)
 }
 
+/**
+ * One version for both products: the Android app's, which tools/release writes
+ * into app/build.gradle.kts. The window shows it beside the name, and the jar
+ * manifest and package-windows.sh carry the same number.
+ */
+val spectraVersion: String = Regex("""versionName\s*=\s*"([^"]+)"""")
+    .find(rootProject.file("app/build.gradle.kts").readText())
+    ?.groupValues?.get(1)
+    ?: error("no versionName in app/build.gradle.kts")
+version = spectraVersion
+
+/**
+ * Written as a resource rather than read from the jar manifest, which only
+ * exists inside a built jar: `runApp` and the headless renders run from class
+ * folders and would show no version at all.
+ */
+val versionResource by tasks.registering {
+    val out = layout.buildDirectory.dir("generated/version")
+    inputs.property("version", spectraVersion)
+    outputs.dir(out)
+    doLast {
+        out.get().file("spectra-version.txt").asFile.apply {
+            parentFile.mkdirs()
+            writeText(spectraVersion)
+        }
+    }
+}
+
 sourceSets.main {
+    resources.srcDir(versionResource)
     kotlin.srcDir("../app/src/main/java")
     kotlin.setIncludes(
         listOf(
