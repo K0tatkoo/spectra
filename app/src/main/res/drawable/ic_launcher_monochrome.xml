@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One UI themed icons tint this flat, so no gradients here. -->
+<!-- Themed icons tint this one colour, so it is the foreground's mark alone. Written by tools/launcher-icon.py; edit that, not this. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
-    android:viewportHeight="108"
-    android:tint="#FFFFFF">
-    <path android:fillColor="#FFFFFF" android:pathData="M35,58 h5 a2.5,2.5 0 0 1 2.5,2.5 v13 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-13 a2.5,2.5 0 0 1 2.5,-2.5 z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M45,44 h5 a2.5,2.5 0 0 1 2.5,2.5 v27 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-27 a2.5,2.5 0 0 1 2.5,-2.5 z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M55,32 h5 a2.5,2.5 0 0 1 2.5,2.5 v39 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-39 a2.5,2.5 0 0 1 2.5,-2.5 z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M65,50 h5 a2.5,2.5 0 0 1 2.5,2.5 v21 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-21 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+    android:viewportHeight="108">
+    <!-- The analog half: round ends. -->
+    <path
+        android:pathData="M34.909,54 C36.5,50.501 38.091,47.024 39.682,44.55 C41.273,42.077 42.864,40.636 44.455,40.636 C46.045,40.636 47.636,42.077 49.227,44.55 C50.818,47.024 52.409,50.501 54,54"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.818"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- The 2A03 half: square corners. -->
+    <path
+        android:pathData="M54,54 L54,57.341 L56.727,57.341 L56.727,60.682 L59.455,60.682 L59.455,64.023 L62.182,64.023 L62.182,67.364 L64.909,67.364 L64.909,64.023 L67.636,64.023 L67.636,60.682 L70.364,60.682 L70.364,57.341 L73.091,57.341 L73.091,54"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.818"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="4" />
 </vector>

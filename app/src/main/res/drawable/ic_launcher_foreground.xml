@@ -1,47 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Adaptive-icon foregrounds are 108x108 with only the middle 72x72 guaranteed
-    visible, so every bar lives inside x 34..74 / y 30..78.
--->
+<!-- Adaptive-icon foregrounds are 108 x 108 with the middle 72 visible; the mark sits in the middle. Written by tools/launcher-icon.py; edit that, not this. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-
-    <group android:name="bars">
-        <path android:pathData="M35,58 h5 a2.5,2.5 0 0 1 2.5,2.5 v13 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-13 a2.5,2.5 0 0 1 2.5,-2.5 z">
-            <aapt:attr name="android:fillColor">
-                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
-                    <item android:offset="0" android:color="#FF9B7CFF" />
-                    <item android:offset="1" android:color="#FF34E3FF" />
-                </gradient>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M45,44 h5 a2.5,2.5 0 0 1 2.5,2.5 v27 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-27 a2.5,2.5 0 0 1 2.5,-2.5 z">
-            <aapt:attr name="android:fillColor">
-                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
-                    <item android:offset="0" android:color="#FF9B7CFF" />
-                    <item android:offset="1" android:color="#FF34E3FF" />
-                </gradient>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M55,32 h5 a2.5,2.5 0 0 1 2.5,2.5 v39 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-39 a2.5,2.5 0 0 1 2.5,-2.5 z">
-            <aapt:attr name="android:fillColor">
-                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
-                    <item android:offset="0" android:color="#FF9B7CFF" />
-                    <item android:offset="1" android:color="#FF34E3FF" />
-                </gradient>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M65,50 h5 a2.5,2.5 0 0 1 2.5,2.5 v21 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-21 a2.5,2.5 0 0 1 2.5,-2.5 z">
-            <aapt:attr name="android:fillColor">
-                <gradient android:startX="0" android:startY="76" android:endX="0" android:endY="30" android:type="linear">
-                    <item android:offset="0" android:color="#FF9B7CFF" />
-                    <item android:offset="1" android:color="#FF34E3FF" />
-                </gradient>
-            </aapt:attr>
-        </path>
-    </group>
+    <!-- The analog half: round ends. -->
+    <path
+        android:pathData="M34.909,54 C36.5,50.501 38.091,47.024 39.682,44.55 C41.273,42.077 42.864,40.636 44.455,40.636 C46.045,40.636 47.636,42.077 49.227,44.55 C50.818,47.024 52.409,50.501 54,54"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.818"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- The 2A03 half: square corners. -->
+    <path
+        android:pathData="M54,54 L54,57.341 L56.727,57.341 L56.727,60.682 L59.455,60.682 L59.455,64.023 L62.182,64.023 L62.182,67.364 L64.909,67.364 L64.909,64.023 L67.636,64.023 L67.636,60.682 L70.364,60.682 L70.364,57.341 L73.091,57.341 L73.091,54"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.818"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="4" />
 </vector>

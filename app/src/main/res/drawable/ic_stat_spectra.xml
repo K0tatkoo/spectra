@@ -1,14 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar icons are masked to a single colour, so shape is all that matters. -->
+<!-- Status-bar icons are masked to one colour, so shape is all that matters. Written by tools/launcher-icon.py; edit that, not this. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24"
-    android:tint="#FFFFFF">
-    <path android:fillColor="#FFFFFF" android:pathData="M3,13h2v6h-2z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M7.5,9h2v10h-2z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M12,4h2v15h-2z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M16.5,10.5h2v8.5h-2z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M21,15h2v4h-2z" />
+    android:viewportHeight="24">
+    <!-- The analog half: round ends. -->
+    <path
+        android:pathData="M2,12 C2.833,10.167 3.667,8.346 4.5,7.05 C5.333,5.754 6.167,5 7,5 C7.833,5 8.667,5.754 9.5,7.05 C10.333,8.346 11.167,10.167 12,12"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- The 2A03 half: square corners. -->
+    <path
+        android:pathData="M12,12 L12,13.75 L13.429,13.75 L13.429,15.5 L14.857,15.5 L14.857,17.25 L16.286,17.25 L16.286,19 L17.714,19 L17.714,17.25 L19.143,17.25 L19.143,15.5 L20.571,15.5 L20.571,13.75 L22,13.75 L22,12"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="4" />
 </vector>

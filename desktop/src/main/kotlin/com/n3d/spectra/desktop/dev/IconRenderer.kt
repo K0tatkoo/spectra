@@ -27,9 +27,10 @@ import kotlin.math.sqrt
  * Windows build by rebuilding rather than by someone remembering.
  *
  * VectorDrawable `pathData` is SVG path syntax, so this is a faithful conversion.
- * Only the commands the icon actually uses are implemented, and anything else
- * throws rather than being skipped — an icon that silently loses a shape is worse
- * than a build that stops.
+ * Only what the icon actually uses is implemented — fills in one colour or a linear
+ * gradient, strokes with their caps and joins — and anything else throws rather
+ * than being skipped: an icon that silently loses a shape is worse than a build
+ * that stops.
  */
 private const val VIEWPORT = 108.0
 
@@ -146,12 +147,19 @@ private fun dibBytes(image: BufferedImage): ByteArray {
     return out.toByteArray()
 }
 
-private class Shape2D(val path: Path2D.Double, val gradient: Gradient)
+/** One VectorDrawable path: filled, stroked, or both, in the drawable's own units. */
+private class Shape2D(val path: Path2D.Double, val fill: Fill?, val stroke: Stroke2D?)
+
+private sealed interface Fill
+
+private class Solid(val color: Color) : Fill
 
 private class Gradient(
     val x0: Double, val y0: Double, val x1: Double, val y1: Double,
     val stops: List<Pair<Float, Color>>,
-)
+) : Fill
+
+private class Stroke2D(val color: Color, val stroke: BasicStroke)
 
 private fun render(shapes: List<Shape2D>, size: Int): BufferedImage {
     val image = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
@@ -166,27 +174,42 @@ private fun render(shapes: List<Shape2D>, size: Int): BufferedImage {
     g.clip(RoundRectangle2D.Double(0.0, 0.0, size.toDouble(), size.toDouble(), radius * 2, radius * 2))
 
     val scale = size / SAFE
-    val transform = AffineTransform().apply {
-        scale(scale, scale)
-        translate(-INSET, -INSET)
-    }
+    val device = g.transform
+    // Everything below is drawn in the drawable's own 108-unit space, so stroke
+    // widths and gradient end points scale exactly as Android scales them.
+    g.transform(
+        AffineTransform().apply {
+            scale(scale, scale)
+            translate(-INSET, -INSET)
+        },
+    )
     for (shape in shapes) {
-        val p = Path2D.Double(shape.path)
-        p.transform(transform)
-        val a = Point2D.Double(shape.gradient.x0, shape.gradient.y0).also { transform.transform(it, it) }
-        val b = Point2D.Double(shape.gradient.x1, shape.gradient.y1).also { transform.transform(it, it) }
-        g.paint = if (a.distance(b) < 0.01) {
-            shape.gradient.stops.first().second
-        } else {
-            LinearGradientPaint(
-                a, b,
-                shape.gradient.stops.map { it.first }.toFloatArray(),
-                shape.gradient.stops.map { it.second }.toTypedArray(),
-                MultipleGradientPaint.CycleMethod.NO_CYCLE,
-            )
+        when (val fill = shape.fill) {
+            is Solid -> g.paint = fill.color
+            is Gradient -> {
+                val a = Point2D.Double(fill.x0, fill.y0)
+                val b = Point2D.Double(fill.x1, fill.y1)
+                g.paint = if (a.distance(b) < 0.01) {
+                    fill.stops.first().second
+                } else {
+                    LinearGradientPaint(
+                        a, b,
+                        fill.stops.map { it.first }.toFloatArray(),
+                        fill.stops.map { it.second }.toTypedArray(),
+                        MultipleGradientPaint.CycleMethod.NO_CYCLE,
+                    )
+                }
+            }
+            null -> {}
         }
-        g.fill(p)
+        if (shape.fill != null) g.fill(shape.path)
+        shape.stroke?.let {
+            g.paint = it.color
+            g.stroke = it.stroke
+            g.draw(shape.path)
+        }
     }
+    g.transform = device
     // A hairline of the top-left highlight, the same trick the neumorphic
     // surfaces use, so the mark does not read as a flat sticker at 256 px.
     if (size >= 48) {
@@ -207,21 +230,25 @@ private val GRADIENT_RE = Regex(
     RegexOption.DOT_MATCHES_ALL,
 )
 private val ITEM_RE = Regex("""android:offset="([-\d.]+)"\s+android:color="#([0-9A-Fa-f]{8})"""")
+private val FILL_RE = Regex("""android:fillColor="#([0-9A-Fa-f]{8})"""")
+private val STROKE_COLOR_RE = Regex("""android:strokeColor="#([0-9A-Fa-f]{8})"""")
+private val STROKE_WIDTH_RE = Regex("""android:strokeWidth="([\d.]+)"""")
+private val LINE_CAP_RE = Regex("""android:strokeLineCap="(\w+)"""")
+private val LINE_JOIN_RE = Regex("""android:strokeLineJoin="(\w+)"""")
+private val MITER_RE = Regex("""android:strokeMiterLimit="([\d.]+)"""")
+
+private fun argb(hex: String) = Color(hex.toLong(16).toInt(), true)
 
 private fun parseLayer(xml: String): List<Shape2D> {
     // Split on <path so each path keeps the gradient nested inside it.
     val blocks = xml.split("<path").drop(1)
     return blocks.mapNotNull { block ->
         val data = PATH_RE.find(block)?.groupValues?.get(1) ?: return@mapNotNull null
-        val g = GRADIENT_RE.find(block)
-            ?: error("path has no linear gradient; solid fills are not implemented: ${data.take(40)}")
-        val stops = ITEM_RE.findAll(g.groupValues[5]).map { m ->
-            val argb = m.groupValues[2].toLong(16).toInt()
-            m.groupValues[1].toFloat() to Color(argb, true)
-        }.toList()
-        require(stops.size >= 2) { "gradient needs at least two stops" }
-        Shape2D(
-            parsePath(data),
+        val fill: Fill? = GRADIENT_RE.find(block)?.let { g ->
+            val stops = ITEM_RE.findAll(g.groupValues[5]).map { m ->
+                m.groupValues[1].toFloat() to argb(m.groupValues[2])
+            }.toList()
+            require(stops.size >= 2) { "gradient needs at least two stops" }
             Gradient(
                 g.groupValues[1].toDouble(), g.groupValues[2].toDouble(),
                 g.groupValues[3].toDouble(), g.groupValues[4].toDouble(),
@@ -229,8 +256,31 @@ private fun parseLayer(xml: String): List<Shape2D> {
                 stops.sortedBy { it.first }.mapIndexed { i, s ->
                     (s.first + i * 1e-4f).coerceIn(0f, 1f) to s.second
                 },
-            ),
-        )
+            )
+        } ?: FILL_RE.find(block)?.let { Solid(argb(it.groupValues[1])) }
+        val stroke = STROKE_COLOR_RE.find(block)?.let { c ->
+            val width = STROKE_WIDTH_RE.find(block)?.groupValues?.get(1)?.toFloat()
+                ?: error("stroked path has no strokeWidth: ${data.take(40)}")
+            // VectorDrawable's defaults: butt caps, miter joins, a miter limit of 4.
+            val cap = when (val v = LINE_CAP_RE.find(block)?.groupValues?.get(1) ?: "butt") {
+                "butt" -> BasicStroke.CAP_BUTT
+                "round" -> BasicStroke.CAP_ROUND
+                "square" -> BasicStroke.CAP_SQUARE
+                else -> error("unknown strokeLineCap '$v'")
+            }
+            val join = when (val v = LINE_JOIN_RE.find(block)?.groupValues?.get(1) ?: "miter") {
+                "miter" -> BasicStroke.JOIN_MITER
+                "round" -> BasicStroke.JOIN_ROUND
+                "bevel" -> BasicStroke.JOIN_BEVEL
+                else -> error("unknown strokeLineJoin '$v'")
+            }
+            val miter = MITER_RE.find(block)?.groupValues?.get(1)?.toFloat() ?: 4f
+            Stroke2D(argb(c.groupValues[1]), BasicStroke(width, cap, join, miter.coerceAtLeast(1f)))
+        }
+        require(fill != null || stroke != null) {
+            "path has no fill this renderer understands and no stroke: ${data.take(40)}"
+        }
+        Shape2D(parsePath(data), fill, stroke)
     }
 }
 
