@@ -405,7 +405,8 @@ final class VizPainter {
 
     private func drawLoudness(_ ctx: GraphicsContext, _ area: CGRect, _ f: AnalysisFrame, _ s: Settings) {
         let l = f.loudness
-        let topH = area.height * 0.38
+        // Capped, or on a tall phone the labels drift far from their numbers.
+        let topH = min(area.height * 0.38, 118)
         let top = CGRect(x: area.minX, y: area.minY, width: area.width, height: topH)
         let cellW = top.width / 4
         func cell(_ i: CGFloat) -> CGRect { CGRect(x: top.minX + cellW * i, y: top.minY, width: cellW, height: top.height) }

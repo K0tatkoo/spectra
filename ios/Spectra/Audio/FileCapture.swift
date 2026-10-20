@@ -32,10 +32,19 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     struct Transport {
         var playing = false
         var loop = true
-        /// File frame the current segment started at.
-        var segmentStart: AVAudioFramePosition = 0
+        /// What is queued on the player, in order: where each segment starts on
+        /// the player's own clock, and in the file. The clock runs on across a
+        /// loop — the next pass is queued seconds ahead, while the player is
+        /// still reading the last — and back to zero only when it is stopped.
+        var segments: [Segment] = []
         /// Bumped by every reschedule, so a stale completion is ignored.
         var generation = 0
+    }
+
+    struct Segment {
+        var playerStart: AVAudioFramePosition
+        var fileStart: AVAudioFramePosition
+        var frames: AVAudioFramePosition
     }
 
     init(url: URL) throws {
@@ -54,11 +63,14 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
 
     /// Seconds into the file.
     var currentTime: Double {
-        let t = state.withLock { $0 }
+        let segments = state.withLock { $0.segments }
+        guard let first = segments.first else { return 0 }
         guard let node = player.lastRenderTime, let pt = player.playerTime(forNodeTime: node) else {
-            return Double(t.segmentStart) / file.processingFormat.sampleRate
+            return Double(first.fileStart) / file.processingFormat.sampleRate
         }
-        let frame = t.segmentStart + max(0, pt.sampleTime)
+        let now = max(0, pt.sampleTime)
+        let playing = segments.last { $0.playerStart <= now } ?? first
+        let frame = playing.fileStart + min(now - playing.playerStart, playing.frames)
         return Double(min(frame, file.length)) / file.processingFormat.sampleRate
     }
 
@@ -100,6 +112,42 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         }
         schedule(from: 0)
         play()
+        observeSystem()
+    }
+
+    private var observers: [NSObjectProtocol] = []
+
+    /// A call, Siri or another app's audio interrupts playback, and a route
+    /// change (headphones, AirPlay) reconfigures the engine, which stops it.
+    /// Pause for the first and resume if iOS says so; restart the engine where
+    /// playback was for the second.
+    private func observeSystem() {
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+            guard let self, let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+            switch type {
+            case .began:
+                self.pause()
+            case .ended:
+                let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map(AVAudioSession.InterruptionOptions.init)
+                if options?.contains(.shouldResume) == true {
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    self.play()
+                }
+            @unknown default:
+                break
+            }
+        })
+        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            let resume = self.isPlaying
+            let at = self.currentTime
+            try? self.engine.start()
+            self.player.stop()
+            self.schedule(from: AVAudioFramePosition(at * self.file.processingFormat.sampleRate))
+            if resume { self.play() }
+        })
     }
 
     func play() {
@@ -131,25 +179,36 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         if wasPlaying { player.play() }
     }
 
-    private func schedule(from frame: AVAudioFramePosition) {
+    /// Queues the file from `frame`. `continuing` means the player was not
+    /// stopped — a loop's next pass — so its clock carries on from the last one.
+    private func schedule(from frame: AVAudioFramePosition, continuing: Bool = false) {
         let start = min(frame, max(0, file.length - 1))
         let generation = state.withLock { s -> Int in
-            s.segmentStart = start
+            let frames = max(0, file.length - start)
+            if continuing, let last = s.segments.last {
+                // Only the one before is still needed to read the clock by.
+                s.segments = [last, Segment(playerStart: last.playerStart + last.frames, fileStart: start, frames: frames)]
+            } else {
+                s.segments = [Segment(playerStart: 0, fileStart: start, frames: frames)]
+            }
             s.generation += 1
             return s.generation
         }
         let count = AVAudioFrameCount(max(0, file.length - start))
         player.scheduleSegment(file, startingFrame: start, frameCount: count, at: nil,
-                               completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                               completionCallbackType: .dataConsumed) { [weak self] _ in
             self?.segmentEnded(generation)
         }
     }
 
+    /// Called when the player has taken the last of the segment — before it
+    /// has played, so a loop's next pass is queued without a gap. (Waiting for
+    /// `.dataPlayedBack` instead left the player running on silence.)
     private func segmentEnded(_ generation: Int) {
         let (current, loop) = state.withLock { ($0.generation == generation, $0.loop) }
         guard current else { return }
         if loop {
-            schedule(from: 0)
+            schedule(from: 0, continuing: true)
             if isPlaying { player.play() }
         } else {
             DispatchQueue.main.async { [weak self] in self?.pause() }
@@ -163,6 +222,8 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     }
 
     func stop() {
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
         tapUnit?.box.listening.store(false, ordering: .relaxed)
         ring?.close()
         engine.stop()

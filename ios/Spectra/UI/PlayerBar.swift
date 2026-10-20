@@ -9,6 +9,12 @@ struct PlayerBar: View {
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
 
     var body: some View {
+        // A file's position and whether it is playing are not observable, and a
+        // file can stop or loop by itself: the whole bar refreshes on a timeline.
+        TimelineView(.periodic(from: .now, by: 0.5)) { _ in bar }
+    }
+
+    private var bar: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.body.weight(.semibold))
@@ -17,9 +23,7 @@ struct PlayerBar: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
                 if placement != .inline {
-                    TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-                        Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).monospacedDigit()
-                    }
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).monospacedDigit()
                 }
             }
             Spacer(minLength: 8)
