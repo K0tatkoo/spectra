@@ -1,0 +1,16 @@
+{
+ "name": "stemSeparator",
+ "meta": {
+  "written": 25472
+ },
+ "arrays": {
+  "stems.0": {"type": "f32", "offset": 0, "count": 25472},
+  "pitched.0": {"type": "f32", "offset": 101888, "count": 25472},
+  "stems.1": {"type": "f32", "offset": 203776, "count": 25472},
+  "pitched.1": {"type": "f32", "offset": 305664, "count": 25472},
+  "stems.2": {"type": "f32", "offset": 407552, "count": 25472},
+  "pitched.2": {"type": "f32", "offset": 509440, "count": 25472},
+  "stems.3": {"type": "f32", "offset": 611328, "count": 25472},
+  "pitched.3": {"type": "f32", "offset": 713216, "count": 25472}
+ }
+}

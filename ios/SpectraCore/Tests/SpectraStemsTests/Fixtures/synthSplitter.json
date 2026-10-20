@@ -1,0 +1,16 @@
+{
+ "name": "synthSplitter",
+ "meta": {
+  "end": 32256,
+  "cleanFrom": 12049,
+  "lanes": ["SYNTH", "VOCALS", "OTHER"]
+ },
+ "arrays": {
+  "raw.SYNTH": {"type": "f32", "offset": 0, "count": 32256},
+  "pitched.SYNTH": {"type": "f32", "offset": 129024, "count": 32256},
+  "raw.VOCALS": {"type": "f32", "offset": 258048, "count": 32256},
+  "pitched.VOCALS": {"type": "f32", "offset": 387072, "count": 32256},
+  "raw.OTHER": {"type": "f32", "offset": 516096, "count": 32256},
+  "pitched.OTHER": {"type": "f32", "offset": 645120, "count": 32256}
+ }
+}

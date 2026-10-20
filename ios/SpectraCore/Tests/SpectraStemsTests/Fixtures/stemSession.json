@@ -1,0 +1,12 @@
+{
+ "name": "stemSession",
+ "meta": {
+  "hops": 200,
+  "hop": 128,
+  "threads": 1
+ },
+ "arrays": {
+  "input": {"type": "f32", "offset": 0, "count": 51200},
+  "output": {"type": "f32", "offset": 204800, "count": 204800}
+ }
+}
