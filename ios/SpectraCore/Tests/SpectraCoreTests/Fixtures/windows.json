@@ -1,0 +1,19 @@
+{
+ "name": "windows",
+ "meta": {
+  "n": 1024,
+  "names": ["RECTANGULAR", "HANN", "HAMMING", "BLACKMAN_HARRIS", "FLAT_TOP"]
+ },
+ "arrays": {
+  "RECTANGULAR.samples": {"type": "f32", "offset": 0, "count": 1024},
+  "RECTANGULAR.constants": {"type": "f32", "offset": 4096, "count": 3},
+  "HANN.samples": {"type": "f32", "offset": 4108, "count": 1024},
+  "HANN.constants": {"type": "f32", "offset": 8204, "count": 3},
+  "HAMMING.samples": {"type": "f32", "offset": 8216, "count": 1024},
+  "HAMMING.constants": {"type": "f32", "offset": 12312, "count": 3},
+  "BLACKMAN_HARRIS.samples": {"type": "f32", "offset": 12324, "count": 1024},
+  "BLACKMAN_HARRIS.constants": {"type": "f32", "offset": 16420, "count": 3},
+  "FLAT_TOP.samples": {"type": "f32", "offset": 16432, "count": 1024},
+  "FLAT_TOP.constants": {"type": "f32", "offset": 20528, "count": 3}
+ }
+}

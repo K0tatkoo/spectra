@@ -1,0 +1,12 @@
+{
+ "name": "fft_1024",
+ "meta": {
+  "size": 1024
+ },
+ "arrays": {
+  "re": {"type": "f32", "offset": 0, "count": 1024},
+  "im": {"type": "f32", "offset": 4096, "count": 1024},
+  "outRe": {"type": "f32", "offset": 8192, "count": 1024},
+  "outIm": {"type": "f32", "offset": 12288, "count": 1024}
+ }
+}

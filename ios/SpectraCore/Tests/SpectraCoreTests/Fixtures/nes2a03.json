@@ -1,0 +1,23 @@
+{
+ "name": "nes2a03",
+ "meta": {
+  "noteNames": ["A0", "E1", "A1", "B1", "A2", "A3", "A4", "B5", "C8", "C-1"],
+  "waveRms": 0.6146363019943237
+ },
+ "arrays": {
+  "hz": {"type": "f64", "offset": 0, "count": 10},
+  "NTSC.timerFor": {"type": "i32", "offset": 80, "count": 10},
+  "NTSC.frequency": {"type": "f64", "offset": 120, "count": 10},
+  "NTSC.samplesPerStep": {"type": "f64", "offset": 200, "count": 10},
+  "PAL.timerFor": {"type": "i32", "offset": 280, "count": 10},
+  "PAL.frequency": {"type": "f64", "offset": 320, "count": 10},
+  "PAL.samplesPerStep": {"type": "f64", "offset": 400, "count": 10},
+  "DENDY.timerFor": {"type": "i32", "offset": 480, "count": 10},
+  "DENDY.frequency": {"type": "f64", "offset": 520, "count": 10},
+  "DENDY.samplesPerStep": {"type": "f64", "offset": 600, "count": 10},
+  "centsOff": {"type": "f64", "offset": 680, "count": 10},
+  "phases": {"type": "f32", "offset": 760, "count": 67},
+  "levelAt": {"type": "f32", "offset": 1028, "count": 67},
+  "dacAt": {"type": "i32", "offset": 1296, "count": 67}
+ }
+}

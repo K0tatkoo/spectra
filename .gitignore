@@ -10,3 +10,10 @@
 .cxx
 local.properties
 /desktop/build
+
+# iOS
+ios/**/.build/
+ios/build/
+ios/**/*.xcodeproj/xcuserdata/
+ios/**/*.xcworkspace/xcuserdata/
+*.xcuserstate

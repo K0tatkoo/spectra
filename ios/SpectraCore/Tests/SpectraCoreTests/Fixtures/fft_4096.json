@@ -1,0 +1,12 @@
+{
+ "name": "fft_4096",
+ "meta": {
+  "size": 4096
+ },
+ "arrays": {
+  "re": {"type": "f32", "offset": 0, "count": 4096},
+  "im": {"type": "f32", "offset": 16384, "count": 4096},
+  "outRe": {"type": "f32", "offset": 32768, "count": 4096},
+  "outIm": {"type": "f32", "offset": 49152, "count": 4096}
+ }
+}

@@ -1,0 +1,12 @@
+{
+ "name": "monoRing",
+ "meta": {
+  "chunks": [1, 999, 17, 400, 1024, 892]
+ },
+ "arrays": {
+  "feed": {"type": "f32", "offset": 0, "count": 3333},
+  "pending": {"type": "i32", "offset": 13332, "count": 6},
+  "latest": {"type": "f32", "offset": 13356, "count": 6000},
+  "decimated": {"type": "f32", "offset": 37356, "count": 384}
+ }
+}

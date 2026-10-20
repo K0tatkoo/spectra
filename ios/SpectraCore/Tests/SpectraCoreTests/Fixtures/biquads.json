@@ -1,0 +1,16 @@
+{
+ "name": "biquads",
+ "meta": {
+  "names": ["lowPass48k1k", "lowPass44k80q2", "highPass48k20", "kShelf48k", "kShelf44k", "kHighPass48k"]
+ },
+ "arrays": {
+  "input": {"type": "f32", "offset": 0, "count": 2048},
+  "lowPass48k1k": {"type": "f64", "offset": 8192, "count": 2048},
+  "lowPass44k80q2": {"type": "f64", "offset": 24576, "count": 2048},
+  "highPass48k20": {"type": "f64", "offset": 40960, "count": 2048},
+  "kShelf48k": {"type": "f64", "offset": 57344, "count": 2048},
+  "kShelf44k": {"type": "f64", "offset": 73728, "count": 2048},
+  "kHighPass48k": {"type": "f64", "offset": 90112, "count": 2048},
+  "butterworthQs8": {"type": "f64", "offset": 106496, "count": 4}
+ }
+}

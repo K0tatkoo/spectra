@@ -192,6 +192,14 @@ tasks.register<JavaExec>("crtShots") {
     args = listOf("build/crt-shots")
 }
 
+tasks.register<JavaExec>("iosFixtures") {
+    group = "verification"
+    description = "Writes the reference results the iPhone port (ios/SpectraCore) checks itself against."
+    mainClass.set("com.n3d.spectra.desktop.dev.IosFixturesKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+    args = listOf(rootProject.file("ios/SpectraCore/Tests/SpectraCoreTests/Fixtures").absolutePath)
+}
+
 tasks.register<JavaExec>("oscDemoWav") {
     group = "verification"
     description = "Writes the built-in oscilloscope demo to build/osc-demo.wav, to play into a phone."
