@@ -85,6 +85,7 @@ final class AppModel {
         fileURL = Self.importedFiles().first
         engine.updateSettings(s)
         engine.inAppPage = s.page
+        engine.makeScopes = { StemModels.makeRunner(rate: $0) }
         engine.onChange = { [weak self] state, warning in
             self?.engineState = state
             self?.warning = warning

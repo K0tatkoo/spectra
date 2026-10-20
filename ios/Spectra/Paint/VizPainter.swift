@@ -60,12 +60,15 @@ final class VizPainter {
         case .oscilloscope: tube.draw(ctx, area: area, frame: f, settings: s, palette: palette)
         case .stems: drawStems(ctx, area, f, s)
         }
-        if f.clipped { drawClipFlag(ctx, area) }
+        if f.clipped { drawClipFlag(ctx, area, centred: page == .stems) }
     }
 
-    private func drawClipFlag(_ ctx: GraphicsContext, _ area: CGRect) {
+    /// Top right, except on the Stems page, where the top lane's readout sits
+    /// there: top centre, between the lane's name and its note.
+    private func drawClipFlag(_ ctx: GraphicsContext, _ area: CGRect, centred: Bool) {
         let h: CGFloat = 16, w: CGFloat = 40
-        let r = CGRect(x: area.maxX - w - 4, y: area.minY + 4, width: w, height: h)
+        let x = centred ? area.midX - w / 2 : area.maxX - w - 4
+        let r = CGRect(x: x, y: area.minY + (centred ? 0 : 4), width: w, height: h)
         ctx.fill(Path(roundedRect: r, cornerRadius: h / 2), with: .color(c(palette.bad)))
         ctx.draw(Text("CLIP").font(.system(size: h * 0.62, weight: .semibold)).foregroundStyle(.white),
                  at: CGPoint(x: r.midX, y: r.midY))
@@ -631,15 +634,21 @@ final class VizPainter {
         let slow = info.load > 1 || (synth.map { $0.load > 1 } ?? false)
         let left: String
         if synth?.state == .failed { left = synth?.message ?? "synth splitting failed" }
-        else if slow { left = "phone slower than the music — skipping to keep up" }
+        else if slow { left = "slower than the music — skipping" }
+        else if synth != nil { left = "on this iPhone · \(String(format: "%.1f", info.msPerHop)) ms per 2.9 ms" }
         else { left = "separated on this iPhone · \(String(format: "%.1f", info.msPerHop)) ms per 2.9 ms" }
         let right: String
         if synth?.state == .running, let synth { right = "load \(load) · synth \(String(format: "%.2f", synth.load))" }
         else if slow { right = "load \(load)" }
         else { right = "load \(load) · \(ktRoundToInt(s.scopeWindowMs)) ms" }
-        ctx.draw(mono(right, 9, palette.textFaint), at: CGPoint(x: r.maxX, y: r.maxY - 2), anchor: .bottomTrailing)
-        ctx.draw(mono(left, 9, slow || synth?.state == .failed ? palette.warn : palette.textFaint),
-                 at: CGPoint(x: r.minX, y: r.maxY - 2), anchor: .bottomLeading)
+        let rightText = ctx.resolve(mono(right, 9, palette.textFaint))
+        let leftText = ctx.resolve(mono(left, 9, slow || synth?.state == .failed ? palette.warn : palette.textFaint))
+        ctx.draw(rightText, at: CGPoint(x: r.maxX, y: r.maxY - 2), anchor: .bottomTrailing)
+        // Whatever does not fit beside the load readout is dropped, not drawn over it.
+        let room = r.width - rightText.measure(in: r.size).width - 10
+        if leftText.measure(in: r.size).width <= room {
+            ctx.draw(leftText, at: CGPoint(x: r.minX, y: r.maxY - 2), anchor: .bottomLeading)
+        }
     }
 
     /// The Waveform page in "hold still" mode: one lane, the mix, locked to its loudest note.

@@ -198,7 +198,7 @@ private struct StemHoldToggles: View {
                 HStack(spacing: 8) {
                     Text("Hold still").font(.caption).foregroundStyle(.secondary)
                     hold("Vocals", $model.settings.holdVocals)
-                    if model.settings.stemSynth { hold("Synth", $model.settings.holdSynth) }
+                    if model.settings.stemSynth && StemModels.hasSynth { hold("Synth", $model.settings.holdSynth) }
                     hold("Other", $model.settings.holdOther)
                     hold("Bass", $model.settings.holdBass)
                     hold("Drums", $model.settings.holdDrums)

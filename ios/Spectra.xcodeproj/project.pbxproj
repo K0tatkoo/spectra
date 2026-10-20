@@ -26,6 +26,7 @@
 		8AE544D10037EADA96805A5F /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA674E48082148F99E5DDA2 /* SettingsStore.swift */; };
 		954A34AB807195EE6955252F /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */; };
 		A4D7CE68E44746C877FA2714 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A166BEB590036EA2914E8D6 /* SettingsView.swift */; };
+		B2D26F26AFC820CC37A46B53 /* Stems.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7929F7A0AE46CA446F0D53E8 /* Stems.swift */; };
 		C4AB0C6A0A4D14D6BA383124 /* synth-split.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 390C2BD98E96B6A038BDBAD1 /* synth-split.onnx */; };
 		DDF014B5EFCFE4D6005BACAF /* FileCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE97B2AC18344787FF1545B /* FileCapture.swift */; };
 		E71BB408CAA0F4D38D40A565 /* SpectraCore in Frameworks */ = {isa = PBXBuildFile; productRef = 562771C51A9BCC036916BBF7 /* SpectraCore */; };
@@ -71,6 +72,7 @@
 		6B002C8E24706188A705DFEC /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		6B11B440A51ED6D88CC77F1C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		6FA29FDB190E3625056297E8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		7929F7A0AE46CA446F0D53E8 /* Stems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stems.swift; sourceTree = "<group>"; };
 		8A166BEB590036EA2914E8D6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		94FD5D0277AECADF3FF9FB87 /* BroadcastCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastCapture.swift; sourceTree = "<group>"; };
 		A7C014E3FE69389B2B63F8F0 /* PlayerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBar.swift; sourceTree = "<group>"; };
@@ -240,6 +242,7 @@
 			isa = PBXGroup;
 			children = (
 				D102F09FEED157D7DEA07C5F /* AudioEngine.swift */,
+				7929F7A0AE46CA446F0D53E8 /* Stems.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -411,6 +414,7 @@
 				A4D7CE68E44746C877FA2714 /* SettingsView.swift in Sources */,
 				3EAE450EB1E446E66C2AFBC0 /* SourceSheet.swift in Sources */,
 				1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */,
+				B2D26F26AFC820CC37A46B53 /* Stems.swift in Sources */,
 				3D48905FF23427E36960315C /* TubePainter.swift in Sources */,
 				1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */,
 			);
