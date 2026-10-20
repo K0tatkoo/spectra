@@ -23,16 +23,16 @@ final class TubePainter {
         let face = CGRect(x: CGFloat(lay.faceL), y: CGFloat(lay.faceT),
                           width: CGFloat(lay.faceR - lay.faceL), height: CGFloat(lay.faceB - lay.faceT))
         let radius = CGFloat(lay.radius)
-        let tint = Crt.colorOf(s.oscPhosphor, energy: Self.tintEnergy)
+        let tint = Crt.colorOf(s.oscPhosphor, Self.tintEnergy)
         let tube = self.tube ?? Crt()
         self.tube = tube
 
         if let feed = f.beam {
-            tube.render(feed, sampleRate: f.sampleRate, settings: s, layout: lay,
-                        nanoTime: Int64(DispatchTime.now().uptimeNanoseconds), glowAllowed: true)
+            tube.render(feed: feed, rate: f.sampleRate, settings: s, layout: lay,
+                        nowNanos: Int64(DispatchTime.now().uptimeNanoseconds), glowAllowed: true)
         }
         if f.beam == nil || tube.width == 0 {
-            ctx.fill(Path(roundedRect: face, cornerRadius: radius), with: .color(Color(argb: Crt.colorOf(s.oscPhosphor, energy: 0))))
+            ctx.fill(Path(roundedRect: face, cornerRadius: radius), with: .color(Color(argb: Crt.colorOf(s.oscPhosphor, 0))))
             drawGraticule(ctx, lay, tint)
             return
         }

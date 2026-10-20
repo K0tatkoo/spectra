@@ -57,11 +57,6 @@ private struct PageStack: View {
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(model.frozen ? "Resume" : "Freeze", systemImage: model.frozen ? "play.fill" : "pause.fill") {
-                            model.toggleFreeze()
-                        }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Reset meters", systemImage: "arrow.counterclockwise") { model.resetMeters() }
                     }
                 }
@@ -79,12 +74,18 @@ struct PageView: View {
 
     var body: some View {
         let palette = Palette.of(dark: scheme == .dark)
+        // The reader keeps to the safe area, so its insets are the bars' — the
+        // navigation bar, the player bar and the tab bar. Only the canvas runs
+        // under the glass; the graph's own plot stays inside the insets.
         GeometryReader { geo in
             let insets = geo.safeAreaInsets
-            TimelineView(.animation(minimumInterval: 1.0 / Double(max(model.settings.uiFps, 1)))) { _ in
+            TimelineView(.animation(minimumInterval: 1.0 / Double(max(model.settings.uiFps, 1)))) { timeline in
                 Canvas { ctx, size in
+                    // Reading the timeline's date is what makes SwiftUI redraw the
+                    // canvas on every tick; without it the first picture stays.
+                    _ = timeline.date
                     painter.palette = palette
-                    let reserved = PageControls.height(for: page, settings: model.settings) + 26
+                    let reserved = PageControls.height(for: page, settings: model.settings) + 36
                     let area = CGRect(
                         x: insets.leading + 16, y: insets.top + 10,
                         width: size.width - insets.leading - insets.trailing - 32,
@@ -92,21 +93,21 @@ struct PageView: View {
                     )
                     let frame = model.engine.frame
                     painter.draw(ctx, area: area, page: page, frame: frame, settings: model.settings)
-                    painter.drawReadouts(ctx, CGRect(x: area.minX, y: area.maxY + reserved - 22, width: area.width, height: 20), frame)
+                    painter.drawReadouts(ctx, CGRect(x: area.minX, y: area.maxY + reserved - 30, width: area.width, height: 28), frame)
                 }
             }
-            .overlay(alignment: .bottom) {
-                PageControls(page: page)
-                    .padding(.bottom, insets.bottom + 34)
-                    .padding(.horizontal, 16)
-            }
-            .overlay(alignment: .top) {
-                Banner()
-                    .padding(.top, insets.top + 8)
-                    .padding(.horizontal, 16)
-            }
+            .ignoresSafeArea()
         }
-        .ignoresSafeArea()
+        .overlay(alignment: .bottom) {
+            PageControls(page: page)
+                .padding(.bottom, 44)
+                .padding(.horizontal, 16)
+        }
+        .overlay(alignment: .top) {
+            Banner()
+                .padding(.top, 8)
+                .padding(.horizontal, 16)
+        }
         .background(Color(argb: palette.bg).ignoresSafeArea())
     }
 }

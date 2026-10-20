@@ -6,17 +6,19 @@ import Synchronization
 /// that device-audio capture is on Android, and the one oscilloscope music needs.
 ///
 /// AVAudioPlayerNode does the decoding, scheduling and seeking. What the
-/// analysis hears is taken at the very end of the chain, from the output unit's
-/// post-render notification: exactly the samples going to the speaker, in each
-/// small I/O buffer as it is rendered. (An AVAudioEngine tap would be simpler
-/// and would deliver 100–400 ms at a time — the picture would step.)
+/// analysis hears is taken inside the graph, by a pass-through audio unit
+/// between the player and the mixer (TapUnit): every buffer that is about to
+/// play passes through it, at the file's own rate, a render quantum at a time.
+/// Two easier routes don't work: an AVAudioEngine tap delivers 100–400 ms at a
+/// time, so the picture would step ten times a second, and the output unit's
+/// render notification never fires on iOS — RemoteIO is pulled internally.
 final class FileCapture: AudioCapture, @unchecked Sendable {
     let url: URL
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+    private let tap: AVAudioUnitEffect
     private let file: AVAudioFile
     private var ring: SampleRing?
-    private var tapBox: Unmanaged<TapBox>?
     /// Set by `seek` on any thread; the analysis thread drops what is waiting.
     private let discardPending = Atomic<Bool>(false)
 
@@ -24,7 +26,7 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     private(set) var channelCount = 2
     private(set) var describe: String
 
-    /// Where playback is, kept on the main actor for the player bar.
+    /// Where playback is, for the player bar.
     private let state = Mutex(Transport())
 
     struct Transport {
@@ -43,6 +45,8 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         } catch {
             throw CaptureError(.unavailable, "That file can't be played: \(error.localizedDescription)")
         }
+        TapUnit.registerOnce()
+        tap = AVAudioUnitEffect(audioComponentDescription: TapUnit.componentDescription)
         describe = url.deletingPathExtension().lastPathComponent
     }
 
@@ -60,6 +64,8 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
 
     var isPlaying: Bool { state.withLock { $0.playing } }
 
+    private var tapUnit: TapUnit? { tap.auAudioUnit as? TapUnit }
+
     func start() throws {
         let session = AVAudioSession.sharedInstance()
         do {
@@ -69,30 +75,24 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         } catch {
             throw CaptureError(.unavailable, "iOS refused to play audio: \(error.localizedDescription)")
         }
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: file.processingFormat)
-        engine.prepare()
-
-        let out = engine.outputNode.inputFormat(forBus: 0)
-        sampleRate = Int(out.sampleRate.rounded())
-        channelCount = min(max(Int(out.channelCount), 1), 2)
+        guard let unit = tapUnit else {
+            throw CaptureError(.unavailable, "The analysis tap could not be created.")
+        }
+        // The file's own format all the way to the mixer: the analysis runs at
+        // the file's rate, and the mixer converts once, for the speaker.
+        let format = AVAudioFormat(standardFormatWithSampleRate: file.processingFormat.sampleRate,
+                                   channels: min(max(file.processingFormat.channelCount, 1), 2))!
+        sampleRate = Int(format.sampleRate.rounded())
+        channelCount = Int(format.channelCount)
         let ring = SampleRing(channels: channelCount, capacityFrames: sampleRate)
         self.ring = ring
+        unit.box.ring = ring
 
-        guard let unit = engine.outputNode.audioUnit else {
-            throw CaptureError(.unavailable, "iOS gave no output unit to listen to.")
-        }
-        let box = Unmanaged.passRetained(
-            TapBox(ring: ring, interleaved: out.isInterleaved, channels: Int(out.channelCount))
-        )
-        tapBox = box
-        let status = AudioUnitAddRenderNotify(unit, outputTapNotify, box.toOpaque())
-        guard status == noErr else {
-            box.release()
-            tapBox = nil
-            throw CaptureError(.unavailable, "Could not listen to the output (\(status)).")
-        }
-
+        engine.attach(player)
+        engine.attach(tap)
+        engine.connect(player, to: tap, format: format)
+        engine.connect(tap, to: engine.mainMixerNode, format: format)
+        engine.prepare()
         do {
             try engine.start()
         } catch {
@@ -104,7 +104,7 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
 
     func play() {
         if !engine.isRunning { try? engine.start() }
-        tapBox?.takeUnretainedValue().listening.store(true, ordering: .relaxed)
+        tapUnit?.box.listening.store(true, ordering: .relaxed)
         player.play()
         state.withLock { $0.playing = true }
     }
@@ -113,7 +113,7 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     /// analysis, so the last frame stays on screen — and the tube's phosphor,
     /// which fades by audio time, freezes too.
     func pause() {
-        tapBox?.takeUnretainedValue().listening.store(false, ordering: .relaxed)
+        tapUnit?.box.listening.store(false, ordering: .relaxed)
         player.pause()
         state.withLock { $0.playing = false }
     }
@@ -163,53 +163,136 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     }
 
     func stop() {
+        tapUnit?.box.listening.store(false, ordering: .relaxed)
         ring?.close()
-        if let unit = engine.outputNode.audioUnit, let box = tapBox {
-            box.takeUnretainedValue().listening.store(false, ordering: .relaxed)
-            engine.stop()
-            AudioUnitRemoveRenderNotify(unit, outputTapNotify, box.toOpaque())
-        } else {
-            engine.stop()
-        }
-        tapBox?.release()
-        tapBox = nil
+        engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 
-/// The output unit's render notification. One function, so the same pointer
-/// that added it can remove it.
-private let outputTapNotify: AURenderCallback = { refCon, flags, _, bus, frames, ioData in
-    guard flags.pointee.contains(.unitRenderAction_PostRender), bus == 0, let ioData else { return noErr }
-    let box = Unmanaged<TapBox>.fromOpaque(refCon).takeUnretainedValue()
-    if box.listening.load(ordering: .relaxed) { box.take(ioData, frames: Int(frames)) }
-    return noErr
-}
-
-/// What the render-notify callback needs, behind one pointer: C callbacks
-/// cannot capture.
-private final class TapBox: @unchecked Sendable {
-    let ring: SampleRing
-    let interleaved: Bool
-    /// Channels in the output format (the ring keeps at most two).
-    let channels: Int
+/// What the tap's render block needs, behind one reference: the block runs on
+/// the render thread and must not touch the unit itself.
+final class TapBox: @unchecked Sendable {
+    /// Set once, before rendering starts.
+    var ring: SampleRing?
     let listening = Atomic<Bool>(false)
 
-    init(ring: SampleRing, interleaved: Bool, channels: Int) {
-        self.ring = ring
-        self.interleaved = interleaved
-        self.channels = channels
+    /// Render thread: no allocation, no locks.
+    func take(_ list: UnsafeMutableAudioBufferListPointer, frames: Int) {
+        guard let ring, list.count > 0, let l = list[0].mData?.assumingMemoryBound(to: Float.self) else { return }
+        let r = list.count > 1 ? list[1].mData?.assumingMemoryBound(to: Float.self) : nil
+        ring.write(left: l, right: r, frames: frames)
+    }
+}
+
+/// A pass-through effect in the playback chain that hands every buffer
+/// flowing through it to the analysis. Registered in-process, so it costs one
+/// copy of each buffer and no IPC.
+final class TapUnit: AUAudioUnit {
+    static let componentDescription = AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: 0x7370_7470,           // 'sptp'
+        componentManufacturer: 0x4E33_4478,      // 'N3Dx'
+        componentFlags: 0,
+        componentFlagsMask: 0
+    )
+
+    private static let registered: Void = {
+        AUAudioUnit.registerSubclass(TapUnit.self, as: componentDescription, name: "N3D: Spectra tap", version: 1)
+    }()
+
+    static func registerOnce() { _ = registered }
+
+    let box = TapBox()
+    private var inputBus: AUAudioUnitBus!
+    private var busses: (input: AUAudioUnitBusArray, output: AUAudioUnitBusArray)!
+    /// Where the input is pulled to when the host gives no buffers of its own.
+    /// A holder rather than two properties: the render block is fetched before
+    /// the buffers exist, and must see them once allocateRenderResources makes them.
+    private let pull = PullBuffers()
+
+    final class PullBuffers: @unchecked Sendable {
+        var list: UnsafeMutableAudioBufferListPointer?
+        var storage: [UnsafeMutableRawPointer] = []
+
+        func free() {
+            storage.forEach { $0.deallocate() }
+            storage = []
+            list.map { Foundation.free($0.unsafeMutablePointer) }
+            list = nil
+        }
     }
 
-    /// Real-time thread: no allocation, no locks.
-    func take(_ ioData: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
-        let list = UnsafeMutableAudioBufferListPointer(ioData)
-        guard list.count > 0, let l = list[0].mData?.assumingMemoryBound(to: Float.self) else { return }
-        if interleaved {
-            ring.write(interleaved: l, channels: channels, frames: frames)
-        } else {
-            let r = list.count > 1 ? list[1].mData?.assumingMemoryBound(to: Float.self) : nil
-            ring.write(left: l, right: r, frames: frames)
+    override init(componentDescription: AudioComponentDescription, options: AudioComponentInstantiationOptions = []) throws {
+        try super.init(componentDescription: componentDescription, options: options)
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
+        let input = try AUAudioUnitBus(format: format)
+        let output = try AUAudioUnitBus(format: format)
+        input.maximumChannelCount = 2
+        output.maximumChannelCount = 2
+        inputBus = input
+        busses = (AUAudioUnitBusArray(audioUnit: self, busType: .input, busses: [input]),
+                  AUAudioUnitBusArray(audioUnit: self, busType: .output, busses: [output]))
+        maximumFramesToRender = 4096
+    }
+
+    override var inputBusses: AUAudioUnitBusArray { busses.input }
+    override var outputBusses: AUAudioUnitBusArray { busses.output }
+    override var canProcessInPlace: Bool { true }
+
+    override func allocateRenderResources() throws {
+        try super.allocateRenderResources()
+        pull.free()
+        let channels = Int(inputBus.format.channelCount)
+        let bytes = Int(maximumFramesToRender) * MemoryLayout<Float>.size
+        let list = AudioBufferList.allocate(maximumBuffers: channels)
+        for c in 0..<channels {
+            let storage = UnsafeMutableRawPointer.allocate(byteCount: bytes, alignment: 16)
+            pull.storage.append(storage)
+            list[c] = AudioBuffer(mNumberChannels: 1, mDataByteSize: UInt32(bytes), mData: storage)
+        }
+        pull.list = list
+    }
+
+    override func deallocateRenderResources() {
+        pull.free()
+        super.deallocateRenderResources()
+    }
+
+    deinit { pull.free() }
+
+    override var internalRenderBlock: AUInternalRenderBlock {
+        let box = self.box
+        let buffers = self.pull
+        return { _, timestamp, frameCount, _, outputData, _, pullInputBlock in
+            guard let pull = pullInputBlock, let ownList = buffers.list else { return kAudioUnitErr_NoConnection }
+            let storage = buffers.storage
+            let out = UnsafeMutableAudioBufferListPointer(outputData)
+            let bytes = UInt32(Int(frameCount) * MemoryLayout<Float>.size)
+            // Pull into the host's buffers when it gave some, otherwise into ours
+            // and hand those on: the usual in-place pass-through.
+            let inPlace = out.count > 0 && out[0].mData != nil
+            let target: UnsafeMutableAudioBufferListPointer
+            if inPlace {
+                target = out
+            } else {
+                for c in 0..<min(ownList.count, storage.count) {
+                    ownList[c].mData = storage[c]
+                    ownList[c].mDataByteSize = bytes
+                }
+                target = ownList
+            }
+            var flags = AudioUnitRenderActionFlags()
+            let status = pull(&flags, timestamp, frameCount, 0, target.unsafeMutablePointer)
+            guard status == noErr else { return status }
+            if !inPlace {
+                for c in 0..<min(out.count, target.count) {
+                    out[c].mData = target[c].mData
+                    out[c].mDataByteSize = target[c].mDataByteSize
+                }
+            }
+            if box.listening.load(ordering: .relaxed) { box.take(target, frames: Int(frameCount)) }
+            return noErr
         }
     }
 }

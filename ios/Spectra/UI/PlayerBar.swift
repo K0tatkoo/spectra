@@ -23,6 +23,12 @@ struct PlayerBar: View {
                 }
             }
             Spacer(minLength: 8)
+            // Freezes the picture while the sound carries on — Android's pause.
+            Button(model.frozen ? "Unfreeze picture" : "Freeze picture",
+                   systemImage: model.frozen ? "snowflake.circle.fill" : "snowflake") { model.toggleFreeze() }
+                .labelStyle(.iconOnly)
+                .font(.title3)
+                .foregroundStyle(model.frozen ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             Button(primaryLabel, systemImage: primarySymbol) { model.primaryAction() }
                 .labelStyle(.iconOnly)
                 .font(.title3)
