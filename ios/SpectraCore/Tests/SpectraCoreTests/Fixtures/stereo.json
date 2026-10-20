@@ -1,0 +1,34 @@
+{
+ "name": "stereo",
+ "meta": {
+  "rate": 48000,
+  "chunks": [1024, 480, 1024, 1568],
+  "cases": ["inPhase", "antiPhase", "decorrelated", "partial", "mono"],
+  "windowMs": [300.0, 300.0, 300.0, 50.0, 300.0]
+ },
+ "arrays": {
+  "n1": {"type": "f32", "offset": 0, "count": 4096},
+  "n2": {"type": "f32", "offset": 16384, "count": 4096},
+  "partial": {"type": "f32", "offset": 32768, "count": 4096},
+  "inPhase.cloud.1": {"type": "f32", "offset": 49152, "count": 960},
+  "inPhase.cloud.3": {"type": "f32", "offset": 52992, "count": 1440},
+  "inPhase.readings": {"type": "f32", "offset": 58752, "count": 24},
+  "inPhase.cloudSizes": {"type": "i32", "offset": 58848, "count": 4},
+  "antiPhase.cloud.1": {"type": "f32", "offset": 58864, "count": 960},
+  "antiPhase.cloud.3": {"type": "f32", "offset": 62704, "count": 1440},
+  "antiPhase.readings": {"type": "f32", "offset": 68464, "count": 24},
+  "antiPhase.cloudSizes": {"type": "i32", "offset": 68560, "count": 4},
+  "decorrelated.cloud.1": {"type": "f32", "offset": 68576, "count": 960},
+  "decorrelated.cloud.3": {"type": "f32", "offset": 72416, "count": 1440},
+  "decorrelated.readings": {"type": "f32", "offset": 78176, "count": 24},
+  "decorrelated.cloudSizes": {"type": "i32", "offset": 78272, "count": 4},
+  "partial.cloud.1": {"type": "f32", "offset": 78288, "count": 960},
+  "partial.cloud.3": {"type": "f32", "offset": 82128, "count": 1440},
+  "partial.readings": {"type": "f32", "offset": 87888, "count": 24},
+  "partial.cloudSizes": {"type": "i32", "offset": 87984, "count": 4},
+  "mono.readings": {"type": "f32", "offset": 88000, "count": 24},
+  "mono.cloudSizes": {"type": "i32", "offset": 88096, "count": 4},
+  "toDbIn": {"type": "f32", "offset": 88112, "count": 68},
+  "toDbOut": {"type": "f32", "offset": 88384, "count": 68}
+ }
+}

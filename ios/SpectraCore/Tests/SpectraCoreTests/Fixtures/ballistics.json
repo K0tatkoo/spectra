@@ -1,0 +1,13 @@
+{
+ "name": "ballistics",
+ "meta": {
+ },
+ "arrays": {
+  "targets": {"type": "f32", "offset": 0, "count": 300},
+  "dts": {"type": "f32", "offset": 1200, "count": 300},
+  "step": {"type": "f32", "offset": 2400, "count": 300},
+  "stepDt": {"type": "f32", "offset": 3600, "count": 300},
+  "stepAll": {"type": "f32", "offset": 4800, "count": 1280},
+  "peaks": {"type": "f32", "offset": 9920, "count": 1920}
+ }
+}

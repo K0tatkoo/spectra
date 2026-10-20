@@ -1,0 +1,11 @@
+{
+ "name": "weighting",
+ "meta": {
+ },
+ "arrays": {
+  "hz": {"type": "f32", "offset": 0, "count": 116},
+  "A": {"type": "f32", "offset": 464, "count": 116},
+  "C": {"type": "f32", "offset": 928, "count": 116},
+  "Z": {"type": "f32", "offset": 1392, "count": 116}
+ }
+}

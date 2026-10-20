@@ -1,0 +1,14 @@
+{
+ "name": "truePeak",
+ "meta": {
+  "factors": [2, 4, 8, 4],
+  "taps": [12, 12, 12, 16]
+ },
+ "arrays": {
+  "input": {"type": "f32", "offset": 0, "count": 512},
+  "x2_12": {"type": "f32", "offset": 2048, "count": 512},
+  "x4_12": {"type": "f32", "offset": 4096, "count": 512},
+  "x8_12": {"type": "f32", "offset": 6144, "count": 512},
+  "x4_16": {"type": "f32", "offset": 8192, "count": 512}
+ }
+}

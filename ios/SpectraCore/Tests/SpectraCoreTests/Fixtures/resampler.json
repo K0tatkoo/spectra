@@ -1,0 +1,28 @@
+{
+ "name": "resampler",
+ "meta": {
+  "cases": ["down48to44", "up44to48", "up32to44"],
+  "down48to44.inRate": 48000,
+  "down48to44.outRate": 44100,
+  "down48to44.chunks": [1, 999, 4096, 17, 887],
+  "up44to48.inRate": 44100,
+  "up44to48.outRate": 48000,
+  "up44to48.chunks": [700, 1, 2299],
+  "up32to44.inRate": 32000,
+  "up32to44.outRate": 44100,
+  "up32to44.chunks": [400, 600]
+ },
+ "arrays": {
+  "inL": {"type": "f32", "offset": 0, "count": 6000},
+  "inR": {"type": "f32", "offset": 24000, "count": 6000},
+  "down48to44.produced": {"type": "i32", "offset": 48000, "count": 5},
+  "down48to44.outL": {"type": "f32", "offset": 48020, "count": 5498},
+  "down48to44.outR": {"type": "f32", "offset": 70012, "count": 5498},
+  "up44to48.produced": {"type": "i32", "offset": 92004, "count": 3},
+  "up44to48.outL": {"type": "f32", "offset": 92016, "count": 3248},
+  "up44to48.outR": {"type": "f32", "offset": 105008, "count": 3248},
+  "up32to44.produced": {"type": "i32", "offset": 118000, "count": 2},
+  "up32to44.outL": {"type": "f32", "offset": 118008, "count": 1357},
+  "up32to44.outR": {"type": "f32", "offset": 123436, "count": 1357}
+ }
+}
