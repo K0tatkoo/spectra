@@ -23,9 +23,22 @@ targets:
     sources:
       - path: Spectra
       - path: Shared
+      # The synth splitter's model and the licence texts are the Android app's
+      # own files, used in place rather than copied.
+      - path: ../app/src/main/assets/stems/synth-split.onnx
+        buildPhase: resources
+      - path: ../app/src/main/assets/licenses
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: SpectraCore
+      - package: SpectraCore
+        product: SpectraStems
       - target: SpectraBroadcast
+    postCompileScripts:
+      - name: Stem model
+        script: '"$SRCROOT/tools/stem-model.sh"'
+        basedOnDependencyAnalysis: false
     entitlements:
       path: Spectra/Spectra.entitlements
       properties:
@@ -71,6 +84,8 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_OBJC_BRIDGING_HEADER: Shared/SpectraShared.h
+        # The stem-model phase reads the Gradle cache in the home folder.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
 
   SpectraBroadcast:
     type: app-extension

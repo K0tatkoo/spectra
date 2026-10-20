@@ -27,6 +27,8 @@ struct RootView: View {
             if case .success(let url) = result { model.importFile(url) }
         }
         .onChange(of: phase, initial: true) { _, now in model.setActive(now == .active) }
+        // "Open in Spectra" from Files or a share sheet.
+        .onOpenURL { url in if url.isFileURL { model.importFile(url) } }
     }
 }
 

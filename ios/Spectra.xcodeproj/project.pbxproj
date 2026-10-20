@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		00A043C0BA3EBBE0D003AFA6 /* PlayerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C014E3FE69389B2B63F8F0 /* PlayerBar.swift */; };
 		0673FE84E5694667C18E228F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FA29FDB190E3625056297E8 /* RootView.swift */; };
+		08A9874F1E871C93B063B727 /* SpectraStems in Frameworks */ = {isa = PBXBuildFile; productRef = FE9B6388BEF48150223EAD70 /* SpectraStems */; };
 		0E1EA5A0E7A98FB63A76C387 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D102F09FEED157D7DEA07C5F /* AudioEngine.swift */; };
 		1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2425CB59BFE4F70929658B44 /* SpectraApp.swift */; };
 		1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE18EACEFB13998DA079188D /* VizPainter.swift */; };
@@ -21,9 +22,11 @@
 		59920C7FEF75E0AC429733E3 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59652D4C0B4B627B30517FF4 /* SampleHandler.swift */; };
 		5ECD8ECF48CE2F122D7D0385 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B002C8E24706188A705DFEC /* AppModel.swift */; };
 		67002BD7873FD81D273904E2 /* BroadcastRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */; };
+		899F9F5E816F8358B1F8385D /* licenses in Resources */ = {isa = PBXBuildFile; fileRef = D7091570AEE48B3A6F4D9E95 /* licenses */; };
 		8AE544D10037EADA96805A5F /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA674E48082148F99E5DDA2 /* SettingsStore.swift */; };
 		954A34AB807195EE6955252F /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */; };
 		A4D7CE68E44746C877FA2714 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A166BEB590036EA2914E8D6 /* SettingsView.swift */; };
+		C4AB0C6A0A4D14D6BA383124 /* synth-split.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 390C2BD98E96B6A038BDBAD1 /* synth-split.onnx */; };
 		DDF014B5EFCFE4D6005BACAF /* FileCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE97B2AC18344787FF1545B /* FileCapture.swift */; };
 		E71BB408CAA0F4D38D40A565 /* SpectraCore in Frameworks */ = {isa = PBXBuildFile; productRef = 562771C51A9BCC036916BBF7 /* SpectraCore */; };
 		EB0826973308B402D8E376F2 /* SampleRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A23931122F1E0125CE5114C /* SampleRing.swift */; };
@@ -58,6 +61,7 @@
 		2425CB59BFE4F70929658B44 /* SpectraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraApp.swift; sourceTree = "<group>"; };
 		2A23931122F1E0125CE5114C /* SampleRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRing.swift; sourceTree = "<group>"; };
 		36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
+		390C2BD98E96B6A038BDBAD1 /* synth-split.onnx */ = {isa = PBXFileReference; path = "synth-split.onnx"; sourceTree = "<group>"; };
 		4AE97B2AC18344787FF1545B /* FileCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCapture.swift; sourceTree = "<group>"; };
 		4BA674E48082148F99E5DDA2 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		4C7AA02AB81F79D021513607 /* TubePainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TubePainter.swift; sourceTree = "<group>"; };
@@ -77,6 +81,7 @@
 		CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D102F09FEED157D7DEA07C5F /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
+		D7091570AEE48B3A6F4D9E95 /* licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = licenses; path = ../app/src/main/assets/licenses; sourceTree = SOURCE_ROOT; };
 		E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastRing.swift; sourceTree = "<group>"; };
 		EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SpectraBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF81F7F38AF4EF76BBDFADC1 /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
@@ -89,12 +94,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				E71BB408CAA0F4D38D40A565 /* SpectraCore in Frameworks */,
+				08A9874F1E871C93B063B727 /* SpectraStems in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		07B02FAFF6F0447B0EF29475 /* assets */ = {
+			isa = PBXGroup;
+			children = (
+				D7091570AEE48B3A6F4D9E95 /* licenses */,
+				78B518F2F8A11A08B8B22C47 /* stems */,
+			);
+			path = assets;
+			sourceTree = "<group>";
+		};
 		3A8295E80913DD9CD24834D4 /* Spectra */ = {
 			isa = PBXGroup;
 			children = (
@@ -109,6 +124,14 @@
 				4EF090D01B0A4AFBB1A364AA /* UI */,
 			);
 			path = Spectra;
+			sourceTree = "<group>";
+		};
+		448812276F2258D5658124B1 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				5368243D93C227060F144193 /* main */,
+			);
+			path = src;
 			sourceTree = "<group>";
 		};
 		46E31C878E1B47019464E92A /* Audio */ = {
@@ -134,6 +157,14 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
+		5368243D93C227060F144193 /* main */ = {
+			isa = PBXGroup;
+			children = (
+				07B02FAFF6F0447B0EF29475 /* assets */,
+			);
+			path = main;
+			sourceTree = "<group>";
+		};
 		62E5B1C16BB7B8876AD095B6 /* SpectraBroadcast */ = {
 			isa = PBXGroup;
 			children = (
@@ -144,6 +175,22 @@
 			path = SpectraBroadcast;
 			sourceTree = "<group>";
 		};
+		78B518F2F8A11A08B8B22C47 /* stems */ = {
+			isa = PBXGroup;
+			children = (
+				390C2BD98E96B6A038BDBAD1 /* synth-split.onnx */,
+			);
+			path = stems;
+			sourceTree = "<group>";
+		};
+		867C0C8C42F4B2029F900407 /* app */ = {
+			isa = PBXGroup;
+			children = (
+				448812276F2258D5658124B1 /* src */,
+			);
+			path = app;
+			sourceTree = "<group>";
+		};
 		BB91EACF79727B72A25444CA /* Model */ = {
 			isa = PBXGroup;
 			children = (
@@ -151,6 +198,15 @@
 				4BA674E48082148F99E5DDA2 /* SettingsStore.swift */,
 			);
 			path = Model;
+			sourceTree = "<group>";
+		};
+		C263B2F1E28E4F12F4A14E53 /* Spectra */ = {
+			isa = PBXGroup;
+			children = (
+				867C0C8C42F4B2029F900407 /* app */,
+			);
+			name = Spectra;
+			path = ..;
 			sourceTree = "<group>";
 		};
 		C45A89DA5E92017297D1E29A /* Paint */ = {
@@ -194,6 +250,7 @@
 				FB666B550F7B9460D5B7FB12 /* Packages */,
 				D1309378F58EFB2CC6B459B0 /* Shared */,
 				3A8295E80913DD9CD24834D4 /* Spectra */,
+				C263B2F1E28E4F12F4A14E53 /* Spectra */,
 				62E5B1C16BB7B8876AD095B6 /* SpectraBroadcast */,
 				DD5F659EAE7458C6B06431F2 /* Products */,
 			);
@@ -232,6 +289,7 @@
 			buildConfigurationList = 487300B4A64D25F1EE54C13B /* Build configuration list for PBXNativeTarget "Spectra" */;
 			buildPhases = (
 				10EBE85AA9984C829C2B95DA /* Sources */,
+				51AF3B2A45E2B3754899BDA2 /* Stem model */,
 				6AE36DAD9B087AA9882CC4C6 /* Resources */,
 				9C72A3271EA778453D694B12 /* Frameworks */,
 				F18A2C646B073861A88A2CB1 /* Embed Foundation Extensions */,
@@ -244,6 +302,7 @@
 			name = Spectra;
 			packageProductDependencies = (
 				562771C51A9BCC036916BBF7 /* SpectraCore */,
+				FE9B6388BEF48150223EAD70 /* SpectraStems */,
 			);
 			productName = Spectra;
 			productReference = 643DAAA8F4A15075134FFB02 /* Spectra.app */;
@@ -295,10 +354,34 @@
 			buildActionMask = 2147483647;
 			files = (
 				39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */,
+				899F9F5E816F8358B1F8385D /* licenses in Resources */,
+				C4AB0C6A0A4D14D6BA383124 /* synth-split.onnx in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		51AF3B2A45E2B3754899BDA2 /* Stem model */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stem model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/tools/stem-model.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0B92B149507E5D5465C239B4 /* Sources */ = {
@@ -429,6 +512,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Spectra/Spectra.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Spectra/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -534,6 +618,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Spectra/Spectra.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Spectra/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -590,6 +675,10 @@
 		562771C51A9BCC036916BBF7 /* SpectraCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SpectraCore;
+		};
+		FE9B6388BEF48150223EAD70 /* SpectraStems */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SpectraStems;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
