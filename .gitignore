@@ -20,3 +20,4 @@ ios/**/*.xcworkspace/xcuserdata/
 
 # Claude Code worktrees and local state
 .claude/
+.kotlin/
