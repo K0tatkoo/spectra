@@ -1,0 +1,100 @@
+# Spectra for iPhone. The Xcode project is generated from this file:
+#   cd ios && xcodegen
+# Spectra.xcodeproj is committed so it also opens straight in Xcode.
+name: Spectra
+options:
+  bundleIdPrefix: com.n3d
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  SpectraCore:
+    path: SpectraCore
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Spectra:
+    type: application
+    platform: iOS
+    sources:
+      - path: Spectra
+      - path: Shared
+    dependencies:
+      - package: SpectraCore
+      - target: SpectraBroadcast
+    entitlements:
+      path: Spectra/Spectra.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.n3d.spectra
+    info:
+      path: Spectra/Info.plist
+      properties:
+        CFBundleDisplayName: Spectra
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSMicrophoneUsageDescription: >-
+          Spectra analyses what the microphone hears, live, on this iPhone.
+          Nothing is recorded or sent anywhere.
+        # A file Spectra plays keeps playing with the screen locked.
+        UIBackgroundModes:
+          - audio
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # "Open in Spectra" from Files and share sheets.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Audio
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.audio
+        LSSupportsOpeningDocumentsInPlace: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.n3d.spectra
+        PRODUCT_NAME: Spectra
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_OBJC_BRIDGING_HEADER: Shared/SpectraShared.h
+
+  SpectraBroadcast:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SpectraBroadcast
+      - path: Shared
+    entitlements:
+      path: SpectraBroadcast/SpectraBroadcast.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.n3d.spectra
+    info:
+      path: SpectraBroadcast/Info.plist
+      properties:
+        CFBundleDisplayName: Spectra
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.n3d.spectra.broadcast
+        PRODUCT_NAME: SpectraBroadcast
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_OBJC_BRIDGING_HEADER: Shared/SpectraShared.h
+        APPLICATION_EXTENSION_API_ONLY: YES

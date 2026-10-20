@@ -1,0 +1,597 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00A043C0BA3EBBE0D003AFA6 /* PlayerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C014E3FE69389B2B63F8F0 /* PlayerBar.swift */; };
+		0673FE84E5694667C18E228F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FA29FDB190E3625056297E8 /* RootView.swift */; };
+		0E1EA5A0E7A98FB63A76C387 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D102F09FEED157D7DEA07C5F /* AudioEngine.swift */; };
+		1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2425CB59BFE4F70929658B44 /* SpectraApp.swift */; };
+		1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE18EACEFB13998DA079188D /* VizPainter.swift */; };
+		2580943ADF24858E33C34FB0 /* SpectraBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2848FDDA30C3B1822C98901A /* BroadcastRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */; };
+		39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */; };
+		3D48905FF23427E36960315C /* TubePainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7AA02AB81F79D021513607 /* TubePainter.swift */; };
+		3EAE450EB1E446E66C2AFBC0 /* SourceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57A414B8868BEB050102748 /* SourceSheet.swift */; };
+		527FBEE1734105BDEDBAB87D /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF81F7F38AF4EF76BBDFADC1 /* AudioCapture.swift */; };
+		59920C7FEF75E0AC429733E3 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59652D4C0B4B627B30517FF4 /* SampleHandler.swift */; };
+		5ECD8ECF48CE2F122D7D0385 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B002C8E24706188A705DFEC /* AppModel.swift */; };
+		67002BD7873FD81D273904E2 /* BroadcastRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */; };
+		8AE544D10037EADA96805A5F /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA674E48082148F99E5DDA2 /* SettingsStore.swift */; };
+		954A34AB807195EE6955252F /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */; };
+		A4D7CE68E44746C877FA2714 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A166BEB590036EA2914E8D6 /* SettingsView.swift */; };
+		DDF014B5EFCFE4D6005BACAF /* FileCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE97B2AC18344787FF1545B /* FileCapture.swift */; };
+		E71BB408CAA0F4D38D40A565 /* SpectraCore in Frameworks */ = {isa = PBXBuildFile; productRef = 562771C51A9BCC036916BBF7 /* SpectraCore */; };
+		EB0826973308B402D8E376F2 /* SampleRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A23931122F1E0125CE5114C /* SampleRing.swift */; };
+		EC60BEE7470DA8E88564ABA5 /* BroadcastCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FD5D0277AECADF3FF9FB87 /* BroadcastCapture.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		85093696094E26F86015CC67 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 486F4F67B4EEE679DCD2A42C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0C3B5A00D67012A7E68E996D;
+			remoteInfo = SpectraBroadcast;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F18A2C646B073861A88A2CB1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2580943ADF24858E33C34FB0 /* SpectraBroadcast.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2425CB59BFE4F70929658B44 /* SpectraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraApp.swift; sourceTree = "<group>"; };
+		2A23931122F1E0125CE5114C /* SampleRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRing.swift; sourceTree = "<group>"; };
+		36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
+		4AE97B2AC18344787FF1545B /* FileCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCapture.swift; sourceTree = "<group>"; };
+		4BA674E48082148F99E5DDA2 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		4C7AA02AB81F79D021513607 /* TubePainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TubePainter.swift; sourceTree = "<group>"; };
+		59652D4C0B4B627B30517FF4 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
+		5C8E2BC2D1A3C879E43E0C46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		643DAAA8F4A15075134FFB02 /* Spectra.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6B002C8E24706188A705DFEC /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		6B11B440A51ED6D88CC77F1C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6FA29FDB190E3625056297E8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		8A166BEB590036EA2914E8D6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		94FD5D0277AECADF3FF9FB87 /* BroadcastCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastCapture.swift; sourceTree = "<group>"; };
+		A7C014E3FE69389B2B63F8F0 /* PlayerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBar.swift; sourceTree = "<group>"; };
+		AA0F7D6F52D43127A32B9371 /* SpectraCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpectraCore; path = SpectraCore; sourceTree = SOURCE_ROOT; };
+		B4348BE0569675F5773D61C6 /* SpectraBroadcast.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SpectraBroadcast.entitlements; sourceTree = "<group>"; };
+		BC582FCEC4AFAB4D2CD6137E /* SpectraShared.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpectraShared.h; sourceTree = "<group>"; };
+		BE18EACEFB13998DA079188D /* VizPainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VizPainter.swift; sourceTree = "<group>"; };
+		CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D102F09FEED157D7DEA07C5F /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
+		E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastRing.swift; sourceTree = "<group>"; };
+		EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SpectraBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF81F7F38AF4EF76BBDFADC1 /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
+		F57A414B8868BEB050102748 /* SourceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceSheet.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9C72A3271EA778453D694B12 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E71BB408CAA0F4D38D40A565 /* SpectraCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3A8295E80913DD9CD24834D4 /* Spectra */ = {
+			isa = PBXGroup;
+			children = (
+				CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */,
+				5C8E2BC2D1A3C879E43E0C46 /* Info.plist */,
+				D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */,
+				2425CB59BFE4F70929658B44 /* SpectraApp.swift */,
+				46E31C878E1B47019464E92A /* Audio */,
+				DF12F4B5C758D1338EFEADC3 /* Engine */,
+				BB91EACF79727B72A25444CA /* Model */,
+				C45A89DA5E92017297D1E29A /* Paint */,
+				4EF090D01B0A4AFBB1A364AA /* UI */,
+			);
+			path = Spectra;
+			sourceTree = "<group>";
+		};
+		46E31C878E1B47019464E92A /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				EF81F7F38AF4EF76BBDFADC1 /* AudioCapture.swift */,
+				94FD5D0277AECADF3FF9FB87 /* BroadcastCapture.swift */,
+				4AE97B2AC18344787FF1545B /* FileCapture.swift */,
+				36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */,
+				2A23931122F1E0125CE5114C /* SampleRing.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		4EF090D01B0A4AFBB1A364AA /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				A7C014E3FE69389B2B63F8F0 /* PlayerBar.swift */,
+				6FA29FDB190E3625056297E8 /* RootView.swift */,
+				8A166BEB590036EA2914E8D6 /* SettingsView.swift */,
+				F57A414B8868BEB050102748 /* SourceSheet.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		62E5B1C16BB7B8876AD095B6 /* SpectraBroadcast */ = {
+			isa = PBXGroup;
+			children = (
+				6B11B440A51ED6D88CC77F1C /* Info.plist */,
+				59652D4C0B4B627B30517FF4 /* SampleHandler.swift */,
+				B4348BE0569675F5773D61C6 /* SpectraBroadcast.entitlements */,
+			);
+			path = SpectraBroadcast;
+			sourceTree = "<group>";
+		};
+		BB91EACF79727B72A25444CA /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				6B002C8E24706188A705DFEC /* AppModel.swift */,
+				4BA674E48082148F99E5DDA2 /* SettingsStore.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		C45A89DA5E92017297D1E29A /* Paint */ = {
+			isa = PBXGroup;
+			children = (
+				4C7AA02AB81F79D021513607 /* TubePainter.swift */,
+				BE18EACEFB13998DA079188D /* VizPainter.swift */,
+			);
+			path = Paint;
+			sourceTree = "<group>";
+		};
+		D1309378F58EFB2CC6B459B0 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */,
+				BC582FCEC4AFAB4D2CD6137E /* SpectraShared.h */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		DD5F659EAE7458C6B06431F2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				643DAAA8F4A15075134FFB02 /* Spectra.app */,
+				EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DF12F4B5C758D1338EFEADC3 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				D102F09FEED157D7DEA07C5F /* AudioEngine.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		EDC120292CAF552B45F887E3 = {
+			isa = PBXGroup;
+			children = (
+				FB666B550F7B9460D5B7FB12 /* Packages */,
+				D1309378F58EFB2CC6B459B0 /* Shared */,
+				3A8295E80913DD9CD24834D4 /* Spectra */,
+				62E5B1C16BB7B8876AD095B6 /* SpectraBroadcast */,
+				DD5F659EAE7458C6B06431F2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FB666B550F7B9460D5B7FB12 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				AA0F7D6F52D43127A32B9371 /* SpectraCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0C3B5A00D67012A7E68E996D /* SpectraBroadcast */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CD7C4A3A6C97006AE6B0513 /* Build configuration list for PBXNativeTarget "SpectraBroadcast" */;
+			buildPhases = (
+				0B92B149507E5D5465C239B4 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SpectraBroadcast;
+			packageProductDependencies = (
+			);
+			productName = SpectraBroadcast;
+			productReference = EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		21488FC53AAC7B848088AE58 /* Spectra */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 487300B4A64D25F1EE54C13B /* Build configuration list for PBXNativeTarget "Spectra" */;
+			buildPhases = (
+				10EBE85AA9984C829C2B95DA /* Sources */,
+				6AE36DAD9B087AA9882CC4C6 /* Resources */,
+				9C72A3271EA778453D694B12 /* Frameworks */,
+				F18A2C646B073861A88A2CB1 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				754432E93A79B8FDC0615DA5 /* PBXTargetDependency */,
+			);
+			name = Spectra;
+			packageProductDependencies = (
+				562771C51A9BCC036916BBF7 /* SpectraCore */,
+			);
+			productName = Spectra;
+			productReference = 643DAAA8F4A15075134FFB02 /* Spectra.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		486F4F67B4EEE679DCD2A42C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0C3B5A00D67012A7E68E996D = {
+						ProvisioningStyle = Automatic;
+					};
+					21488FC53AAC7B848088AE58 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = EC9FA39C16D0BAEF41B6101C /* Build configuration list for PBXProject "Spectra" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = EDC120292CAF552B45F887E3;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0C9E95F0460604F32A2E793C /* XCLocalSwiftPackageReference "SpectraCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DD5F659EAE7458C6B06431F2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				21488FC53AAC7B848088AE58 /* Spectra */,
+				0C3B5A00D67012A7E68E996D /* SpectraBroadcast */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6AE36DAD9B087AA9882CC4C6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0B92B149507E5D5465C239B4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2848FDDA30C3B1822C98901A /* BroadcastRing.swift in Sources */,
+				59920C7FEF75E0AC429733E3 /* SampleHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10EBE85AA9984C829C2B95DA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5ECD8ECF48CE2F122D7D0385 /* AppModel.swift in Sources */,
+				527FBEE1734105BDEDBAB87D /* AudioCapture.swift in Sources */,
+				0E1EA5A0E7A98FB63A76C387 /* AudioEngine.swift in Sources */,
+				EC60BEE7470DA8E88564ABA5 /* BroadcastCapture.swift in Sources */,
+				67002BD7873FD81D273904E2 /* BroadcastRing.swift in Sources */,
+				DDF014B5EFCFE4D6005BACAF /* FileCapture.swift in Sources */,
+				954A34AB807195EE6955252F /* MicCapture.swift in Sources */,
+				00A043C0BA3EBBE0D003AFA6 /* PlayerBar.swift in Sources */,
+				0673FE84E5694667C18E228F /* RootView.swift in Sources */,
+				EB0826973308B402D8E376F2 /* SampleRing.swift in Sources */,
+				8AE544D10037EADA96805A5F /* SettingsStore.swift in Sources */,
+				A4D7CE68E44746C877FA2714 /* SettingsView.swift in Sources */,
+				3EAE450EB1E446E66C2AFBC0 /* SourceSheet.swift in Sources */,
+				1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */,
+				3D48905FF23427E36960315C /* TubePainter.swift in Sources */,
+				1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		754432E93A79B8FDC0615DA5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0C3B5A00D67012A7E68E996D /* SpectraBroadcast */;
+			targetProxy = 85093696094E26F86015CC67 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3A67D58F0F7FBFF995C264AC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		49C4829B668E1CD0DFF5A045 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SpectraBroadcast/SpectraBroadcast.entitlements;
+				INFOPLIST_FILE = SpectraBroadcast/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.n3d.spectra.broadcast;
+				PRODUCT_NAME = SpectraBroadcast;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/SpectraShared.h;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		91790D54062A798B51EDEBFF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Spectra/Spectra.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Spectra/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.n3d.spectra;
+				PRODUCT_NAME = Spectra;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/SpectraShared.h;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1129B04896AC5253E8A4909 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = SpectraBroadcast/SpectraBroadcast.entitlements;
+				INFOPLIST_FILE = SpectraBroadcast/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.n3d.spectra.broadcast;
+				PRODUCT_NAME = SpectraBroadcast;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/SpectraShared.h;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B41C9F823DACE51A04BA2A86 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		FADF15D98E8A6C427401D398 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Spectra/Spectra.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Spectra/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.n3d.spectra;
+				PRODUCT_NAME = Spectra;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/SpectraShared.h;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1CD7C4A3A6C97006AE6B0513 /* Build configuration list for PBXNativeTarget "SpectraBroadcast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1129B04896AC5253E8A4909 /* Debug */,
+				49C4829B668E1CD0DFF5A045 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		487300B4A64D25F1EE54C13B /* Build configuration list for PBXNativeTarget "Spectra" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FADF15D98E8A6C427401D398 /* Debug */,
+				91790D54062A798B51EDEBFF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EC9FA39C16D0BAEF41B6101C /* Build configuration list for PBXProject "Spectra" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B41C9F823DACE51A04BA2A86 /* Debug */,
+				3A67D58F0F7FBFF995C264AC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0C9E95F0460604F32A2E793C /* XCLocalSwiftPackageReference "SpectraCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SpectraCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		562771C51A9BCC036916BBF7 /* SpectraCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SpectraCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 486F4F67B4EEE679DCD2A42C /* Project object */;
+}
