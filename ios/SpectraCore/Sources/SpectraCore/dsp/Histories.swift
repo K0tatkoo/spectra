@@ -81,6 +81,7 @@ public final class ScrollBuffer: @unchecked Sendable {
 
     /// Copies the history into `out` oldest-first, so painters can walk it linearly.
     public func snapshot(_ out: inout [Float]) {
+        precondition(out.count >= capacity, "snapshot needs room for the whole history")
         let h = head
         let tail = capacity - h
         out.withUnsafeMutableBufferPointer { o in

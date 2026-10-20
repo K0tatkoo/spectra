@@ -12,27 +12,36 @@
 // Kotlin's Float % Float and Swift's truncatingRemainder agree (sign of the
 // dividend), as do integer / and %. Shifts: Kotlin `ushr` is >> on an unsigned value.
 
+// Java's Math.round is floor(x + ½) taken *exactly*, not in floating point:
+// 0.49999997f + 0.5f rounds up to 1.0f in float arithmetic, but Math.round
+// gives 0. x − floor(x) is exact for every float and double, so comparing it
+// with ½ is the exact test.
+
 /// Kotlin `Float.roundToInt()`: half up, NaN → 0, saturating at the Int32 range.
 @inlinable @inline(__always)
 public func ktRoundToInt(_ x: Float) -> Int {
     if x.isNaN { return 0 }
-    return ktToInt((x + 0.5).rounded(.down))
+    let f = x.rounded(.down)
+    return ktToInt(x - f >= 0.5 ? f + 1 : f)
 }
 
 /// Kotlin `Double.roundToInt()`: half up, NaN → 0, saturating at the Int32 range.
 @inlinable @inline(__always)
 public func ktRoundToInt(_ x: Double) -> Int {
     if x.isNaN { return 0 }
-    return ktToInt((x + 0.5).rounded(.down))
+    let f = x.rounded(.down)
+    return ktToInt(x - f >= 0.5 ? f + 1 : f)
 }
 
 /// Kotlin `Double.roundToLong()`: half up, NaN → 0, saturating at the Int64 range.
 @inlinable @inline(__always)
 public func ktRoundToLong(_ x: Double) -> Int64 {
     if x.isNaN { return 0 }
-    let r = (x + 0.5).rounded(.down)
-    if r >= 9.223372036854775807e18 { return .max }
-    if r <= -9.223372036854775808e18 { return .min }
+    let f = x.rounded(.down)
+    let r = x - f >= 0.5 ? f + 1 : f
+    // 2⁶³ is exact in a double; Int64.max is not.
+    if r >= 9223372036854775808.0 { return .max }
+    if r < -9223372036854775808.0 { return .min }
     return Int64(r)
 }
 
@@ -40,8 +49,9 @@ public func ktRoundToLong(_ x: Double) -> Int64 {
 @inlinable @inline(__always)
 public func ktToInt(_ x: Float) -> Int {
     if x.isNaN { return 0 }
-    if x >= 2147483647 { return Int(Int32.max) }
-    if x <= -2147483648 { return Int(Int32.min) }
+    // 2³¹ is exact in a float; Int32.max is not.
+    if x >= 2147483648.0 { return Int(Int32.max) }
+    if x < -2147483648.0 { return Int(Int32.min) }
     return Int(x)
 }
 

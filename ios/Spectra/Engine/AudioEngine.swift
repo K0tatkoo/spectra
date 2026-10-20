@@ -214,7 +214,7 @@ final class AudioEngine: @unchecked Sendable {
                 }
                 s = next
                 gain = dbToLinear(s.inputGainDb)
-                analyzer.configure(s, sampleRate: rate)
+                analyzer.configure(s, rate: rate)
                 bands.configure(s, sampleRate: rate)
                 loudness.configure(s, sampleRate: rate)
                 stereo.configure(s, sampleRate: rate)

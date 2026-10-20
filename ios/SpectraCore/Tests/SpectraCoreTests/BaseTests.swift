@@ -149,6 +149,11 @@ import SpectraFixtures
         #expect(ktRoundToInt(Float(-2.5)) == -2)
         #expect(ktRoundToInt(Float(2.5)) == 3)
         #expect(ktRoundToInt(Float.nan) == 0)
+        // Java rounds the exact value: these are where floor(x + 0.5) in floats goes wrong.
+        #expect(ktRoundToInt(Float(0.49999997)) == 0)
+        #expect(ktRoundToInt(Float(8388609)) == 8388609)
+        #expect(ktRoundToInt(Double(-0.5)) == 0)
+        #expect(ktRoundToLong(2.5) == 3)
         #expect(ktToInt(Float.infinity) == Int(Int32.max))
         #expect(ktToInt(Float(-3.9)) == -3)
         #expect(nextPowerOfTwo(atLeast: 32768) == 32768)

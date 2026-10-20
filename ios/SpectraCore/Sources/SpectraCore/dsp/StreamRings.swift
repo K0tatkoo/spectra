@@ -41,6 +41,7 @@ public final class HistoryRing: @unchecked Sendable {
     }
 
     public func write(_ src: [Float], offset: Int, count: Int) {
+        precondition(offset >= 0 && offset + count <= src.count, "write past the end of the source")
         src.withUnsafeBufferPointer { write($0.baseAddress!, offset: offset, count: count) }
     }
 

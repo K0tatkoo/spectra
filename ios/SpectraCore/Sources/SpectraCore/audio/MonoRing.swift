@@ -38,6 +38,7 @@ public final class MonoRing {
     }
 
     public func write(_ src: [Float], offset: Int, count: Int) {
+        precondition(offset >= 0 && offset + count <= src.count, "write past the end of the source")
         src.withUnsafeBufferPointer { write($0.baseAddress!, offset: offset, count: count) }
     }
 
@@ -48,6 +49,7 @@ public final class MonoRing {
 
     /// Copies the whole history into `out` oldest sample first.
     public func copyLatest(_ out: inout [Float]) {
+        precondition(out.count >= size, "copyLatest needs room for the whole ring")
         let tail = size - writeIndex
         buf.withUnsafeBufferPointer { b in
             out.withUnsafeMutableBufferPointer { o in
