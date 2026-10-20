@@ -17,3 +17,6 @@ ios/build/
 ios/**/*.xcodeproj/xcuserdata/
 ios/**/*.xcworkspace/xcuserdata/
 *.xcuserstate
+
+# Claude Code worktrees and local state
+.claude/
