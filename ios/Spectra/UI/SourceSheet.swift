@@ -78,7 +78,10 @@ struct SourceSheet: View {
                     Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.tint)
                 }
             }
+            .contentShape(.rect)
         }
+        // A plain row: a list button would tint its whole label.
+        .buttonStyle(.plain)
     }
 }
 

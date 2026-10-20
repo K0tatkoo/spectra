@@ -34,7 +34,7 @@ struct SettingsView: View {
 
                 Section {
                     Picker("FFT size", selection: $model.settings.fftSize) {
-                        ForEach(Settings.fftSizes, id: \.self) { Text("\($0)").tag($0) }
+                        ForEach(Settings.fftSizes, id: \.self) { Text(verbatim: String($0)).tag($0) }
                     }
                     Picker("Window", selection: $model.settings.window) {
                         ForEach(WindowFunction.allCases, id: \.self) { Text($0.label).tag($0) }

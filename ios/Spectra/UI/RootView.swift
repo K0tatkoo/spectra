@@ -19,7 +19,6 @@ struct RootView: View {
             }
         }
         .tabViewBottomAccessory { PlayerBar() }
-        .tint(Color(argb: model.settings.theme == .light ? Palette.lightPalette.accent : Palette.darkPalette.accent))
         .preferredColorScheme(model.colorScheme)
         .sheet(isPresented: $model.showSettings) { SettingsView() }
         .sheet(isPresented: $model.showSource) { SourceSheet() }
@@ -29,6 +28,9 @@ struct RootView: View {
         .onChange(of: phase, initial: true) { _, now in model.setActive(now == .active) }
         // "Open in Spectra" from Files or a share sheet.
         .onOpenURL { url in if url.isFileURL { model.importFile(url) } }
+        // Outermost, so the sheets inherit it too: every "on" switch and filled
+        // control is the one flat violet, as on the sites and the Android apps.
+        .tint(Color.accentColor)
     }
 }
 
@@ -204,6 +206,7 @@ private struct StemHoldToggles: View {
                 .padding(.horizontal, 4)
             }
         }
+        .controlSize(.small)
         .scrollClipDisabled()
     }
 
