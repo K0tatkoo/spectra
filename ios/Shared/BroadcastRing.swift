@@ -27,11 +27,16 @@ final class BroadcastRing: @unchecked Sendable {
     private let samples: UnsafeMutablePointer<Float>
 
     /// Opens (and for the writer, creates) the shared file. Nil without the App Group.
-    init?(writer: Bool) {
+    convenience init?(writer: Bool) {
         guard let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroup) else {
             return nil
         }
-        let path = dir.appendingPathComponent("broadcast-audio.ring").path
+        self.init(writer: writer, path: dir.appendingPathComponent("broadcast-audio.ring").path)
+    }
+
+    /// The same on any file — what the ring's own test uses, since broadcast
+    /// extensions do not run in the simulator.
+    init?(writer: Bool, path: String) {
         let fd = open(path, writer ? (O_RDWR | O_CREAT) : O_RDWR, 0o644)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
