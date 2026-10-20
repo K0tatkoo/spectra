@@ -1,0 +1,13 @@
+{
+ "name": "pitchPreFilter",
+ "meta": {
+  "chunks": [1000, 3000, 2000]
+ },
+ "arrays": {
+  "input": {"type": "f32", "offset": 0, "count": 6000},
+  "chunked": {"type": "f32", "offset": 24000, "count": 6000},
+  "reset": {"type": "f32", "offset": 48000, "count": 6000},
+  "huntMax": {"type": "f32", "offset": 72000, "count": 5},
+  "cornerFor": {"type": "f64", "offset": 72020, "count": 5}
+ }
+}

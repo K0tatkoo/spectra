@@ -1,0 +1,22 @@
+{
+ "name": "pitchDetector",
+ "meta": {
+  "names": ["sine220", "saw110", "chip55", "chip55narrow", "stair82at44k", "noise", "silence", "short"],
+  "rates": [48000, 48000, 48000, 48000, 44100, 48000, 48000, 48000],
+  "windows": [4096, 4096, 8192, 4096, 4096, 4096, 4096, 4096],
+  "minHz": [50.0, 28.0, 25.0, 28.0, 28.0, 28.0, 28.0, 28.0],
+  "maxHz": [1000.0, 1000.0, 200.0, 300.0, 300.0, 1000.0, 1000.0, 1000.0]
+ },
+ "arrays": {
+  "sine220.x": {"type": "f32", "offset": 0, "count": 8192},
+  "saw110.x": {"type": "f32", "offset": 32768, "count": 8192},
+  "chip55.x": {"type": "f32", "offset": 65536, "count": 8192},
+  "chip55narrow.x": {"type": "f32", "offset": 98304, "count": 8192},
+  "stair82at44k.x": {"type": "f32", "offset": 131072, "count": 8192},
+  "noise.x": {"type": "f32", "offset": 163840, "count": 8192},
+  "silence.x": {"type": "f32", "offset": 196608, "count": 8192},
+  "short.x": {"type": "f32", "offset": 229376, "count": 1000},
+  "tau": {"type": "f64", "offset": 233376, "count": 8},
+  "clarity": {"type": "f32", "offset": 233440, "count": 8}
+ }
+}

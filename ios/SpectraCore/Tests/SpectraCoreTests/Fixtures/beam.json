@@ -1,0 +1,22 @@
+{
+ "name": "beam",
+ "meta": {
+  "interpCount": 300,
+  "sweepingCount": 21269
+ },
+ "arrays": {
+  "interpSrc": {"type": "f32", "offset": 0, "count": 316},
+  "interpOut": {"type": "f32", "offset": 1264, "count": 1200},
+  "clockWritten": {"type": "i64", "offset": 6064, "count": 480},
+  "clockNow": {"type": "i64", "offset": 9904, "count": 480},
+  "clockRate": {"type": "i32", "offset": 13744, "count": 480},
+  "clockFrom": {"type": "i64", "offset": 15664, "count": 480},
+  "clockTo": {"type": "i64", "offset": 19504, "count": 480},
+  "clockJumped": {"type": "i32", "offset": 23344, "count": 480},
+  "clockTargetLag": {"type": "f64", "offset": 25264, "count": 480},
+  "sweepSignal": {"type": "f32", "offset": 29104, "count": 36000},
+  "sweepEventN": {"type": "i64", "offset": 173104, "count": 35},
+  "sweepEventStart": {"type": "f64", "offset": 173384, "count": 35},
+  "sweepEventTriggered": {"type": "i32", "offset": 173664, "count": 35}
+ }
+}
