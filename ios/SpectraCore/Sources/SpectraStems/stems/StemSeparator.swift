@@ -107,12 +107,21 @@ public final class StemSeparator: @unchecked Sendable {
     /// The same stems low-passed for pitch detection, sample-aligned with `stems`.
     public let pitched: [HistoryRing] = (0..<StemSeparator.modelStems).map { _ in HistoryRing(capacity: StemSeparator.history) }
 
-    private let onHopBox = Mutex<(@Sendable (Int64) -> Void)?>(nil)
+    /// The callback in a class box. A function type kept in the Mutex itself
+    /// is re-thunked through the lock's generic inout slot on every access, so
+    /// each read wrapped the stored closure two levels deeper; at a read per
+    /// hop, calling it overflowed the worker's stack within half a minute.
+    private final class HopCallback: Sendable {
+        let call: @Sendable (Int64) -> Void
+        init(_ call: @escaping @Sendable (Int64) -> Void) { self.call = call }
+    }
+
+    private let onHopBox = Mutex<HopCallback?>(nil)
     /// Called on the worker thread after every hop, once all the stems are
     /// written, with their new length — the synth splitter's cue.
     public var onHop: (@Sendable (Int64) -> Void)? {
-        get { onHopBox.withLock { $0 } }
-        set { onHopBox.withLock { $0 = newValue } }
+        get { onHopBox.withLock { $0?.call } }
+        set { onHopBox.withLock { $0 = newValue.map(HopCallback.init) } }
     }
 
     private let _cleanFrom = Atomic<Int64>(Int64(StemSeparator.warmupFrames))

@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import SpectraStems
 
@@ -165,6 +166,38 @@ extension StemsTests {
                 bb += Double(b[i]) * Double(b[i])
             }
             return aa <= 0 || bb <= 0 ? 0 : ab / (aa * bb).squareRoot()
+        }
+    }
+}
+
+extension StemsTests {
+    /// Needs no model, so it runs on every machine.
+    struct StemSeparatorCallbackTests {
+        private final class Count: Sendable {
+            let n = Atomic<Int>(0)
+        }
+
+        /// The worker reads `onHop` once a hop. Kept in the Mutex as a bare
+        /// function type, every read wrapped the stored closure two levels
+        /// deeper, and on an iPhone the stems thread overflowed its stack within
+        /// half a minute (SIGBUS in SynthSplitter.wake, or in the release chain
+        /// when capture stopped). An hour of hops, on a worker-sized stack:
+        @Test func onHopStaysShallowHowEverOftenItIsRead() {
+            let sep = StemSeparator(modelFile: URL(fileURLWithPath: "/nonexistent/stemgen-rt-hop128.onnx"))
+            let count = Count()
+            sep.onHop = { _ in count.n.add(1, ordering: .relaxed) }
+            let hops = 1_250_000 // 2.9 ms each
+            let done = DispatchSemaphore(value: 0)
+            let worker = Thread {
+                for i in 0..<hops { sep.onHop?(Int64(i)) }
+                done.signal()
+            }
+            worker.stackSize = 512 * 1024
+            worker.start()
+            done.wait()
+            #expect(count.n.load(ordering: .relaxed) == hops)
+            sep.onHop = nil
+            #expect(sep.onHop == nil)
         }
     }
 }
