@@ -22,6 +22,7 @@
 		59920C7FEF75E0AC429733E3 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59652D4C0B4B627B30517FF4 /* SampleHandler.swift */; };
 		5ECD8ECF48CE2F122D7D0385 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B002C8E24706188A705DFEC /* AppModel.swift */; };
 		67002BD7873FD81D273904E2 /* BroadcastRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */; };
+		77EC4813A5D73BBF80FB9A88 /* VersionLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C476397FE353FD80BFD7AFDE /* VersionLabel.swift */; };
 		899F9F5E816F8358B1F8385D /* licenses in Resources */ = {isa = PBXBuildFile; fileRef = D7091570AEE48B3A6F4D9E95 /* licenses */; };
 		8AE544D10037EADA96805A5F /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA674E48082148F99E5DDA2 /* SettingsStore.swift */; };
 		954A34AB807195EE6955252F /* MicCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */; };
@@ -80,6 +81,7 @@
 		B4348BE0569675F5773D61C6 /* SpectraBroadcast.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SpectraBroadcast.entitlements; sourceTree = "<group>"; };
 		BC582FCEC4AFAB4D2CD6137E /* SpectraShared.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpectraShared.h; sourceTree = "<group>"; };
 		BE18EACEFB13998DA079188D /* VizPainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VizPainter.swift; sourceTree = "<group>"; };
+		C476397FE353FD80BFD7AFDE /* VersionLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionLabel.swift; sourceTree = "<group>"; };
 		CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D102F09FEED157D7DEA07C5F /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
@@ -198,6 +200,7 @@
 			children = (
 				6B002C8E24706188A705DFEC /* AppModel.swift */,
 				4BA674E48082148F99E5DDA2 /* SettingsStore.swift */,
+				C476397FE353FD80BFD7AFDE /* VersionLabel.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -416,6 +419,7 @@
 				1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */,
 				B2D26F26AFC820CC37A46B53 /* Stems.swift in Sources */,
 				3D48905FF23427E36960315C /* TubePainter.swift in Sources */,
+				77EC4813A5D73BBF80FB9A88 /* VersionLabel.swift in Sources */,
 				1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -435,6 +439,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_VERSION_NAME = 1.5.1;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -466,7 +471,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -479,7 +484,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.5.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -553,6 +558,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_VERSION_NAME = 1.5.1;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -584,7 +590,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -603,7 +609,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.5.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

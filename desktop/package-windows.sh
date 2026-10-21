@@ -26,6 +26,10 @@ ROOT="$(dirname "$HERE")"
 # The phone app's version, which is the window's too (see desktop/build.gradle.kts).
 APP_VERSION="$(sed -n 's/.*versionName *= *"\([^"]*\)".*/\1/p' "$ROOT/app/build.gradle.kts" | head -1)"
 VERSION="${SPECTRA_VERSION:-${APP_VERSION:-1.0}}"
+# Windows stamps a version resource of numbers only, so jpackage refuses
+# "2.0.0-beta.1": the launcher gets 2.0.0, the zip's name and the window the
+# whole name.
+NUMERIC_VERSION="${VERSION%%-*}"
 WORK="${SPECTRA_BUILD_DIR:-$HERE/build/windows}"
 CACHE="${SPECTRA_CACHE_DIR:-$HERE/build/cache}"
 JDK_VERSION="21.0.12.1+1"
@@ -98,7 +102,7 @@ cp "$ICO" "$STAGE/spectra.ico"
     --main-jar "$(basename "$JAR")" \
     --main-class com.n3d.spectra.desktop.MainKt \
     --icon spectra.ico \
-    --app-version "$VERSION" \
+    --app-version "$NUMERIC_VERSION" \
     --vendor "Nebula 3D" \
     --copyright "Nebula 3D" \
     --description "Real-time audio analyser with an NES 2A03 triangle mode" \

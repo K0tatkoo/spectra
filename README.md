@@ -1,7 +1,13 @@
 # Spectra
 
-A real-time audio analyser, in the Nebula 3D neumorphic look. Two products, one
-analysis engine:
+> **Public beta: Spectra 2.0.** The builds here and on
+> [n3d-store.com/apps](https://n3d-store.com/apps) are the 2.0 beta
+> (`2.0.0-beta.N`). Everything works and is in daily use while it is finished
+> towards 2.0, and each build shows a **BETA** badge beside its version. Releases
+> are flagged as pre-releases on GitHub.
+
+A real-time audio analyser, in the Nebula 3D neumorphic look. Three products,
+one analysis engine:
 
 - **`app/`** — Android. Kotlin + Jetpack Compose. One native dependency, ONNX
   Runtime, and only for the [Stems page](#stems--live-source-separation);
@@ -10,6 +16,9 @@ analysis engine:
 - **`desktop/`** — Windows. Kotlin + Swing/Java2D, two dependencies (the Kotlin
   stdlib, and JNA for [system audio](#system-audio)), shipped as a
   self-contained `.exe`.
+- **`ios/`** — iPhone. Swift + SwiftUI in iOS's Liquid Glass, with the engine
+  rewritten in Swift and checked against the Kotlin one, result for result. See
+  [ios/README.md](ios/README.md).
 
 The desktop module compiles the whole `com.n3d.spectra.dsp` package — the 2A03
 tracker and the held-still scopes included — `Settings`, `Palette` and the
@@ -599,4 +608,4 @@ pieces inside the APK: the [StemgenRT](https://github.com/sweetspotsoundsystem/s
 model (Axel Delafosse), trained with the [HS-TasNet](https://github.com/sweetspotsoundsystem/HS-TasNet)
 implementation (Phil Wang) of L-Acoustics' paper, and
 [ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft). Their
-notices are in `app/src/main/assets/licenses/`, and so in every build. Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps.html).
+notices are in `app/src/main/assets/licenses/`, and so in every build. Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps).

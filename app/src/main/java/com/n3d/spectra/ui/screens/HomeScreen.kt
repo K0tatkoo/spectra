@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -45,6 +47,7 @@ import com.n3d.spectra.dsp.PeakHold
 import com.n3d.spectra.settings.OscMode
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SourceKind
+import com.n3d.spectra.settings.VersionLabel
 import com.n3d.spectra.settings.VizPage
 import com.n3d.spectra.settings.WaveformMode
 import com.n3d.spectra.settings.oscTimeLabel
@@ -109,15 +112,31 @@ fun HomeScreen(
                     )
                     // The installed version, read off the package: what a bug
                     // report or "is the update on?" needs, without opening Settings.
-                    val version = viewModel.updates.installedVersionName
-                    if (version.isNotEmpty()) {
+                    val version = VersionLabel.of(viewModel.updates.installedVersionName)
+                    if (version.number.isNotEmpty()) {
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            version,
+                            version.number,
                             color = palette.textFaint.toComposeColor(),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.alignByBaseline(),
+                        )
+                    }
+                    // A pre-release says so: a flat violet badge, like every
+                    // other filled control on the sites and in the apps.
+                    version.stage?.let { stage ->
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stage,
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            modifier = Modifier
+                                .alignByBaseline()
+                                .background(palette.accentFill.toComposeColor(), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
                         )
                     }
                 }

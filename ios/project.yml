@@ -13,8 +13,13 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # One version for every build, the Android app's: tools/release writes all
+    # three from app/build.gradle.kts. iOS takes numbers only, so a pre-release
+    # such as 2.0.0-beta.1 is MARKETING_VERSION 2.0.0 with the whole name in
+    # APP_VERSION_NAME (the About row shows its stage as a badge).
+    MARKETING_VERSION: "1.5.1"
+    CURRENT_PROJECT_VERSION: "12"
+    APP_VERSION_NAME: "1.5.1"
     CODE_SIGN_STYLE: Automatic
 targets:
   Spectra:
@@ -48,6 +53,9 @@ targets:
       path: Spectra/Info.plist
       properties:
         CFBundleDisplayName: Spectra
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        AppVersionName: $(APP_VERSION_NAME)
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:
@@ -102,6 +110,8 @@ targets:
       path: SpectraBroadcast/Info.plist
       properties:
         CFBundleDisplayName: Spectra
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.broadcast-services-upload
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler

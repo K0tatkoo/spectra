@@ -198,7 +198,23 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
+                    LabeledContent("Version") {
+                        let version = VersionLabel.current
+                        HStack(spacing: 6) {
+                            Text(verbatim: version.number.isEmpty ? "—" : version.number)
+                            // A pre-release says so: the flat violet badge the
+                            // Android header and the Windows top bar carry too.
+                            if let stage = version.stage {
+                                Text(verbatim: stage)
+                                    .font(.caption2.weight(.bold))
+                                    .tracking(0.6)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.accentColor, in: .rect(cornerRadius: 5))
+                            }
+                        }
+                    }
                     NavigationLink("Credits and licences") { CreditsView() }
                     Button("Reset everything to defaults", role: .destructive) { confirmReset = true }
                 } header: {

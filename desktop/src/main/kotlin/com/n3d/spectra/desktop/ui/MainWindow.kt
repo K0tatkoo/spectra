@@ -34,6 +34,7 @@ import com.n3d.spectra.settings.Phosphor
 import com.n3d.spectra.settings.Settings
 import com.n3d.spectra.settings.SpectrumStyle
 import com.n3d.spectra.settings.ThemeMode
+import com.n3d.spectra.settings.VersionLabel
 import com.n3d.spectra.settings.Weighting
 import com.n3d.spectra.settings.oscTimeLabel
 import java.awt.BorderLayout
@@ -41,6 +42,7 @@ import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.event.WindowAdapter
+import java.awt.geom.RoundRectangle2D
 import java.awt.event.WindowEvent
 import java.util.Locale
 import kotlin.math.log2
@@ -654,8 +656,23 @@ class MainWindow(initial: DesktopState) : JFrame("Spectra") {
             val sc = state.uiScale
             g.text("SPECTRA", 18f * sc, 34f * sc, Fonts.sans(19f * sc, bold = true), palette.text)
             val wordmarkW: Float = g.textWidth("SPECTRA", Fonts.sans(19f * sc, bold = true))
-            val tagline = AppVersion.name?.let { "$it for Windows" } ?: "for Windows"
-            g.text(tagline, 18f * sc + wordmarkW + 8f * sc, 34f * sc, Fonts.sans(10f * sc), palette.textFaint)
+            val small = Fonts.sans(10f * sc)
+            var x = 18f * sc + wordmarkW + 8f * sc
+            val version = AppVersion.name?.let(VersionLabel::of)
+            if (version != null) {
+                g.text(version.number, x, 34f * sc, small, palette.textFaint)
+                x += g.textWidth(version.number, small) + 6f * sc
+                // A pre-release says so: the phone header's flat violet badge.
+                version.stage?.let { stage ->
+                    val badge = Fonts.sans(8f * sc, bold = true)
+                    val w = g.textWidth(stage, badge) + 10f * sc
+                    g.paint = Colors.of(palette.accentFill)
+                    g.fill(RoundRectangle2D.Float(x, 25f * sc, w, 12f * sc, 8f * sc, 8f * sc))
+                    g.text(stage, x + 5f * sc, 34f * sc, badge, 0xFFFFFFFF.toInt())
+                    x += w + 6f * sc
+                }
+            }
+            g.text("for Windows", x, 34f * sc, small, palette.textFaint)
 
             val warning = DesktopEngine.warning
             val engineState = DesktopEngine.state

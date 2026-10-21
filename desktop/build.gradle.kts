@@ -57,6 +57,7 @@ sourceSets.main {
             // Shared with Android, verbatim.
             "com/n3d/spectra/dsp/**",
             "com/n3d/spectra/settings/Settings.kt",
+            "com/n3d/spectra/settings/VersionLabel.kt",
             "com/n3d/spectra/audio/MonoRing.kt",
             "com/n3d/spectra/audio/AudioCapture.kt",
             "com/n3d/spectra/paint/Palette.kt",
