@@ -5,6 +5,29 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 2.0.0-beta.1 — 2026-10-21
+
+Spectra 2.0 public beta: a BETA badge beside the version on the phone, Windows and iPhone builds; how it works is unchanged
+
+- A BETA badge beside the version, on the phone, Windows and the iPhone
+- iOS: fix the stems crash — onHop grew a thunk chain on every read
+- iOS: stereo mic on a real iPhone
+- iOS: install on a real iPhone (run-on-iphone.sh) and the one-time setup
+- iOS: the stems in the app — separator, synth lane, held-still waveform
+- Ignore the .kotlin folder Gradle leaves at the root
+- iOS: the stems in Swift — separator, synth splitter, ScopeRunner
+- iOS: test the broadcast ring on the Mac
+- iOS: violet switches in sheets, plain source rows, smaller hold toggles
+- iOS: loop files without a gap, keep the clock right, survive interruptions
+- iOS: hear files inside the graph, redraw every tick, the tube on the real Crt
+- iOS: port the held-still scopes, the 2A03 tracker, the beam and the CRT
+- iOS: round like Java, fail like Kotlin on short buffers
+- iOS: port the spectrum, band, loudness and stereo meters and the resampler
+- iOS: stem models in the bundle, the tube page, README
+- Ignore Claude Code's local worktrees
+- iOS: the app shell — capture, engine loop, Liquid Glass UI, broadcast path
+- iOS: start the Swift engine package, checked against the Kotlin one
+
 ## 1.5.1 — 2026-10-16
 
 New icon (an analog sine into the NES triangle's steps), the version beside the name, and page chips that run to the screen edge with the open page in view
