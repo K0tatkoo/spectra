@@ -23,12 +23,17 @@ struct SourceSheet: View {
                 switch model.settings.source {
                 case .microphone:
                     Section {
+                        Toggle("Stereo", isOn: $model.settings.stereo)
                         Picker("Mode", selection: $model.settings.micMode) {
                             ForEach(MicMode.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
-                        Toggle("Stereo", isOn: $model.settings.stereo)
+                        .disabled(model.settings.stereo)
                     } footer: {
-                        Text(model.settings.micMode.blurb + " Stereo needs an iPhone whose built-in mics record in stereo.")
+                        if model.settings.stereo {
+                            Text("iOS records stereo only in its video-recording mode, from the mics on the back, with some processing. Turn Stereo off to choose the mode, Measurement for a flat mic.")
+                        } else {
+                            Text(model.settings.micMode.blurb)
+                        }
                     }
                 case .file:
                     FileSection()

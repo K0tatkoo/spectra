@@ -27,16 +27,22 @@ final class MicCapture: AudioCapture {
         do {
             // The measurement mode is iOS's counterpart of Android's UNPROCESSED
             // source: no automatic gain, no noise suppression, no voice processing.
-            let mode: AVAudioSession.Mode = switch settings.micMode {
+            // But it is mono, as is the default mode: iOS offers the built-in
+            // mics' stereo pattern only in the video-recording mode, so stereo
+            // takes that mode whatever the picker says.
+            let chosen: AVAudioSession.Mode = switch settings.micMode {
             case .measurement: .measurement
             case .standard: .default
             case .voice: .voiceChat
             }
+            let mode = settings.stereo ? .videoRecording : chosen
             try session.setCategory(.record, mode: mode)
             try session.setPreferredSampleRate(Double(settings.sampleRate))
             try session.setPreferredIOBufferDuration(0.005)
-            if settings.stereo { preferStereo(session) }
             try session.setActive(true)
+            // The built-in mic lists its data sources, and their polar patterns,
+            // only once the session is active: before, there is nothing to pick.
+            if settings.stereo { preferStereo(session) }
         } catch {
             throw CaptureError(.unavailable, "iOS refused the microphone: \(error.localizedDescription)")
         }
@@ -70,19 +76,20 @@ final class MicCapture: AudioCapture {
         describe = "\(port) · \(sampleRate / 1000) kHz \(stereo ? "stereo" : "mono")"
     }
 
-    /// iPhones since the XS can record stereo from their built-in mics through
-    /// a "stereo" polar pattern on one of the data sources. Best effort: an
-    /// input that has none stays mono, which the engine handles.
+    /// iPhones since the XS record stereo from their built-in mics through a
+    /// "stereo" polar pattern on the front or back pair. The back pair faces the
+    /// sound while the screen faces the listener. Best effort: an input with no
+    /// stereo pattern stays mono, which the engine handles.
     private func preferStereo(_ session: AVAudioSession) {
         guard let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) else { return }
         try? session.setPreferredInput(builtIn)
-        for source in builtIn.dataSources ?? [] where source.supportedPolarPatterns?.contains(.stereo) == true {
-            try? source.setPreferredPolarPattern(.stereo)
-            try? builtIn.setPreferredDataSource(source)
-            try? session.setPreferredInputOrientation(.portrait)
-            try? session.setPreferredInputNumberOfChannels(2)
-            return
-        }
+        let input = session.preferredInput ?? builtIn
+        let stereo = (input.dataSources ?? []).filter { $0.supportedPolarPatterns?.contains(.stereo) == true }
+        guard let source = stereo.first(where: { $0.orientation == .back }) ?? stereo.first else { return }
+        try? source.setPreferredPolarPattern(.stereo)
+        try? input.setPreferredDataSource(source)
+        try? session.setPreferredInputOrientation(.portrait)
+        try? session.setPreferredInputNumberOfChannels(min(2, session.maximumInputNumberOfChannels))
     }
 
     func read(_ out: UnsafeMutablePointer<Float>, frames: Int) -> Int {
