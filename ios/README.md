@@ -56,7 +56,26 @@ overlay or widget, and an iPhone app cannot update itself.
 
 ## On a real iPhone
 
-Free Apple ID signing works, but installs expire after 7 days, and the App
-Group needs an identifier unique to the signing team. With a personal team,
-change `group.com.n3d.spectra` in `project.yml` and `Shared/BroadcastRing.swift`
-if Xcode reports it as taken.
+```bash
+ios/tools/run-on-iphone.sh
+```
+
+builds a release, signs it with the Apple ID's team, installs it on the iPhone
+on the cable and starts it. Free Apple ID signing works, but an install stops
+launching after 7 days: run the script again to renew it.
+
+Once per Mac and Apple ID:
+
+1. On the iPhone: Settings → Privacy & Security → Developer Mode on. The switch
+   only appears after a Mac's developer tools have asked for it;
+   `idevicedevmodectl reveal` (libimobiledevice) does that.
+2. Xcode → Settings → Apple Accounts → Sign In…, then the Personal Team →
+   Manage Certificates… → + → Apple Development. The script reads the team ID
+   from that certificate, so it is never written into the project.
+3. Register the App Group: open `Spectra.xcodeproj`, and on Signing &
+   Capabilities pick the team for **both** targets. Xcode's editor registers
+   `group.com.n3d.spectra`; `xcodebuild -allowProvisioningUpdates` alone makes
+   profiles with an empty group list. Then `git checkout` the project file, which
+   Xcode has just rewritten with the team ID in it.
+4. After the first install: Settings → General → VPN & Device Management →
+   the Apple ID → Trust.

@@ -13,6 +13,7 @@ local.properties
 
 # iOS
 ios/**/.build/
+ios/**/.swiftpm/
 ios/build/
 ios/**/*.xcodeproj/xcuserdata/
 ios/**/*.xcworkspace/xcuserdata/
