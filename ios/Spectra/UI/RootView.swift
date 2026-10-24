@@ -28,6 +28,15 @@ struct RootView: View {
         .onChange(of: phase, initial: true) { _, now in model.setActive(now == .active) }
         // "Open in Spectra" from Files or a share sheet.
         .onOpenURL { url in if url.isFileURL { model.importFile(url) } }
+        // The first-launch tour sits over everything from the very first frame
+        // (a cover would let the tabs show first and then slide it up).
+        .accessibilityHidden(model.showWelcome)
+        .overlay {
+            if model.showWelcome {
+                WelcomeView { withAnimation(.smooth) { model.finishWelcome() } }
+                    .transition(.move(edge: .bottom))
+            }
+        }
         // Outermost, so the sheets inherit it too: every "on" switch and filled
         // control is the one flat violet, as on the sites and the Android apps.
         .tint(Color.accentColor)

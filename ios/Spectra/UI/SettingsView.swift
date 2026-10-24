@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
+    @State private var showTour = false
 
     var body: some View {
         @Bindable var model = model
@@ -215,7 +216,11 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    Button("Welcome tour") { showTour = true }
                     NavigationLink("Credits and licences") { CreditsView() }
+                    // Apple asks for the privacy policy to be reachable inside the app.
+                    Link("Privacy policy", destination: Legal.privacyPolicy)
+                    Link("Support", destination: Legal.support)
                     Button("Reset everything to defaults", role: .destructive) { confirmReset = true }
                 } header: {
                     Text("About")
@@ -229,6 +234,9 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", systemImage: "checkmark") { dismiss() }
                 }
+            }
+            .fullScreenCover(isPresented: $showTour) {
+                WelcomeView { showTour = false }
             }
             .confirmationDialog("Reset every setting to its default?", isPresented: $confirmReset, titleVisibility: .visible) {
                 Button("Reset", role: .destructive) {

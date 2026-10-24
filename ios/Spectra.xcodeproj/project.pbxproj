@@ -11,6 +11,7 @@
 		0673FE84E5694667C18E228F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FA29FDB190E3625056297E8 /* RootView.swift */; };
 		08A9874F1E871C93B063B727 /* SpectraStems in Frameworks */ = {isa = PBXBuildFile; productRef = FE9B6388BEF48150223EAD70 /* SpectraStems */; };
 		0E1EA5A0E7A98FB63A76C387 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D102F09FEED157D7DEA07C5F /* AudioEngine.swift */; };
+		0F732714ACC40EAD15166CF9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0B098BC9CE9FFA9A2526477F /* PrivacyInfo.xcprivacy */; };
 		1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2425CB59BFE4F70929658B44 /* SpectraApp.swift */; };
 		1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE18EACEFB13998DA079188D /* VizPainter.swift */; };
 		2580943ADF24858E33C34FB0 /* SpectraBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -29,10 +30,13 @@
 		A4D7CE68E44746C877FA2714 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A166BEB590036EA2914E8D6 /* SettingsView.swift */; };
 		B2D26F26AFC820CC37A46B53 /* Stems.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7929F7A0AE46CA446F0D53E8 /* Stems.swift */; };
 		C4AB0C6A0A4D14D6BA383124 /* synth-split.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 390C2BD98E96B6A038BDBAD1 /* synth-split.onnx */; };
+		C5346798DA018FE357A18BEA /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93AFFB09B016B61A5B4A2CF3 /* WelcomeView.swift */; };
 		DDF014B5EFCFE4D6005BACAF /* FileCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE97B2AC18344787FF1545B /* FileCapture.swift */; };
+		DFDF50B2F187B29BFB1C2EB7 /* Legal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6833811907D3C828A9FE43 /* Legal.swift */; };
 		E71BB408CAA0F4D38D40A565 /* SpectraCore in Frameworks */ = {isa = PBXBuildFile; productRef = 562771C51A9BCC036916BBF7 /* SpectraCore */; };
 		EB0826973308B402D8E376F2 /* SampleRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A23931122F1E0125CE5114C /* SampleRing.swift */; };
 		EC60BEE7470DA8E88564ABA5 /* BroadcastCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FD5D0277AECADF3FF9FB87 /* BroadcastCapture.swift */; };
+		F2389375F0D87E5A821D5788 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E125B7BFD5A82903CD154580 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,10 +64,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0B098BC9CE9FFA9A2526477F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2425CB59BFE4F70929658B44 /* SpectraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraApp.swift; sourceTree = "<group>"; };
 		2A23931122F1E0125CE5114C /* SampleRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRing.swift; sourceTree = "<group>"; };
 		36EDCCD8233BED435AF1EBC1 /* MicCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCapture.swift; sourceTree = "<group>"; };
 		390C2BD98E96B6A038BDBAD1 /* synth-split.onnx */ = {isa = PBXFileReference; path = "synth-split.onnx"; sourceTree = "<group>"; };
+		3A6833811907D3C828A9FE43 /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
 		4AE97B2AC18344787FF1545B /* FileCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCapture.swift; sourceTree = "<group>"; };
 		4BA674E48082148F99E5DDA2 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		4C7AA02AB81F79D021513607 /* TubePainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TubePainter.swift; sourceTree = "<group>"; };
@@ -75,6 +81,7 @@
 		6FA29FDB190E3625056297E8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		7929F7A0AE46CA446F0D53E8 /* Stems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stems.swift; sourceTree = "<group>"; };
 		8A166BEB590036EA2914E8D6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		93AFFB09B016B61A5B4A2CF3 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		94FD5D0277AECADF3FF9FB87 /* BroadcastCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastCapture.swift; sourceTree = "<group>"; };
 		A7C014E3FE69389B2B63F8F0 /* PlayerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBar.swift; sourceTree = "<group>"; };
 		AA0F7D6F52D43127A32B9371 /* SpectraCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SpectraCore; path = SpectraCore; sourceTree = SOURCE_ROOT; };
@@ -86,6 +93,7 @@
 		D102F09FEED157D7DEA07C5F /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
 		D7091570AEE48B3A6F4D9E95 /* licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = licenses; path = ../app/src/main/assets/licenses; sourceTree = SOURCE_ROOT; };
+		E125B7BFD5A82903CD154580 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		E8E0AC0D27293E3B27B1B166 /* BroadcastRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastRing.swift; sourceTree = "<group>"; };
 		EB167D79DB6167F2F4079490 /* SpectraBroadcast.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SpectraBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF81F7F38AF4EF76BBDFADC1 /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
@@ -119,6 +127,7 @@
 			children = (
 				CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */,
 				5C8E2BC2D1A3C879E43E0C46 /* Info.plist */,
+				E125B7BFD5A82903CD154580 /* PrivacyInfo.xcprivacy */,
 				D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */,
 				2425CB59BFE4F70929658B44 /* SpectraApp.swift */,
 				46E31C878E1B47019464E92A /* Audio */,
@@ -157,6 +166,7 @@
 				6FA29FDB190E3625056297E8 /* RootView.swift */,
 				8A166BEB590036EA2914E8D6 /* SettingsView.swift */,
 				F57A414B8868BEB050102748 /* SourceSheet.swift */,
+				93AFFB09B016B61A5B4A2CF3 /* WelcomeView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -173,6 +183,7 @@
 			isa = PBXGroup;
 			children = (
 				6B11B440A51ED6D88CC77F1C /* Info.plist */,
+				0B098BC9CE9FFA9A2526477F /* PrivacyInfo.xcprivacy */,
 				59652D4C0B4B627B30517FF4 /* SampleHandler.swift */,
 				B4348BE0569675F5773D61C6 /* SpectraBroadcast.entitlements */,
 			);
@@ -199,6 +210,7 @@
 			isa = PBXGroup;
 			children = (
 				6B002C8E24706188A705DFEC /* AppModel.swift */,
+				3A6833811907D3C828A9FE43 /* Legal.swift */,
 				4BA674E48082148F99E5DDA2 /* SettingsStore.swift */,
 				C476397FE353FD80BFD7AFDE /* VersionLabel.swift */,
 			);
@@ -278,6 +290,7 @@
 			buildConfigurationList = 1CD7C4A3A6C97006AE6B0513 /* Build configuration list for PBXNativeTarget "SpectraBroadcast" */;
 			buildPhases = (
 				0B92B149507E5D5465C239B4 /* Sources */,
+				22A345E93F52F850D178C568 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -355,11 +368,20 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		22A345E93F52F850D178C568 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F732714ACC40EAD15166CF9 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6AE36DAD9B087AA9882CC4C6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */,
+				F2389375F0D87E5A821D5788 /* PrivacyInfo.xcprivacy in Resources */,
 				899F9F5E816F8358B1F8385D /* licenses in Resources */,
 				C4AB0C6A0A4D14D6BA383124 /* synth-split.onnx in Resources */,
 			);
@@ -409,6 +431,7 @@
 				EC60BEE7470DA8E88564ABA5 /* BroadcastCapture.swift in Sources */,
 				67002BD7873FD81D273904E2 /* BroadcastRing.swift in Sources */,
 				DDF014B5EFCFE4D6005BACAF /* FileCapture.swift in Sources */,
+				DFDF50B2F187B29BFB1C2EB7 /* Legal.swift in Sources */,
 				954A34AB807195EE6955252F /* MicCapture.swift in Sources */,
 				00A043C0BA3EBBE0D003AFA6 /* PlayerBar.swift in Sources */,
 				0673FE84E5694667C18E228F /* RootView.swift in Sources */,
@@ -421,6 +444,7 @@
 				3D48905FF23427E36960315C /* TubePainter.swift in Sources */,
 				77EC4813A5D73BBF80FB9A88 /* VersionLabel.swift in Sources */,
 				1A4D10BB6E9FE5CB3633E965 /* VizPainter.swift in Sources */,
+				C5346798DA018FE357A18BEA /* WelcomeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

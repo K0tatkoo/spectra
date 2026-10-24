@@ -65,6 +65,9 @@ final class AppModel {
     var showSettings = false
     var showSource = false
     var showFileImporter = false
+    /// The welcome tour, up on a fresh install until it is finished or skipped.
+    /// Nothing listens while it is up, so the microphone prompt comes after it.
+    var showWelcome: Bool
 
     /// The file Spectra plays when the source is "Audio file".
     private(set) var fileURL: URL?
@@ -74,9 +77,12 @@ final class AppModel {
     @ObservationIgnored private let store = SettingsStore()
     @ObservationIgnored private var active = true
 
+    private static let welcomeKey = "welcome.v1.done"
+
     init() {
         let s = SettingsStore().load()
         settings = s
+        showWelcome = !UserDefaults.standard.bool(forKey: Self.welcomeKey)
         tab = AppTab.of(s.page)
         var pages: [AppTab: VizPage] = [:]
         for t in AppTab.allCases { pages[t] = t.pages[0] }
@@ -186,10 +192,18 @@ final class AppModel {
         engine.setVisible(value)
         engine.inAppPage = value ? settings.page : nil
         if value {
-            if !isRunning, settings.source != .file { start() }
+            if !isRunning, settings.source != .file, !showWelcome { start() }
         } else if settings.source == .microphone {
             stop()
         }
+    }
+
+    /// The tour was finished or skipped: remember it, and start listening as a
+    /// normal launch would have.
+    func finishWelcome() {
+        UserDefaults.standard.set(true, forKey: Self.welcomeKey)
+        showWelcome = false
+        if active, !isRunning, settings.source != .file { start() }
     }
 
     // ---- files ---------------------------------------------------------------------
