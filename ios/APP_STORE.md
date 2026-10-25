@@ -42,10 +42,14 @@ Check the manifest against the real binary after any new dependency:
   > extension drops the screen frames unread and passes the audio to the app
   > through an App Group; it never records or transmits anything. The Stems
   > tab runs an ONNX model on the CPU. No account is needed.
-- **Screenshots:** 6.9" iPhone (1320 × 2868). The project also targets iPad
-  (`TARGETED_DEVICE_FAMILY: "1,2"`), which makes 13" iPad screenshots
-  (2064 × 2752) mandatory and means App Review may test on an iPad — check
-  every page in the iPad simulator first, or set the family to `"1"`.
+- **Screenshots:** 6.9" iPhone (1320 × 2868) and 13" iPad (2064 × 2752): the
+  project targets iPad (`TARGETED_DEVICE_FAMILY: "1,2"`), so the iPad set is
+  mandatory and App Review may test on an iPad. Every page was checked on the
+  iPad and iPhone Duo simulators on 2026-10-25. A debug build opens a page
+  and plays the imported file for screenshots:
+  `SIMCTL_CHILD_SPECTRA_PAGE=STEMS SIMCTL_CHILD_SPECTRA_SOURCE=FILE SIMCTL_CHILD_SPECTRA_PLAY=1 xcrun simctl launch <udid> com.n3d.spectra`.
+  Build with Xcode 27.1 or later: on the iPhone Duo an older SDK leaves the
+  app in a smaller window with horizontal bars.
 
 ## Before the first submission
 
