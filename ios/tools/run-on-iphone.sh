@@ -5,6 +5,7 @@
 #
 #   ios/tools/run-on-iphone.sh            the one iPhone that is connected
 #   SPECTRA_DEVICE=<udid> SPECTRA_TEAM=<team id> ios/tools/run-on-iphone.sh
+#   ios/tools/run-on-iphone.sh --no-launch   install only: don't bring it to the front
 #
 # The phone needs Developer Mode on (Settings → Privacy & Security). The team ID
 # is read from Xcode at run time, so it never lands in the repository.
@@ -18,14 +19,17 @@ xcrun devicectl list devices --json-output "$json" >/dev/null 2>&1
 device=${SPECTRA_DEVICE:-$(python3 - "$json" <<'EOF'
 import json, sys
 devices = json.load(open(sys.argv[1]))["result"]["devices"]
+# Until its tunnel is up a phone reports no "reality" (nor its Developer Mode),
+# only how it is reached: over the cable or the local network.
 phones = [d for d in devices
-          if d["hardwareProperties"].get("reality") == "physical"
+          if (d["hardwareProperties"].get("reality") == "physical"
+              or d["connectionProperties"].get("transportType") in ("wired", "localNetwork"))
           and d["hardwareProperties"].get("platform") == "iOS"
           and d["connectionProperties"].get("tunnelState") != "unavailable"]
 if len(phones) != 1:
     sys.exit(f"Expected one connected iPhone, found {len(phones)}. Set SPECTRA_DEVICE to its UDID.")
 d = phones[0]
-if d["deviceProperties"].get("developerModeStatus") != "enabled":
+if d["deviceProperties"].get("developerModeStatus") == "disabled":
     sys.exit(f"{d['deviceProperties']['name']}: turn on Developer Mode (Settings → Privacy & Security), then run this again.")
 print(d["hardwareProperties"]["udid"])
 EOF
@@ -63,4 +67,6 @@ fi
 app=build/device/Build/Products/Release-iphoneos/Spectra.app
 
 xcrun devicectl device install app --device "$device" "$app"
-xcrun devicectl device process launch --device "$device" com.n3d.spectra
+if [ "${1:-}" != "--no-launch" ]; then
+    xcrun devicectl device process launch --device "$device" com.n3d.spectra
+fi
