@@ -1,4 +1,4 @@
-# Spectra for iPhone. The Xcode project is generated from this file:
+# Spectra for iPhone and iPad. The Xcode project is generated from this file:
 #   cd ios && xcodegen
 # Spectra.xcodeproj is committed so it also opens straight in Xcode.
 name: Spectra
@@ -63,7 +63,7 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSMicrophoneUsageDescription: >-
-          Spectra analyses what the microphone hears, live, on this iPhone.
+          Spectra analyses what the microphone hears, live, on this device.
           Nothing is recorded or sent anywhere.
         # A file Spectra plays keeps playing with the screen locked.
         UIBackgroundModes:

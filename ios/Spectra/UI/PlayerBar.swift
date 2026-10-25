@@ -36,6 +36,8 @@ struct PlayerBar: View {
             Button(primaryLabel, systemImage: primarySymbol) { model.primaryAction() }
                 .labelStyle(.iconOnly)
                 .font(.title3)
+                // With a keyboard (an iPad's), the space bar plays and stops.
+                .keyboardShortcut(.space, modifiers: [])
         }
         .padding(.horizontal, 16)
         .contentShape(.rect)

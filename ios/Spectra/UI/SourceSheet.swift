@@ -13,7 +13,7 @@ struct SourceSheet: View {
         NavigationStack {
             List {
                 Section {
-                    row(.microphone, "mic.fill", "Microphone", "What the iPhone hears, live.")
+                    row(.microphone, "mic.fill", "Microphone", "What the \(UIDevice.current.model) hears, live.")
                     row(.file, "music.note", "Audio file",
                         model.fileName.map { "Playing “\($0)”" } ?? "Play a file through Spectra — a clean digital signal.")
                     row(.otherApps, "app.connected.to.app.below.fill", "Other apps",

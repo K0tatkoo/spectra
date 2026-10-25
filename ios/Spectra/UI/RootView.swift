@@ -26,6 +26,14 @@ struct RootView: View {
             if case .success(let url) = result { model.importFile(url) }
         }
         .onChange(of: phase, initial: true) { _, now in model.setActive(now == .active) }
+        #if DEBUG
+        // SIMCTL_CHILD_SPECTRA_PLAY=1: press play by itself, for screenshots.
+        .task {
+            guard ProcessInfo.processInfo.environment["SPECTRA_PLAY"] != nil else { return }
+            try? await Task.sleep(for: .seconds(1))
+            model.primaryAction()
+        }
+        #endif
         // "Open in Spectra" from Files or a share sheet.
         .onOpenURL { url in if url.isFileURL { model.importFile(url) } }
         // The first-launch tour sits over everything from the very first frame
@@ -57,6 +65,7 @@ private struct PageStack: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Settings", systemImage: "gearshape") { model.showSettings = true }
+                            .keyboardShortcut(",")
                     }
                     if tab.pages.count > 1 {
                         ToolbarItem(placement: .principal) {
@@ -69,6 +78,7 @@ private struct PageStack: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Reset meters", systemImage: "arrow.counterclockwise") { model.resetMeters() }
+                            .keyboardShortcut("r")
                     }
                 }
         }

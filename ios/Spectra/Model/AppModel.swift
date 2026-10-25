@@ -80,9 +80,19 @@ final class AppModel {
     private static let welcomeKey = "welcome.v1.done"
 
     init() {
-        let s = SettingsStore().load()
+        var s = SettingsStore().load()
+        #if DEBUG
+        // Screenshots on every screen size without tapping, e.g.
+        // SIMCTL_CHILD_SPECTRA_PAGE=STEREO SIMCTL_CHILD_SPECTRA_SOURCE=FILE xcrun simctl launch <udid> com.n3d.spectra
+        let env = ProcessInfo.processInfo.environment
+        if let page = env["SPECTRA_PAGE"].flatMap(VizPage.init(rawValue:)) { s.page = page }
+        if let source = env["SPECTRA_SOURCE"].flatMap(SourceKind.init(rawValue:)) { s.source = source }
+        #endif
         settings = s
         showWelcome = !UserDefaults.standard.bool(forKey: Self.welcomeKey)
+        #if DEBUG
+        if env["SPECTRA_PAGE"] != nil { showWelcome = false }
+        #endif
         tab = AppTab.of(s.page)
         var pages: [AppTab: VizPage] = [:]
         for t in AppTab.allCases { pages[t] = t.pages[0] }

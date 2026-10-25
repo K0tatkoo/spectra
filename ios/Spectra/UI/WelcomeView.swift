@@ -175,7 +175,7 @@ private struct WelcomePageView: View {
         switch page {
         case .hello:
             "See what you hear. Spectra draws sound as it happens — its frequencies, loudness, stereo "
-                + "image and waveform — measured properly and live, right on your iPhone."
+                + "image and waveform — measured properly and live, right on your \(UIDevice.current.model)."
         case .tabs:
             "Each tab holds a few related views — switch between them with the control at the top."
         case .input:
@@ -205,7 +205,7 @@ private struct WelcomePageView: View {
         case .input:
             [
                 Feature(symbol: "mic.fill", title: "Microphone",
-                        text: "Whatever the iPhone hears, live — in stereo too."),
+                        text: "Whatever the \(UIDevice.current.model) hears, live — in stereo too."),
                 Feature(symbol: "music.note", title: "Audio file",
                         text: "A clean digital signal. Pick one, or use Open in Spectra in Files."),
                 Feature(symbol: "app.connected.to.app.below.fill", title: "Other apps",
@@ -220,7 +220,7 @@ private struct WelcomePageView: View {
                 Feature(symbol: "arrow.counterclockwise", title: "Start fresh",
                         text: "The arrow at the top right clears peaks, loudness and history."),
                 Feature(symbol: "iphone.landscape", title: "Go wide",
-                        text: "Turn your iPhone sideways for a bigger graph."),
+                        text: "Turn your \(UIDevice.current.model) sideways for a bigger graph."),
             ]
         case .privacy:
             [
@@ -229,7 +229,7 @@ private struct WelcomePageView: View {
                 Feature(symbol: "wifi.slash", title: "No internet needed",
                         text: "Spectra never goes online. No accounts, no ads, no tracking."),
                 Feature(symbol: "cpu", title: "Stems on the device",
-                        text: "The neural network runs on your iPhone's own chip."),
+                        text: "The neural network runs on your \(UIDevice.current.model)'s own chip."),
             ]
         }
     }
@@ -425,11 +425,11 @@ private struct PlayerBarReplica: View {
     let animating: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let sources: [(symbol: String, title: String, detail: String, action: String)] = [
-        ("mic.fill", "Microphone", "iPhone Microphone · 48 kHz mono", "stop.fill"),
+    private static var sources: [(symbol: String, title: String, detail: String, action: String)] { [
+        ("mic.fill", "Microphone", "\(UIDevice.current.model) Microphone · 48 kHz mono", "stop.fill"),
         ("music.note", "Audio file", "1:24 / 3:51", "pause.fill"),
         ("app.connected.to.app.below.fill", "Other apps", "Screen broadcast · −14.2 LUFS", "stop.fill"),
-    ]
+    ] }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 2.2)) { timeline in

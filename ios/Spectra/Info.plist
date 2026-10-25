@@ -42,7 +42,7 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Spectra analyses what the microphone hears, live, on this iPhone. Nothing is recorded or sent anywhere.</string>
+	<string>Spectra analyses what the microphone hears, live, on this device. Nothing is recorded or sent anywhere.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -160,7 +160,7 @@ struct SettingsView: View {
                     Text("Stems")
                 } footer: {
                     Text("The Stems page splits the music into vocals, other, bass and drums with a neural network running "
-                        + "on this iPhone — nothing is uploaded. It only runs while that page is on screen. The synth lane "
+                        + "on this \(UIDevice.current.model) — nothing is uploaded. It only runs while that page is on screen. The synth lane "
                         + "takes synth leads and pads out of the vocals and other stems; it is tuned for electronic music, "
                         + "hardstyle above all.")
                 }
@@ -225,7 +225,7 @@ struct SettingsView: View {
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("Spectra never sends audio or measurements anywhere. Everything is analysed on this iPhone.")
+                    Text("Spectra never sends audio or measurements anywhere. Everything is analysed on this \(UIDevice.current.model).")
                 }
             }
             .navigationTitle("Settings")
