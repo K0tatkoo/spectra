@@ -158,10 +158,13 @@ def vocal_chain(x: np.ndarray, rng) -> np.ndarray:
     return x
 
 
-def master_gain(mix: np.ndarray, rng, ceiling_db: float = -0.3) -> np.ndarray:
-    """A compressor + look-ahead limiter's gain curve (n,), worked out on the mix.
+def master_gain(mix: np.ndarray, rng, target_db: float | None = None, ceiling_db: float = -0.3) -> np.ndarray:
+    """A mastering chain's gain curve (n,), worked out on the mix: compressor, makeup gain
+    up to `target_db` (RMS, dBFS), then a look-ahead limiter at `ceiling_db`.
 
-    Applied to every stem alike, so the sum stays exactly the mix."""
+    Applied to every stem alike, so the sum stays exactly the mix. As in a real master,
+    the makeup gain drives the mix into the limiter, so a loud target comes out brick-walled
+    and still under the ceiling. With no target there is no makeup gain."""
     level = np.max(np.abs(mix), axis=0)
     env = signal.lfilter([1 - math.exp(-1 / (0.01 * RATE))], [1, -math.exp(-1 / (0.01 * RATE))], level)
     thresh = _db(rng.uniform(-24, -10)) * (np.max(env) + 1e-9)
@@ -170,15 +173,32 @@ def master_gain(mix: np.ndarray, rng, ceiling_db: float = -0.3) -> np.ndarray:
     comp = over ** (1 / ratio - 1)
     rel = math.exp(-1 / (rng.uniform(0.05, 0.3) * RATE))
     comp = signal.lfilter([1 - rel], [1, -rel], comp, zi=[comp[0] * rel])[0]
-    # Limiter: the gain each sample needs to stay under the ceiling, taken as a minimum over
-    # ±5 ms (look-ahead and hold), then averaged over 5 ms. An average over at most the
-    # minimum's own window never rises above any sample's need, so no sample exceeds the
-    # ceiling, and the gain still moves smoothly.
     look = int(0.005 * RATE)
-    need = np.minimum(1.0, _db(ceiling_db) / (np.max(np.abs(mix * comp), axis=0) + 1e-12))
-    held = ndimage.minimum_filter1d(need, size=2 * look + 1, mode="nearest")
-    lim = ndimage.uniform_filter1d(held, size=look + 1, mode="nearest")
-    return (comp * np.minimum(lim, need)).astype(np.float32)
+    ceiling = _db(ceiling_db)
+
+    def limited(pre: np.ndarray) -> np.ndarray:
+        # The gain each sample needs to stay under the ceiling, taken as a minimum over ±5 ms
+        # (look-ahead and hold), then averaged over 5 ms. An average over at most the
+        # minimum's own window never rises above any sample's need, so no sample exceeds
+        # the ceiling, and the gain still moves smoothly.
+        need = np.minimum(1.0, ceiling / (np.max(np.abs(mix * pre), axis=0) + 1e-12))
+        held = ndimage.minimum_filter1d(need, size=2 * look + 1, mode="nearest")
+        lim = ndimage.uniform_filter1d(held, size=look + 1, mode="nearest")
+        return pre * np.minimum(lim, need)
+
+    if target_db is None:
+        return limited(comp).astype(np.float32)
+    # The limiter takes some loudness back, so the makeup is raised until the target is met
+    # (up to eight rounds; the loudest targets land up to a dB short, and a near-silent mix
+    # never gets more than +30 dB).
+    makeup = target_db - rms_db(mix * comp)
+    for _ in range(8):
+        g = limited(comp * _db(min(makeup, 30.0)))
+        short = target_db - rms_db(mix * g)
+        if short < 0.25 or makeup >= 30.0:
+            break
+        makeup += short
+    return g.astype(np.float32)
 
 
 @dataclass
@@ -214,7 +234,7 @@ class Mixer:
 
     def _clip_audio(self, clip: Clip, rng, n: int) -> np.ndarray | None:
         seconds = n / RATE
-        for _ in range(4):
+        for _ in range(8):
             start = rng.uniform(0, max(0.0, clip.seconds - seconds))
             x = self.lib.open(clip, start, min(seconds, clip.seconds))
             if rms_db(x) > self.cfg.min_rms_db:
@@ -290,16 +310,17 @@ class Mixer:
                 continue
             stems[i] = x * _db(-20 - r + rng.uniform(*cfg.stem_gain_db))
         mix = stems.sum(axis=0)
-        if rng.random() < cfg.master and np.any(mix):
-            stems *= master_gain(mix, rng)[None, None, :]
-        mix = stems.sum(axis=0)
         r = rms_db(mix)
         if r > -150:
-            g = _db(rng.uniform(*cfg.loudness_db) - r)
-            peak = float(np.max(np.abs(mix))) * g
-            if peak > 0.99:
-                g *= 0.99 / peak
-            stems *= g
+            target = rng.uniform(*cfg.loudness_db)
+            if rng.random() < cfg.master:
+                stems *= master_gain(mix, rng, target_db=target)[None, None, :]
+            else:  # unmastered: plain gain, stopping short of clipping
+                g = _db(target - r)
+                peak = float(np.max(np.abs(mix))) * g
+                if peak > 0.99:
+                    g *= 0.99 / peak
+                stems *= g
         stems = stems.astype(np.float32)
         info["present"] = [s for i, s in enumerate(STEMS) if np.any(stems[i])]
         return Example(stems=stems, mix=stems.sum(axis=0, dtype=np.float32), info=info)

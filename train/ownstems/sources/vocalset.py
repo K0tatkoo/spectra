@@ -1,4 +1,5 @@
-"""VocalSet: 10.1 h of solo singing, 20 professional singers, many techniques, recorded dry.
+"""VocalSet: solo singing by 20 professional singers, many techniques, recorded dry. The paper says
+10.1 h; its 3,612 distinct files add up to 8.8 h.
 
 Licence: CC BY 4.0, the licence field of Zenodo record 1442513, "VocalSet: A
 Singing Voice Dataset" (Wilkins, Seetharaman, Wahl and Pardo, ISMIR 2018),

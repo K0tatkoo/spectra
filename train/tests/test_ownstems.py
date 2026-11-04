@@ -201,6 +201,28 @@ def test_master_gain_respects_the_ceiling():
     assert np.all((g > 0) & (g <= 1.0 + 1e-6))
 
 
+def _drum_loop(rng, seconds=4.0):
+    """Kick-like bursts four to the bar over a quiet bed: a 20 dB crest factor, like an unmastered mix."""
+    n = int(seconds * RATE)
+    t = np.arange(RATE // 4) / RATE
+    hit = np.sin(2 * np.pi * 55 * t) * np.exp(-t / 0.05)
+    x = rng.standard_normal((2, n)) * 0.01
+    for start in range(0, n - len(t), RATE // 4):
+        x[:, start:start + len(t)] += 0.5 * hit
+    return x.astype(np.float32)
+
+
+@pytest.mark.parametrize("target", [-18.0, -12.0, -7.0])
+def test_master_gain_drives_into_the_limiter(target):
+    from ownstems.mixer import rms_db
+
+    rng = np.random.default_rng(8)
+    mix = _drum_loop(rng)
+    out = mix * master_gain(mix, rng, target_db=target)
+    assert np.max(np.abs(out)) <= 10 ** (-0.3 / 20) + 1e-6
+    assert abs(rms_db(out) - target) < 1.0
+
+
 def test_hardstyle_bass_out_splits_the_old_sum():
     from synthsplit import hardstyle, procsynth
 
