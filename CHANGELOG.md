@@ -5,6 +5,16 @@ when something people rely on changes or goes away, MINOR for something new,
 PATCH for a fix — and each is a git tag (`vX.Y.Z`) on the commit that
 shipped. `tools/release` in Claudes Projects writes these entries.
 
+## 2.0.0-beta.2 — 2026-11-04
+
+Settings and licence notices state that the stem model's publisher has withdrawn it
+
+- Stems: say StemgenRT v0.6.1 is withdrawn, and plan Spectra's own model
+- iOS: run-on-iphone finds a phone whose tunnel is not up yet
+- iOS: App Store notes — iPad and iPhone Duo checked, screenshot launch variables, Xcode 27.1
+- iOS: iPad wording and keyboard
+- iOS: a welcome tour, and what the App Store asks for
+
 ## 2.0.0-beta.1 — 2026-10-21
 
 Spectra 2.0 public beta: a BETA badge beside the version on the phone, Windows and iPhone builds; how it works is unchanged
