@@ -21,10 +21,10 @@ from __future__ import annotations
 import csv
 import io
 import sys
-import zipfile
 from pathlib import Path
 
 from ..audio import probe
+from ..zips import open_zip
 from ..ledger import Clip, Ledger
 from . import artifacts_for, download, source_dir
 
@@ -55,7 +55,7 @@ def index(root: Path, ledger: Ledger, workers: int = 8):
     zpath, cpath = d / ZIP[0], d / CSV[0]
     if not (zpath.exists() and cpath.exists()):
         raise SystemExit(f"{NAME}: not fetched")
-    with zipfile.ZipFile(zpath) as z:
+    with open_zip(zpath) as z:
         # The CSV's paths start at drummerN/; the zip may put a top folder above them.
         names = {n[n.find("drummer"):] if "drummer" in n else n: n for n in z.namelist() if n.endswith(".wav")}
         first = next(iter(names.values()))

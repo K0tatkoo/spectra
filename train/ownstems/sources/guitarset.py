@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import io
 import sys
-import zipfile
 from pathlib import Path, PurePosixPath
 
 from ..audio import probe
+from ..zips import open_zip
 from ..ledger import Clip, Ledger, split_for
 from . import artifacts_for, download, source_dir
 
@@ -38,7 +38,7 @@ def index(root: Path, ledger: Ledger, workers: int = 8):
     if not zpath.exists():
         raise SystemExit(f"{NAME}: not fetched")
     clips = []
-    with zipfile.ZipFile(zpath) as z:
+    with open_zip(zpath) as z:
         for n in sorted(z.namelist()):
             base = PurePosixPath(n).name
             if not base.endswith(".wav") or base.startswith("._"):

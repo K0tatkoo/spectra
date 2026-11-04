@@ -18,6 +18,7 @@ import soundfile as sf
 from . import RATE
 from .ledger import Catalog, Clip, Ledger, RefusedError
 from .licences import allowed
+from .zips import open_zip
 
 try:
     import soxr
@@ -49,7 +50,7 @@ class Library:
             return path
         z = self._zips.get(a.id)
         if z is None:
-            z = self._zips[a.id] = zipfile.ZipFile(path)
+            z = self._zips[a.id] = open_zip(path)
         return io.BytesIO(z.read(clip.member))
 
     def open(self, clip: Clip, start_s: float = 0.0, seconds: float | None = None) -> np.ndarray:

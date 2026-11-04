@@ -19,11 +19,11 @@ from __future__ import annotations
 import io
 import re
 import sys
-import zipfile
 from pathlib import PurePosixPath
 from pathlib import Path
 
 from ..audio import probe
+from ..zips import open_zip
 from ..ledger import Clip, Ledger
 from . import artifacts_for, download, source_dir
 
@@ -56,7 +56,7 @@ def index(root: Path, ledger: Ledger, workers: int = 8):
     if not zpath.exists():
         raise SystemExit(f"{NAME}: not fetched")
     rows = []
-    with zipfile.ZipFile(zpath) as z:
+    with open_zip(zpath) as z:
         wavs = [n for n in z.namelist() if n.lower().endswith(".wav") and "/__MACOSX/" not in f"/{n}"]
         tree = [n for n in wavs if "by_singer" in n.lower()] or wavs
         seen = set()

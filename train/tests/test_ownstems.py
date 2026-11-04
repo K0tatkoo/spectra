@@ -254,3 +254,60 @@ def test_mixer_never_returns_a_silent_example(tmp_path):
     rng = np.random.default_rng(7)
     for _ in range(10):
         assert mixer.example(rng).info["present"]
+
+
+# ── zips without zip64 records ────────────────────────────────────────────
+
+def _wrap_offsets(path, wrap):
+    """Stores every offset in the central directory modulo `wrap`, as a writer
+    without zip64 does at 2**32 (macOS Archive Utility on VocalSet1-2.zip)."""
+    import struct
+
+    data = bytearray(path.read_bytes())
+    eocd = data.rfind(b"PK\x05\x06")
+    cd_size, cd_off = struct.unpack("<II", data[eocd + 12:eocd + 20])
+    p = cd_off
+    while p < cd_off + cd_size:
+        assert data[p:p + 4] == b"PK\x01\x02"
+        n, m, k = struct.unpack("<HHH", data[p + 28:p + 34])
+        off = struct.unpack("<I", data[p + 42:p + 46])[0]
+        data[p + 42:p + 46] = struct.pack("<I", off % wrap)
+        p += 46 + n + m + k
+    data[eocd + 16:eocd + 20] = struct.pack("<I", cd_off % wrap)
+    path.write_bytes(bytes(data))
+
+
+def test_zip_with_wrapped_offsets_is_repaired(tmp_path):
+    import zipfile
+
+    from ownstems.zips import repair
+
+    rng = np.random.default_rng(3)
+    members = {f"by_singer/f{i}/take_{i}.wav": rng.bytes(3000) for i in range(8)}
+    path = tmp_path / "wrapped.zip"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+        for name, data in members.items():
+            z.writestr(name, data)
+    _wrap_offsets(path, 4096)
+
+    with zipfile.ZipFile(path) as z, pytest.raises(zipfile.BadZipFile):
+        for name in members:
+            z.read(name)  # what Python alone does with such a zip
+    with zipfile.ZipFile(path) as z:
+        assert repair(z, wrap=4096) > 0
+        assert {n: z.read(n) for n in members} == members
+
+
+def test_sound_zip_is_left_alone(tmp_path):
+    import zipfile
+
+    from ownstems.zips import open_zip, repair
+
+    path = tmp_path / "fine.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("a.wav", b"x" * 5000)
+        z.writestr("b.wav", b"y" * 5000)
+    with zipfile.ZipFile(path) as z:
+        assert repair(z, wrap=4096) == 0
+    with open_zip(path) as z:
+        assert z.read("b.wav") == b"y" * 5000
