@@ -115,7 +115,8 @@ def main():
             sf.write(d / "mix.wav", ex.mix.T, 44100, subtype="PCM_16")
             for s, x in zip(STEMS, ex.stems):
                 if np.any(x):
-                    sf.write(d / f"{s}.wav", x.T, 44100, subtype="PCM_16")
+                    # Float: a stem may peak above full scale where the stems partly cancel in the mix.
+                    sf.write(d / f"{s}.wav", x.T, 44100, subtype="FLOAT")
             (d / "info.json").write_text(json.dumps(ex.info, indent=1) + "\n")
             print(f"{d.name}: {', '.join(ex.info['present'])}{' (generated song)' if ex.info['generated'] else ''}")
 
