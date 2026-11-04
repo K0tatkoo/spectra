@@ -1,7 +1,7 @@
 # Spectra's own stem model: the plan
 
-**Status: planned on 2026-11-04. Nothing is trained yet.** Until this model wins,
-the Stems page keeps StemgenRT v0.6.1, in free builds only.
+**Status: milestone 1 (data) done on 2026-11-04. Nothing is trained yet.** Until
+this model wins, the Stems page keeps StemgenRT v0.6.1, in free builds only.
 
 ## Why
 
@@ -58,9 +58,9 @@ source module (`ownstems/sources/`) quotes where.
 
 | Source | What | Licence | Feeds |
 |---|---|---|---|
-| Slakh2100 | 2,100 MIDI songs rendered with real instrument patches, ~145 h, classes per stem | CC BY 4.0 | bass, drums, synth (with the GM relabelling from `prepare/relabel_slakh.py`), other |
+| Slakh2100 | 1,710 MIDI songs (the redux set) rendered with real instrument patches, ~145 h of mixes, classes per stem | CC BY 4.0 | bass, drums, synth (with the GM relabelling from `prepare/relabel_slakh.py`), other |
 | E-GMD | 444 h of drum performances on 43 kits (96 GB zip, read in place) | CC BY 4.0 | drums |
-| VocalSet | ~10 h of solo singing, 20 singers | CC BY 4.0 | vocals |
+| VocalSet | 8.8 h of solo singing, 20 singers (the paper says 10.1 h) | CC BY 4.0 | vocals |
 | ccMixter a cappellas | Real produced vocals. Licence per upload: only CC BY and CC0 pass. Uploads tagged non-commercial or AI-generated, and remixes, are dropped. Only files whose own label says "vocal" are kept | per upload | vocals, the most valuable source |
 | LibriTTS-R | Read speech, for rap/MC-style delivery | CC BY 4.0 | vocals |
 | GuitarSet | Acoustic guitar | CC BY 4.0 | other |
@@ -96,6 +96,36 @@ doubling, delay, reverb, saturation, pitch-snap, formant shifts and EQ.
 - A master bus applies compression and limiting down to about −6 LUFS, because
   hardstyle masters are brick-walled. The limiter's gain is computed on the mix
   and applied to every stem alike, so the stems still sum to the mix.
+
+## Milestone 1: what is on the desktop (2026-11-04)
+
+`D:\stems-clean`: 180 GB, 51,155 ledger files (all CC BY 4.0, plus the generators'
+code), 100,659 clips. `check` passes with no problems. Hours per stem (one stem
+file's length each; Slakh's other stems are many instruments per song):
+
+| Stem | Train h | Valid h | From |
+|---|---|---|---|
+| vocals | 55.7 | 6.6 | LibriTTS-R speech 47.7 + 5.9, VocalSet singing 8.0 + 0.7 |
+| synth | 98.7 | 28.3 | Slakh, plus the generators |
+| other | 667.9 | 221.1 | Slakh 665.3 + 220.7, GuitarSet 2.6 + 0.4 |
+| bass | 95.2 | 30.1 | Slakh, plus the generators |
+| drums | 430.4 | 132.4 | E-GMD 341.4 + 103.1, Slakh 88.9 + 29.3, plus the generators |
+
+Twelve example mixes (12 s, valid split) are in `listen-m1/` on the Mac: each
+folder has the mix and its stems. What the first renders showed, now fixed:
+- VocalSet's zip was written by macOS Archive Utility without zip64 records,
+  so Python could not read it past 4 GB. `ownstems/zips.py` finds each entry's
+  true offset in memory; the file and its checksum are untouched.
+- The loudness gain came after the limiter, so no mix was really mastered. The
+  bus now runs compressor → makeup gain to the target → limiter at −0.3 dBFS,
+  and loud targets come out brick-walled (−7 dBFS RMS in the renders).
+
+Open for milestone 2:
+- **Vocals are 86 % speech by length.** Set `MixConfig.source_weights` so
+  singing dominates (VocalSet ×4 or so), and add ccMixter once the owner OKs its
+  terms. ccMixter's API terms say that using the API means agreeing to them.
+- One example takes about a second to build on one core. Training will need
+  several loader processes; measure before the first long run.
 
 ## The models
 
