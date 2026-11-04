@@ -81,8 +81,11 @@ def noise_hit(rng, length: int, band: tuple[float, float], decay: float) -> np.n
     return signal.sosfilt(sos, rng.standard_normal(length)) * np.exp(-t / decay)
 
 
-def render_drums(rng, mu: Music, total: int) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Stereo drums + bass (2, total), the kick envelope (total,) 0..1, and what was played."""
+def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, dict]:
+    """Stereo drums + bass (2, total), the kick envelope (total,) 0..1, and what was played.
+
+    With `bass_out` (2, total), the reverse bass is added there instead of into the drums
+    (the own-stems model scores bass and drums apart; the synth splitter wanted them together)."""
     beat = int(mu.beat * SR)
     raw = float(rng.uniform(0, 1))
     key_root = _hz(36 + mu.root)  # C2..B2
@@ -124,7 +127,7 @@ def render_drums(rng, mu: Music, total: int) -> tuple[np.ndarray, np.ndarray, di
                 s0 = start + half
                 m = min(beat - half, total - s0)
                 if m > 0:
-                    drums[:, s0:s0 + m] += 0.6 * reverse_bass(rng, m, root * 2)
+                    (drums if bass_out is None else bass_out)[:, s0:s0 + m] += 0.6 * reverse_bass(rng, m, root * 2)
             if hats:
                 s0 = start + beat // 2
                 m = min(int(0.08 * SR), total - s0)
