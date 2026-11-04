@@ -19,8 +19,10 @@ if (releaseKeyPropsFile.exists()) releaseKeyPropsFile.inputStream().use { releas
 val hasReleaseKey = releaseKeyProps.getProperty("storeFile")?.let { path -> File(path).exists() } == true
 
 // The stem model. 37 MB of weights do not belong in git, so the build fetches
-// the exact file StemgenRT pins (MIT, github.com/sweetspotsoundsystem/stemgen-rt)
-// and refuses any bytes but these. Keep all three in step with StemSeparator.kt.
+// the exact file StemgenRT pins (its v0.6.1 release, github.com/sweetspotsoundsystem/stemgen-rt)
+// and refuses any bytes but these. StemgenRT's code is MIT, but its publisher withdrew
+// these weights on 2026-10-27 pending a rights review and does not clear them for
+// commercial use: free builds only (THIRD_PARTY_NOTICES.txt, train/STEMS.md). Keep all three in step with StemSeparator.kt.
 val stemModelUrl = "https://media.githubusercontent.com/media/sweetspotsoundsystem/stemgen-rt/" +
     "990df8ee5baa621f042d4534dacc65afee0a96ce/model/model.onnx"
 val stemModelSha256 = "08424ca91feae8d4746442a35ebf70489dea70ea6e81401b39483cf02d497748"

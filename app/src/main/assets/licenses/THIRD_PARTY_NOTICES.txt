@@ -1,7 +1,7 @@
 Third-party software shipped inside Spectra
 ============================================
 
-Everything else in Spectra is its own code, MIT-licensed as well, except the
+Everything else in Spectra is its own code, under the MIT License, except the
 synth model's weights, whose terms are at the end of this file.
 
 ------------------------------------------------------------------------
@@ -33,10 +33,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------
-StemgenRT stem model (model/model.onnx at 990df8ee) — the separation network
+StemgenRT stem model v0.6.1 (model/model.onnx at 990df8ee) — the separation network
 https://github.com/sweetspotsoundsystem/stemgen-rt
 
-MIT License
+Status of these weights (checked 2026-11-04): this file was published in the
+StemgenRT repository, whose own code is under the MIT License below. On
+2026-10-27 its publisher withdrew the v0.6.x model downloads pending a
+provenance and rights review: their training data included third-party audio
+with incompletely documented provenance, and the publisher states that the
+repository's MIT licence is not a grant of rights in those recordings nor a
+clearance for commercial use (licenses/WEIGHTS-LICENSE.md in that repository).
+Spectra therefore uses this model only in its free, non-commercial builds, and
+is replacing it with a separation model of its own.
+
+MIT License (StemgenRT's code)
 
 Copyright (c) 2026 Axel Delafosse
 

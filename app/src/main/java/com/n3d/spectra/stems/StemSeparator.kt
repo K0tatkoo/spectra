@@ -27,8 +27,9 @@ enum class Stem(val label: String) {
 /**
  * Live source separation: a stereo mix in, four stems out, 128 samples at a time.
  *
- * The model is the streaming HS-TasNet release shipped with StemgenRT (MIT,
- * github.com/sweetspotsoundsystem/stemgen-rt): a recurrent network that looks at
+ * The model is the streaming HS-TasNet release shipped with StemgenRT v0.6.1
+ * (github.com/sweetspotsoundsystem/stemgen-rt; withdrawn by its publisher pending a
+ * rights review, so free builds only — see THIRD_PARTY_NOTICES.txt): a recurrent network that looks at
  * a 1024-sample window, emits 128 new samples per call and carries eight state
  * tensors from one call to the next. Its output lags its input by one call —
  * 2.9 ms — which is why a live display is possible at all. The better-known

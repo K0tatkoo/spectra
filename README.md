@@ -444,7 +444,7 @@ channel-scope look of chiptune videos, applied to a real mix.
   leads and drums in a real mix rarely keep one shape long enough to read held
   still.
 
-- **The model** is StemgenRT's release of HS-TasNet (MIT): a recurrent network
+- **The model** is StemgenRT's v0.6.1 release of HS-TasNet: a recurrent network
   that takes 128 stereo samples at 44.1 kHz per call, carries eight state tensors
   from call to call, and emits the four stems one call later — 2.9 ms. That
   latency is the whole reason this can be live; the better-known separators
@@ -603,9 +603,14 @@ energy fading with the phosphor (`Crt.kt`, shared with Windows).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The Stems page ships two MIT-licensed third-party
-pieces inside the APK: the [StemgenRT](https://github.com/sweetspotsoundsystem/stemgen-rt)
-model (Axel Delafosse), trained with the [HS-TasNet](https://github.com/sweetspotsoundsystem/HS-TasNet)
-implementation (Phil Wang) of L-Acoustics' paper, and
-[ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft). Their
-notices are in `app/src/main/assets/licenses/`, and so in every build. Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps).
+MIT — see [LICENSE](LICENSE). The Stems page ships third-party pieces inside the
+app: [ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft, MIT) and
+the [StemgenRT](https://github.com/sweetspotsoundsystem/stemgen-rt) v0.6.1 model
+(Axel Delafosse), trained with the [HS-TasNet](https://github.com/sweetspotsoundsystem/HS-TasNet)
+implementation (Phil Wang, MIT) of L-Acoustics' paper. StemgenRT's code is MIT,
+but on 2026-10-27 its publisher withdrew the v0.6.x weights pending a rights
+review and says that licence does not clear them for commercial use. So the
+free builds keep them, and a paid build waits for Spectra's own model
+([train/STEMS.md](train/STEMS.md)). The synth lane's weights are Spectra's own
+but CC BY-NC-SA 4.0, inherited from their training data. All the notices are in
+`app/src/main/assets/licenses/`, and so in every build. Built by Danny ([K0tatkoo](https://github.com/K0tatkoo)); installable builds are on [n3d-store.com/apps](https://n3d-store.com/apps).

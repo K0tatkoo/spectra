@@ -654,7 +654,9 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Separation model: StemgenRT (HS-TasNet), MIT. Runtime: ONNX Runtime, MIT. " +
+                    "Separation model: StemgenRT v0.6.1 (HS-TasNet). Its publisher withdrew it pending " +
+                        "a rights review, so Spectra uses it only in free builds and is replacing it " +
+                        "with its own. Runtime: ONNX Runtime, MIT. " +
                         (if (AudioEngine.synthModel != null) "Synth model: Spectra's own, trained on MoisesDB, Slakh2100 " +
                             "and MUSDB18-HQ vocals; its weights are CC BY-NC-SA 4.0. " else "") +
                         "Their licence texts ship inside the app.",

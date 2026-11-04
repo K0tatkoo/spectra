@@ -386,7 +386,7 @@ private struct CreditsView: View {
     var body: some View {
         List {
             Section("Stem separation") {
-                Text("StemgenRT (HS-TasNet streaming model) — MIT licence.")
+                Text("StemgenRT v0.6.1 (HS-TasNet streaming model). Its publisher withdrew it on 27 October 2026 pending a rights review, so Spectra uses it only in free builds and is replacing it with its own.")
                 Text("ONNX Runtime — MIT licence, © Microsoft Corporation.")
             }
             Section("Synth lane") {
