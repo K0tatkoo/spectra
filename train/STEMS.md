@@ -87,15 +87,23 @@ is not stated.
 
 **Vocals are the weak spot.** Free singing data is small and mostly dry. To
 narrow the gap, every vocal source goes through a made-up production chain:
-doubling, delay, reverb, saturation, pitch-snap, formant shifts and EQ.
+EQ, then doubling, saturation, delay and reverb in some mix. Pitch-snap and
+formant shifts are not written yet.
 
-**Mixing** builds a fresh song for every example:
-- Each stem comes from a different source or song, at a random level, sometimes
-  silent.
-- Pitch and tempo shift a little, and EQ and stereo width are drawn at random.
-- A master bus applies compression and limiting down to about −6 LUFS, because
-  hardstyle masters are brick-walled. The limiter's gain is computed on the mix
-  and applied to every stem alike, so the stems still sum to the mix.
+**Mixing** builds a fresh song for every example (`ownstems/mixer.py`):
+- Remixes (three in four): each stem comes from a different source or song and
+  is sometimes left out. Stems are levelled by perceived loudness (LUFS, as
+  BS.1770 measures it), not RMS, each in its own random range; the accompaniment
+  ("other") sits a few dB under the vocals and drums, as in real songs. EQ,
+  stereo width and polarity are drawn at random. No pitch or tempo shifts yet.
+- Generated hardstyle songs (one in four): drums, reverse bass and synths from
+  one made-up song, 145–158 BPM in a minor key, the synths ducked by the kick.
+  Their parts are never mixed with catalog drums, bass or synth. A vocal joins
+  half of them, and an "other" part rarely and low.
+- A master bus: compressor, makeup gain to a target loudness, and a limiter at
+  −0.3 dBFS, so loud targets come out brick-walled as hardstyle masters are
+  (−5.6 to −9.6 LUFS in the generated songs). The gain is computed on the mix and
+  applied to every stem alike, so the stems still sum to the mix.
 
 ## Milestone 1: what is on the desktop (2026-11-04)
 
@@ -111,14 +119,21 @@ file's length each; Slakh's other stems are many instruments per song):
 | bass | 95.2 | 30.1 | Slakh, plus the generators |
 | drums | 430.4 | 132.4 | E-GMD 341.4 + 103.1, Slakh 88.9 + 29.3, plus the generators |
 
-Twelve example mixes (12 s, valid split) are in `listen-m1/` on the Mac: each
-folder has the mix and its stems. What the first renders showed, now fixed:
+Listening sets on the Mac, each folder holding a mix and its stems: `listen-m1/`
+(12 examples of 12 s, valid split) and `listen-hardstyle/` (8 generated songs
+of 20 s). What the first renders showed, now fixed:
 - VocalSet's zip was written by macOS Archive Utility without zip64 records,
   so Python could not read it past 4 GB. `ownstems/zips.py` finds each entry's
   true offset in memory; the file and its checksum are untouched.
 - The loudness gain came after the limiter, so no mix was really mastered. The
   bus now runs compressor → makeup gain to the target → limiter at −0.3 dBFS,
   and loud targets come out brick-walled (−7 dBFS RMS in the renders).
+- The owner listened (2026-11-05): the "generated songs" were not hardstyle, and
+  the other stem stood out. Both were real. The generated songs used the generic
+  tempo range (70–180 BPM) and borrowed catalog drums and bass from other songs;
+  and RMS levelling left bright parts up to ~12 dB louder than deep ones. Over
+  150 remixes "other" is now the loudest stem 12 % of the times it plays, with a
+  median 7.8 LU under the mix (vocals: 3.9).
 
 Open for milestone 2:
 - **Vocals are 86 % speech by length.** Set `MixConfig.source_weights` so
