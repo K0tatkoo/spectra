@@ -6,11 +6,14 @@ One example = five stereo stems of `seconds` each, and their sum, the mix:
   a different source and song than the others, at a random level, and is
   sometimes left out altogether: a model must hear songs without vocals,
   drums or synth as often as songs with them.
-- Or, now and then, a whole made-up song from Spectra's generators: synths
-  (synthsplit/procsynth.py) over hardstyle drums and bass
-  (synthsplit/hardstyle.py) in one tempo and key, the synths ducked by the
-  kick as real hardstyle is. The vocals and other stems still come from the
-  catalog.
+- Or, now and then, a made-up hardstyle song: drums, reverse bass and synths
+  from one generated song (synthsplit/hardstyle.py, synthsplit/procsynth.py) at
+  145-158 BPM in a minor key, the synths ducked by the kick, mixed with a
+  hardstyle balance and always mastered loud. Its parts are never mixed with
+  catalog drums, bass or synth (a pop bass at another tempo made the first
+  renders a mess); only a vocal now and then, and rarely, low, an "other" part.
+- Stems are levelled by perceived loudness (LUFS, ownstems/loudness.py), not
+  RMS: at equal RMS a bright guitar sounds up to ~12 dB louder than a bass.
 - Each stem gets its own colour: random EQ, a pan or width, polarity, and for
   vocals a production chain (doubling, delay, reverb, saturation), since free
   singing data is dry exercises and real vocals never are.
@@ -34,6 +37,7 @@ from scipy import ndimage, signal
 from . import RATE, STEMS
 from .audio import Library
 from .ledger import Clip
+from .loudness import lufs
 
 
 @dataclass
@@ -50,11 +54,19 @@ class MixConfig:
     generated_song: float = 0.25
     # Relative weight of each source when a stem is drawn from the catalog; 1 if unlisted.
     source_weights: dict[str, float] = field(default_factory=dict)
-    stem_gain_db: tuple[float, float] = (-12.0, 0.0)
+    stem_gain_db: tuple[float, float] = (-12.0, 0.0)  # each stem's loudness against -20 LUFS
     loudness_db: tuple[float, float] = (-18.0, -6.0)  # RMS of the finished mix, dBFS
     master: float = 0.85  # share of examples that go through the master bus
     # A clip quieter than this over the chosen window is redrawn (silence is not "vocals").
     min_rms_db: float = -50.0
+    # Generated hardstyle songs: each stem's loudness against -20 LUFS (the kick leads, the
+    # lead sits just under it, an "other" part sits well back), the chance a catalog stem
+    # joins the song, and how loud the master is (RMS, dBFS).
+    song_gain_db: dict[str, tuple[float, float]] = field(default_factory=lambda: {
+        "drums": (-1.0, 1.0), "synth": (-5.0, 0.0), "bass": (-8.0, -2.0), "vocals": (-7.0, 0.0),
+        "other": (-16.0, -8.0)})
+    song_catalog: dict[str, float] = field(default_factory=lambda: {"vocals": 0.5, "other": 0.15})
+    song_loudness_db: tuple[float, float] = (-10.0, -6.0)
 
 
 def _db(x: float) -> float:
@@ -249,15 +261,21 @@ class Mixer:
             x = pad
         return x[:, :n]
 
-    def _generated(self, rng, n: int) -> dict[str, np.ndarray]:
+    def _generated(self, rng, n: int) -> tuple[dict[str, np.ndarray], dict]:
         from synthsplit import hardstyle, procsynth
 
-        mu = procsynth.Music(rng, n / RATE + 0.5)
+        mu = hardstyle.music(rng, n / RATE + 0.5)
         bass = np.zeros((2, n))
-        drums, kenv, _ = hardstyle.render_drums(rng, mu, n, bass_out=bass)
-        synth, _ = procsynth.render_synths(rng, n / RATE, mu)
-        synth = hardstyle.sidechain(synth[:, :n], kenv, rng.uniform(0.3, 0.9))
-        return {"synth": synth, "drums": drums, "bass": bass.astype(np.float32)}
+        drums, kenv, drum_info = hardstyle.render_drums(rng, mu, n, bass_out=bass)
+        parts = {"drums": drums, "bass": bass.astype(np.float32)}
+        song = {"bpm": round(mu.bpm, 1), "key": f"{mu.root} {mu.scale_name}", **drum_info}
+        if rng.random() >= 0.1:  # a tenth of the songs have no synth at all
+            synth, syn_info = procsynth.render_synths(rng, n / RATE, mu, kind_p=hardstyle.KIND_P)
+            if rng.random() < 0.85:
+                synth = hardstyle.sidechain(synth[:, :n], kenv, rng.uniform(0.3, 0.9))
+            parts["synth"] = synth[:, :n]
+            song["synths"] = syn_info.get("parts", [])
+        return parts, song
 
     def example(self, rng: np.random.Generator) -> Example:
         """A made-up song with at least one stem playing (a silent one teaches nothing)."""
@@ -268,52 +286,79 @@ class Mixer:
         return ex
 
     def _example(self, rng: np.random.Generator) -> Example:
+        if self.generators and rng.random() < self.cfg.generated_song:
+            return self._song(rng)
         cfg = self.cfg
         n = int(cfg.seconds * RATE)
         stems = np.zeros((len(STEMS), 2, n), dtype=np.float64)
         info: dict = {"clips": {}, "generated": False, "made": []}
         used: set[str] = set()
-        made: dict[str, np.ndarray] = {}
-        if self.generators and rng.random() < cfg.generated_song:
-            made = self._generated(rng, n)
-            info["generated"] = True
         for i, stem in enumerate(STEMS):
             if rng.random() < cfg.absent[stem]:
                 continue
             layers = []
-            # A generated part can be silent in this window (no reverse bass in this song, a
-            # breakdown, a synth resting): then the stem comes from the catalog instead.
-            if stem in made and rms_db(made[stem]) > cfg.min_rms_db:
-                layers.append(made[stem])
-                info["made"].append(stem)
-            else:
-                for _ in range(2 if rng.random() < cfg.layered[stem] else 1):
-                    clip = self._pick(stem, rng, used)
-                    if clip is None:
-                        break
-                    x = self._clip_audio(clip, rng, n)
-                    if x is None:
-                        continue
-                    used.add(f"{clip.source}:{clip.group}")
-                    info["clips"].setdefault(stem, []).append(f"{clip.artifact}{'#' + clip.member if clip.member else ''}")
+            for _ in range(2 if rng.random() < cfg.layered[stem] else 1):
+                x = self._catalog_audio(stem, rng, n, used, info)
+                if x is not None:
                     layers.append(x * _db(rng.uniform(-6, 0)))
-            if not layers:
-                continue
-            x = np.sum(layers, axis=0)
+            if layers:
+                stems[i] = self._colour(np.sum(layers, axis=0), stem, rng, cfg.stem_gain_db)
+        return self._finish(stems, info, rng, cfg.master, cfg.loudness_db)
+
+    def _song(self, rng: np.random.Generator) -> Example:
+        """A made-up hardstyle song: its drums, bass and synth all from one generated song."""
+        cfg = self.cfg
+        n = int(cfg.seconds * RATE)
+        stems = np.zeros((len(STEMS), 2, n), dtype=np.float64)
+        parts, song = self._generated(rng, n)
+        info: dict = {"clips": {}, "generated": True, "made": [], "song": song}
+        used: set[str] = set()
+        for i, stem in enumerate(STEMS):
+            if stem in ("drums", "bass", "synth"):
+                x = parts.get(stem)
+                # No reverse bass in this song, a breakdown, a synth resting: then the stem is
+                # simply absent. A catalog stand-in would be another song in another tempo.
+                if x is None or rms_db(x) <= cfg.min_rms_db:
+                    continue
+                info["made"].append(stem)
+                stems[i] = self._colour(x, stem, rng, cfg.song_gain_db[stem], eq=False)
+            elif rng.random() < cfg.song_catalog.get(stem, 0.0):
+                x = self._catalog_audio(stem, rng, n, used, info)
+                if x is not None:
+                    stems[i] = self._colour(x, stem, rng, cfg.song_gain_db[stem])
+        return self._finish(stems, info, rng, 1.0, cfg.song_loudness_db)
+
+    def _catalog_audio(self, stem: str, rng, n: int, used: set[str], info: dict) -> np.ndarray | None:
+        clip = self._pick(stem, rng, used)
+        if clip is None:
+            return None
+        x = self._clip_audio(clip, rng, n)
+        if x is None:
+            return None
+        used.add(f"{clip.source}:{clip.group}")
+        info["clips"].setdefault(stem, []).append(f"{clip.artifact}{'#' + clip.member if clip.member else ''}")
+        return x
+
+    def _colour(self, x: np.ndarray, stem: str, rng, gain_db: tuple[float, float], eq: bool = True) -> np.ndarray:
+        """The stem's own processing, then its level: `gain_db` against -20 LUFS."""
+        if eq:  # the generators already vary their own sound; EQ would thin a kick
             x = random_eq(x, rng)
-            if stem == "vocals":
-                x = vocal_chain(x, rng)
-            if rng.random() < 0.5:
-                x = -x
-            r = rms_db(x)
-            if r <= -150:
-                continue
-            stems[i] = x * _db(-20 - r + rng.uniform(*cfg.stem_gain_db))
+        if stem == "vocals":
+            x = vocal_chain(x, rng)
+        if rng.random() < 0.5:
+            x = -x
+        loud = lufs(x)
+        if loud <= -150:
+            return np.zeros_like(x)
+        return x * _db(-20 - loud + rng.uniform(*gain_db))
+
+    def _finish(self, stems: np.ndarray, info: dict, rng, master: float,
+                loudness_db: tuple[float, float]) -> Example:
         mix = stems.sum(axis=0)
         r = rms_db(mix)
         if r > -150:
-            target = rng.uniform(*cfg.loudness_db)
-            if rng.random() < cfg.master:
+            target = rng.uniform(*loudness_db)
+            if rng.random() < master:
                 stems *= master_gain(mix, rng, target_db=target)[None, None, :]
             else:  # unmastered: plain gain, stopping short of clipping
                 g = _db(target - r)

@@ -180,17 +180,43 @@ def test_mixer_never_uses_two_clips_of_one_group(tmp_path):
             assert len(used) == len(set(used))
 
 
-def test_mixer_generated_song(tmp_path):
+def test_mixer_generated_song_is_one_hardstyle_song(tmp_path):
     mixer = Mixer(_tone_library(tmp_path), MixConfig(seconds=2.0, generated_song=1.0,
-                                                     absent={s: 0.0 for s in STEMS}))
+                                                     song_catalog={"vocals": 1.0, "other": 1.0}))
     for seed in range(6):
         ex = mixer.example(np.random.default_rng(seed))
         assert ex.info["generated"]
-        made = set(ex.info["made"])
-        assert made and made <= {"synth", "bass", "drums"}
-        # every stem is there: made by the generators, or (when that came out silent) from the catalog
-        assert set(ex.info["clips"]) | made == set(STEMS)
-        assert all(np.any(ex.stems[i]) for i in range(len(STEMS)))
+        assert 145 <= ex.info["song"]["bpm"] <= 158
+        # drums, bass and synth come only from the generated song, never from another song
+        assert set(ex.info["made"]) <= {"synth", "bass", "drums"}
+        assert set(ex.info["clips"]) <= {"vocals", "other"}
+        for i, stem in enumerate(STEMS):
+            if stem in ("synth", "bass", "drums") and stem not in ex.info["made"]:
+                assert not np.any(ex.stems[i])
+        assert np.max(np.abs(ex.stems.sum(0) - ex.mix)) < 1e-5
+
+
+def test_loudness_meter_reads_a_reference_sine():
+    from ownstems.loudness import lufs
+
+    t = np.arange(8 * RATE) / RATE
+    s = 0.1 * np.sin(2 * np.pi * 997 * t)
+    assert abs(lufs(np.stack([s, s])) + 20.0) < 0.1  # a stereo 997 Hz sine reads its own level
+    # Playing 2 s on, 2 s off: the gate measures what plays (pyloudnorm reads -20.52 too),
+    # where RMS would read 3 dB lower.
+    half = s * (t % 4.0 < 2.0)
+    assert abs(lufs(np.stack([half, half])) + 20.52) < 0.05
+
+
+def test_stems_are_levelled_by_loudness_not_rms(tmp_path):
+    from ownstems.loudness import lufs
+
+    mixer = Mixer(_tone_library(tmp_path), MixConfig(seconds=2.0))
+    t = np.arange(2 * RATE) / RATE
+    bright = np.stack([np.sign(np.sin(2 * np.pi * 3000 * t))] * 2) * 0.3
+    deep = np.stack([np.sin(2 * np.pi * 45 * t)] * 2) * 0.3
+    got = [lufs(mixer._colour(x, "other", np.random.default_rng(1), (0.0, 0.0), eq=False)) for x in (bright, deep)]
+    assert all(abs(g + 20.0) < 0.1 for g in got)
 
 
 def test_master_gain_respects_the_ceiling():

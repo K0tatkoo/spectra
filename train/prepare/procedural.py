@@ -184,8 +184,7 @@ def make(i: int, split: str, source: str, track: str, out_root: str, seconds: fl
     return f"done {song_id} ({split}, synth {meta['rms_db']['synth']} dB, {' + '.join(info['parts'])})"
 
 
-# Hardstyle songs lean on leads and supersaws (KINDS: lead, pad, arp, stab, supersaw).
-HARDSTYLE_KIND_P = (0.35, 0.15, 0.08, 0.1, 0.32)
+HARDSTYLE_KIND_P = hardstyle.KIND_P  # leads and supersaws first
 
 
 def make_hardstyle(i: int, split: str, out_root: str, seconds: float, vocals_dir: str | None, seed: int) -> str:

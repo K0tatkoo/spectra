@@ -31,6 +31,8 @@ from scipy import signal
 from .procsynth import SR, Music
 
 SCALES = ("minor", "harmonic_minor", "phrygian", "dorian")
+# Hardstyle songs lean on leads and supersaws (procsynth.KINDS: lead, pad, arp, stab, supersaw).
+KIND_P = (0.35, 0.15, 0.08, 0.1, 0.32)
 
 
 def music(rng, seconds: float) -> Music:

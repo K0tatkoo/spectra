@@ -55,6 +55,7 @@ def main():
     r.add_argument("--seconds", type=float, default=10.0)
     r.add_argument("--split", default="valid")
     r.add_argument("--seed", type=int, default=1)
+    r.add_argument("--generated", type=float, help="share of generated hardstyle songs (default: the mixer's)")
     args = ap.parse_args()
     root = args.root
     root.mkdir(parents=True, exist_ok=True)
@@ -105,7 +106,10 @@ def main():
         from ownstems.mixer import MixConfig, Mixer
 
         lib = Library(root)
-        mixer = Mixer(lib, MixConfig(seconds=args.seconds, split=args.split))
+        cfg = MixConfig(seconds=args.seconds, split=args.split)
+        if args.generated is not None:
+            cfg.generated_song = args.generated
+        mixer = Mixer(lib, cfg)
         rng = np.random.default_rng(args.seed)
         args.out.mkdir(parents=True, exist_ok=True)
         for k in range(args.count):
@@ -118,7 +122,10 @@ def main():
                     # Float: a stem may peak above full scale where the stems partly cancel in the mix.
                     sf.write(d / f"{s}.wav", x.T, 44100, subtype="FLOAT")
             (d / "info.json").write_text(json.dumps(ex.info, indent=1) + "\n")
-            print(f"{d.name}: {', '.join(ex.info['present'])}{' (generated song)' if ex.info['generated'] else ''}")
+            song = ex.info.get("song")
+            what = (f" (hardstyle song, {song['bpm']} BPM, {song['kick']} kick; made: {', '.join(ex.info['made'])})"
+                    if song else "")
+            print(f"{d.name}: {', '.join(ex.info['present'])}{what}")
 
 
 if __name__ == "__main__":
