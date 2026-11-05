@@ -43,8 +43,25 @@ def _hz(midi: float) -> float:
     return 440.0 * 2 ** ((midi - 69) / 12)
 
 
+def _peaking(fc: float, gain_db: float, q: float) -> np.ndarray:
+    """An RBJ peaking EQ as one second-order section."""
+    a = 10 ** (gain_db / 40)
+    w = 2 * math.pi * fc / SR
+    alpha, c = math.sin(w) / (2 * q), math.cos(w)
+    b, d = [1 + alpha * a, -2 * c, 1 - alpha * a], [1 + alpha / a, -2 * c, 1 - alpha / a]
+    return np.array([[b[0] / d[0], b[1] / d[0], b[2] / d[0], 1.0, d[1] / d[0], d[2] / d[0]]])
+
+
 def kick(rng, length: int, root_hz: float, raw: float) -> np.ndarray:
-    """One kick, `length` samples (up to the next beat). raw 0 (euphoric) .. 1 (raw)."""
+    """One kick, `length` samples (up to the next beat). raw 0 (euphoric) .. 1 (raw).
+
+    A hardstyle kick is not an 808. An 808 is a clean sub boom; a hardstyle kick's
+    tail is a distorted tone whose grit sits in the mids (the "tok"), made the way
+    producers make it: drive the pitched sine hard, thin its fundamental, boost a band
+    of mids and drive again so that band clips into the tail, then layer a clean sub
+    back underneath and low-pass. Raw kicks are driven harder and bend in pitch. (The first version drove the sine once: 66-78 % of its energy
+    stayed under 120 Hz and the owner heard an 808.)
+    """
     t = np.arange(length) / SR
     f0 = rng.uniform(250, 650)
     drop = rng.uniform(0.008, 0.04)
@@ -55,13 +72,25 @@ def kick(rng, length: int, root_hz: float, raw: float) -> np.ndarray:
     tail = rng.uniform(0.12, 0.25) + (1 - raw) * rng.uniform(0.0, 0.25)
     env = np.minimum(t / 0.0007, 1.0) * np.exp(-t / tail)
     x = body * env
-    click = rng.standard_normal(length) * np.exp(-t / rng.uniform(0.001, 0.004))
-    x += rng.uniform(0.1, 0.4) * signal.sosfilt(signal.butter(2, 2000, "hp", fs=SR, output="sos"), click)
-    g = rng.uniform(3, 10) + raw * rng.uniform(5, 25)
+    g = rng.uniform(6, 12) + raw * rng.uniform(6, 20)  # driven hard: harmonics all the way up
+    x = np.tanh(g * x) / math.tanh(g)
+    # Thin the driven tail's fundamental (a clean sub goes back under it), boost the tok,
+    # and drive again so the boosted band clips into the tail.
+    x = signal.sosfilt(signal.butter(2, rng.uniform(1.5, 2.5) * root_hz, "hp", fs=SR, output="sos"), x)
+    x = signal.sosfilt(_peaking(rng.uniform(180, 700), rng.uniform(6, 12) + raw * rng.uniform(0, 6),
+                                rng.uniform(0.7, 2.0)), x)
+    x = x / (np.max(np.abs(x)) + 1e-9)
+    g = rng.uniform(3, 8) + raw * rng.uniform(3, 12)
     x = np.tanh(g * x) / math.tanh(g)
     if raw > 0.6 and rng.random() < 0.6:
         x = np.clip(x * rng.uniform(1.2, 2.0), -1, 1)
-    x = signal.sosfilt(signal.butter(2, rng.uniform(5000, 12000), "lp", fs=SR, output="sos"), x)
+    sub = body * env * rng.uniform(1.0, 1.6)  # the clean sub, same pitch and envelope
+    x = x * rng.uniform(0.5, 0.8) + sub
+    click = rng.standard_normal(length) * np.exp(-t / rng.uniform(0.001, 0.004))
+    x += rng.uniform(0.1, 0.4) * signal.sosfilt(signal.butter(2, 2000, "hp", fs=SR, output="sos"), click)
+    x = signal.sosfilt(signal.butter(2, rng.uniform(5000, 8000) + raw * rng.uniform(0, 4000), "lp", fs=SR,
+                                     output="sos"), x)
+    x = x / (np.max(np.abs(x)) + 1e-9)
     return x * np.exp(-np.maximum(t - 0.8 * length / SR, 0) / 0.01)  # never ring into the next kick
 
 
@@ -104,7 +133,10 @@ def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None)
         b += int(rng.choice([4, 8]))
     rev = rng.random() < 0.5
     hats = rng.random() < 0.8
+    open_hats = hats and rng.random() < 0.35
     claps = rng.random() < 0.5
+    crashes = rng.random() < 0.7
+    hat_level, clap_level = rng.uniform(0.25, 0.55), rng.uniform(0.3, 0.6)
     drums = np.zeros((2, total))
     kenv = np.zeros(total)
     kick_level = 1.0
@@ -134,15 +166,22 @@ def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None)
                 s0 = start + beat // 2
                 m = min(int(0.08 * SR), total - s0)
                 if m > 0:
-                    h = noise_hit(rng, m, (rng.uniform(6000, 9000), 0), rng.uniform(0.015, 0.05)) * rng.uniform(0.1, 0.3)
+                    decay = rng.uniform(0.08, 0.16) if open_hats else rng.uniform(0.015, 0.05)
+                    m = min(int(3 * decay * SR), total - s0)
+                    h = noise_hit(rng, m, (rng.uniform(6000, 9000), 0), decay) * hat_level * rng.uniform(0.8, 1.0)
                     pan = rng.uniform(-0.3, 0.3)
                     drums[0, s0:s0 + m] += h * (1 - pan)
                     drums[1, s0:s0 + m] += h * (1 + pan)
             if claps and i % 4 in (1, 3):
                 m = min(int(0.3 * SR), total - start)
                 c = sum(np.r_[np.zeros(int(j * 0.008 * SR)), noise_hit(rng, m, (900, 2500), rng.uniform(0.08, 0.2))][:m]
-                        for j in range(3)) * rng.uniform(0.15, 0.35)
+                        for j in range(3)) * clap_level
                 drums[:, start:start + m] += c
+            if crashes and i % 32 == 0:  # a crash on the first beat of every 8-bar phrase
+                m = min(int(2.0 * SR), total - start)
+                for ch in range(2):  # each side its own noise: a wide cymbal
+                    drums[ch, start:start + m] += noise_hit(rng, m, (rng.uniform(4000, 6000), 0),
+                                                            rng.uniform(0.5, 1.0)) * rng.uniform(0.15, 0.3)
     info = {"kick": "raw" if raw > 0.6 else "euphoric" if raw < 0.3 else "mid", "reverse_bass": rev,
             "breakdown_bars": int((~kick_bars).sum()), "tuned_to_chords": tuned_to_chords}
     return drums.astype(np.float32), kenv.astype(np.float32), info
