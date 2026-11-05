@@ -7,3 +7,4 @@ __pycache__/
 .pytest_cache/
 .venv/
 listen-m1/
+listen-hardstyle/

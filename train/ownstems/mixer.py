@@ -54,7 +54,11 @@ class MixConfig:
     generated_song: float = 0.25
     # Relative weight of each source when a stem is drawn from the catalog; 1 if unlisted.
     source_weights: dict[str, float] = field(default_factory=dict)
-    stem_gain_db: tuple[float, float] = (-12.0, 0.0)  # each stem's loudness against -20 LUFS
+    # Each stem's loudness against -20 LUFS. Wide, so the model hears every balance, but as in
+    # real songs the accompaniment ("other") usually sits under the vocals and drums.
+    stem_gain_db: dict[str, tuple[float, float]] = field(default_factory=lambda: {
+        "vocals": (-9.0, 0.0), "synth": (-10.0, 0.0), "other": (-15.0, -3.0), "bass": (-10.0, -1.0),
+        "drums": (-9.0, 0.0)})
     loudness_db: tuple[float, float] = (-18.0, -6.0)  # RMS of the finished mix, dBFS
     master: float = 0.85  # share of examples that go through the master bus
     # A clip quieter than this over the chosen window is redrawn (silence is not "vocals").
@@ -302,7 +306,7 @@ class Mixer:
                 if x is not None:
                     layers.append(x * _db(rng.uniform(-6, 0)))
             if layers:
-                stems[i] = self._colour(np.sum(layers, axis=0), stem, rng, cfg.stem_gain_db)
+                stems[i] = self._colour(np.sum(layers, axis=0), stem, rng, cfg.stem_gain_db[stem])
         return self._finish(stems, info, rng, cfg.master, cfg.loudness_db)
 
     def _song(self, rng: np.random.Generator) -> Example:
