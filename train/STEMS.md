@@ -134,6 +134,13 @@ of 20 s). What the first renders showed, now fixed:
   and RMS levelling left bright parts up to ~12 dB louder than deep ones. Over
   150 remixes "other" is now the loudest stem 12 % of the times it plays, with a
   median 7.8 LU under the mix (vocals: 3.9).
+- The owner then heard the generated drums as 808s, and they were: the kick
+  drove a deep sine once, leaving 68-78 % of the drums' energy under 120 Hz
+  and the hats buried. The kick is now drive → thinned fundamental → mid boost
+  → drive, with a clean sub under it (drums: 23-37 % under 120 Hz, 23-38 % in
+  the 250 Hz-1 kHz "tok" band), and the kit has louder hats and claps, open hats,
+  and a crash per 8-bar phrase. `listen-hardstyle/kick-before-after.wav` plays
+  8 old kicks, then 8 new, euphoric and then raw.
 
 Open for milestone 2:
 - **Vocals are 86 % speech by length.** Set `MixConfig.source_weights` so
