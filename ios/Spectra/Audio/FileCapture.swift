@@ -37,7 +37,8 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         /// loop — the next pass is queued seconds ahead, while the player is
         /// still reading the last — and back to zero only when it is stopped.
         var segments: [Segment] = []
-        /// Bumped by every reschedule, so a stale completion is ignored.
+        /// Bumped by every reschedule, and before every stop of the player, so a
+        /// stale completion is ignored.
         var generation = 0
     }
 
@@ -144,8 +145,7 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
             let resume = self.isPlaying
             let at = self.currentTime
             try? self.engine.start()
-            self.player.stop()
-            self.schedule(from: AVAudioFramePosition(at * self.file.processingFormat.sampleRate))
+            self.restart(from: AVAudioFramePosition(at * self.file.processingFormat.sampleRate))
             if resume { self.play() }
         })
     }
@@ -173,10 +173,21 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     func seek(to seconds: Double) {
         let frame = AVAudioFramePosition(max(0, min(seconds, duration)) * file.processingFormat.sampleRate)
         let wasPlaying = isPlaying
-        player.stop()
-        schedule(from: frame)
+        restart(from: frame)
         discardPending.store(true, ordering: .releasing)
         if wasPlaying { player.play() }
+    }
+
+    /// Stops the player and queues the file from `frame`. Stopping calls the
+    /// completion of what was queued, right there inside `stop()` — so the
+    /// generation moves on first, and that call reads as stale rather than as a
+    /// pass ending. (It used to read as a pass ending: with Loop on it queued
+    /// the file from 0:00 ahead of the new segment, so the sound started over
+    /// while the clock showed the seek target; with Loop off it paused.)
+    private func restart(from frame: AVAudioFramePosition) {
+        state.withLock { $0.generation += 1 }
+        player.stop()
+        schedule(from: frame)
     }
 
     /// Queues the file from `frame`. `continuing` means the player was not
