@@ -1,6 +1,7 @@
 # Spectra's own stem model: the plan
 
-**Status: milestone 1 (data) done on 2026-11-04. Nothing is trained yet.** Until
+**Status: milestone 1 (data) done on 2026-11-04. Milestone 2 (the file model)
+training on the home server since 2026-11-16.** Until
 this model wins, the Stems page keeps StemgenRT v0.6.1, in free builds only.
 
 ## Why
@@ -149,6 +150,71 @@ Open for milestone 2:
 - One example takes about a second to build on one core. Training will need
   several loader processes; measure before the first long run.
 
+## Milestone 2: the file model, training on the home server (started 2026-11-16)
+
+The owner asked for the training to run on the server instead of the desktop,
+at about half load (full load is loud), for as many days as it takes. The
+server has no GPU: two Xeon E5-2630L (12 cores, 24 threads, 2.0 GHz, AVX but
+no AVX2), 62 GB RAM.
+
+**Data.** The desktop was off, so the server fetched every source again from
+its original host into `~/stems-clean` (same layout, same ledger, each archive
+checked against its published MD5; `fetch-all.sh` there, log in `logs/`).
+ccMixter still waits for the owner's OK.
+
+**Model** (`ownstems/model.py`): a band-split transformer after BS-RoFormer,
+written here. STFT 2048 / hop 512; mel-spaced bands (3 bins = 64 Hz wide in the
+bass); per band a linear layer to one vector; blocks of attention along time
+(both sides of each moment) and then across bands, with rotary positions; per
+band a head giving a complex mask for each stem, channel and bin; mixture
+consistency, so the five stems sum to the mix exactly. The mix is normalised by
+its own level going in. Presets: `tiny` 4.5 M parameters, `small` 6.4 M (the
+first run), `base`. Most parameters sit in the per-band heads; the transformer
+core is small.
+
+**Training** (`train_stems.py`): fresh made-up songs every step from the mixer
+in worker processes, 4 s examples, batch 4; loss = L1 on the waveforms + L1 on
+STFT magnitudes at three resolutions, on level-normalised audio; AdamW, warm-up
+then cosine; averaged weights (EMA) are what is validated and kept. VocalSet
+is drawn 6× as often as its length says, so its 8 h of singing weigh about as
+much as LibriTTS-R's 48 h of speech.
+Validation: 32 held-out songs (split `valid`, built once, `valid.pt`): per
+stem the SDR where it plays, next to "the whole mix is this stem" (the number
+to beat), and the SDR over the generated hardstyle songs.
+`tools/stems-train.sh start|status|pause|resume|stop` runs it for days:
+pinned CPUs, nice 19, idle I/O, restart from the last checkpoint after a crash,
+`@reboot` in the user's crontab. `tools/separate.py` renders real songs into
+stems with a checkpoint, for listening.
+
+**Speed on the server** (batch 4 × 4 s, 2026-11-16): `small` 11.7 s a step on
+12 cores (one thread each), `tiny` 7.4 s; on 6 cores × 2 hyperthreads, `tiny`
+10.4 s. Attention takes ~25 % (CPU flash attention is already the fastest
+path there), matrix products ~20 %, the rest is many small element-wise ops.
+**Half load, measured** (5 min of real training each; ARK was awake and the
+Slakh download running, so between runs the server sat at 140 W and fans at
+~5,000-5,800 RPM; truly idle it is 98 W and ~2,900 RPM):
+
+| CPUs | s/step | Power | Fans | CPU |
+|---|---|---|---|---|
+| 0-11: every core, one thread | 12.7 | 196 W | ~8,000 RPM | 63 °C |
+| 0-5,12-17: 6 cores × 2 threads (chosen) | 17.1 | 182 W | ~7,900 RPM | 60-62 °C |
+| 0-3,12-15: 4 cores × 2 threads | 23.2 | 168 W | ~6,000-6,400 RPM, rising | 61-63 °C |
+
+The chosen layout is half of the threads on half of the cores. Its 40,000-step
+schedule is about a week; `~/stems-clean/train.env` changes the layout.
+
+For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
+a week on the server is a first model that shows what the data can do, not
+the finished one. The same script runs on CUDA unchanged when the desktop is
+free.
+
+**A bug the real data found:** about one batch in ten had a NaN gradient at
+the very start. A generated synth whose filter or reverb tail decays into
+denormal floats: `abs()` of a complex STFT bin has the gradient z · (1/|z|),
+the reciprocal overflows, and 0 · inf = NaN. The magnitude is now
+√(re² + im² + 1e-12), denormals are flushed (also faster on x86), and any
+non-finite step is skipped and its batch saved as `nonfinite-<step>.pt`.
+
 ## The models
 
 Five stems, as the page has now: vocals, synth (leads and pads), other, bass
@@ -196,7 +262,9 @@ HS-TasNet code (Phil Wang, MIT) may be reused for the live model.
    `tools/stems_data.py` runs it: `fetch`, `index`, `check`, `report`,
    `credits`, `render` (example mixes to listen to). The code is `ownstems/`,
    and its tests are `tests/test_ownstems.py`.
-2. **File model v0.** A few nights on the desktop GPU (RTX 4060 Ti 16 GB).
+2. **File model v0.** Started 2026-11-16 on the home server's CPUs at about half
+   load, for days (see "Milestone 2" above); the desktop GPU (RTX 4060 Ti
+   16 GB) runs the same script when it is free.
    - Held-out clean scores per stem.
    - Renders of the owner's hardstyle songs next to StemgenRT's, judged by ear,
      lane by lane.
