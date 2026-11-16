@@ -40,6 +40,12 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         /// Bumped by every reschedule, and before every stop of the player, so a
         /// stale completion is ignored.
         var generation = 0
+        /// The place in the file the player's clock last showed. That clock reads
+        /// nothing while the player is paused, or once iOS has stopped the engine
+        /// for a route change, and this stands in for it then.
+        var known: AVAudioFramePosition = 0
+        /// Loop off, and the file has played to its end: Play starts it over.
+        var ended = false
     }
 
     struct Segment {
@@ -63,16 +69,20 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     var duration: Double { Double(file.length) / file.processingFormat.sampleRate }
 
     /// Seconds into the file.
-    var currentTime: Double {
-        let segments = state.withLock { $0.segments }
-        guard let first = segments.first else { return 0 }
-        guard let node = player.lastRenderTime, let pt = player.playerTime(forNodeTime: node) else {
-            return Double(first.fileStart) / file.processingFormat.sampleRate
-        }
+    var currentTime: Double { Double(currentFrame) / file.processingFormat.sampleRate }
+
+    /// Frames into the file: by the player's own clock while it reads one, and
+    /// where it last did when it reads nothing. Every reading is kept for then.
+    private var currentFrame: AVAudioFramePosition {
+        let (segments, generation, known) = state.withLock { ($0.segments, $0.generation, $0.known) }
+        guard let first = segments.first, let node = player.lastRenderTime,
+              let pt = player.playerTime(forNodeTime: node) else { return known }
         let now = max(0, pt.sampleTime)
         let playing = segments.last { $0.playerStart <= now } ?? first
-        let frame = playing.fileStart + min(now - playing.playerStart, playing.frames)
-        return Double(min(frame, file.length)) / file.processingFormat.sampleRate
+        let frame = min(playing.fileStart + min(now - playing.playerStart, playing.frames), file.length)
+        // Not over a reschedule that came in meanwhile: its start is the newer place.
+        state.withLock { if $0.generation == generation { $0.known = frame } }
+        return frame
     }
 
     var isPlaying: Bool { state.withLock { $0.playing } }
@@ -100,6 +110,10 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         let ring = SampleRing(channels: channelCount, capacityFrames: sampleRate)
         self.ring = ring
         unit.box.ring = ring
+        let marker = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 64)!
+        marker.frameLength = 64
+        for c in 0..<Int(format.channelCount) { marker.floatChannelData![c].update(repeating: 0, count: 64) }
+        endMarker = marker
 
         engine.attach(player)
         engine.attach(tap)
@@ -142,16 +156,23 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
         })
         observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
             guard let self else { return }
+            // iOS has stopped the engine before saying so, and the player's clock
+            // reads nothing now: `currentFrame` is where it last read, a few
+            // hundredths of a second ago at most (see `read`).
             let resume = self.isPlaying
-            let at = self.currentTime
+            let at = self.currentFrame
+            let ended = self.state.withLock { $0.ended }
             try? self.engine.start()
-            self.restart(from: AVAudioFramePosition(at * self.file.processingFormat.sampleRate))
+            self.restart(from: at)
+            if ended { self.state.withLock { $0.ended = true } }
             if resume { self.play() }
         })
     }
 
     func play() {
         if !engine.isRunning { try? engine.start() }
+        // Played to its end with Loop off: from the top, as any player does.
+        if state.withLock({ $0.ended }) { restart(from: 0) }
         tapUnit?.box.listening.store(true, ordering: .relaxed)
         player.play()
         state.withLock { $0.playing = true }
@@ -161,6 +182,8 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
     /// analysis, so the last frame stays on screen — and the tube's phosphor,
     /// which fades by audio time, freezes too.
     func pause() {
+        // The player's clock reads nothing while it is paused: note the place first.
+        _ = currentFrame
         tapUnit?.box.listening.store(false, ordering: .relaxed)
         player.pause()
         state.withLock { $0.playing = false }
@@ -201,7 +224,9 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
                 s.segments = [last, Segment(playerStart: last.playerStart + last.frames, fileStart: start, frames: frames)]
             } else {
                 s.segments = [Segment(playerStart: 0, fileStart: start, frames: frames)]
+                s.known = start
             }
+            s.ended = false
             s.generation += 1
             return s.generation
         }
@@ -222,17 +247,59 @@ final class FileCapture: AudioCapture, @unchecked Sendable {
             schedule(from: 0, continuing: true)
             if isPlaying { player.play() }
         } else {
-            DispatchQueue.main.async { [weak self] in self?.pause() }
+            // Loop off. The player reads ahead, so the end has not played yet: a
+            // second or more of it is still to come. A moment of silence queued
+            // behind it says when it has — its `.dataRendered` comes once
+            // everything before it has gone through the player.
+            player.scheduleBuffer(endMarker, at: nil, options: [], completionCallbackType: .dataRendered) { [weak self] _ in
+                self?.reachedEnd(generation)
+            }
+        }
+    }
+
+    /// The moment of silence `segmentEnded` queues behind the last pass.
+    private var endMarker: AVAudioPCMBuffer!
+
+    /// Loop off, and the last of the file has played: stop there, at the end.
+    private func reachedEnd(_ generation: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let (current, loop) = self.state.withLock { ($0.generation == generation, $0.loop) }
+            // An engine that has stopped calls this too, played or not (a route
+            // change, before iOS says so): that handler takes it from there.
+            guard current, self.engine.isRunning else { return }
+            if loop {
+                // Loop went back on while the end played out: on from the top.
+                self.restart(from: 0)
+                if self.isPlaying { self.play() }
+                return
+            }
+            self.pause()
+            self.state.withLock { $0.known = self.file.length; $0.ended = true }
         }
     }
 
     func read(_ out: UnsafeMutablePointer<Float>, frames: Int) -> Int {
         guard let ring else { return -1 }
         if discardPending.exchange(false, ordering: .acquiring) { ring.discard() }
+        noteTime()
         return ring.read(out, frames: frames)
     }
 
+    /// The analysis thread reads all the time, in the background too, so it
+    /// keeps the place fresh for when nothing on screen asks for it: a route
+    /// change while the app is in the background still resumes where it was.
+    private var noted: UInt64 = 0
+    private func noteTime() {
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now &- noted >= 20_000_000 else { return }
+        noted = now
+        _ = currentFrame
+    }
+
     func stop() {
+        // Whatever is still queued may not act once the capture is stopped.
+        state.withLock { $0.generation += 1 }
         observers.forEach(NotificationCenter.default.removeObserver)
         observers = []
         tapUnit?.box.listening.store(false, ordering: .relaxed)
