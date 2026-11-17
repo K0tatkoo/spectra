@@ -144,9 +144,8 @@ of 20 s). What the first renders showed, now fixed:
   8 old kicks, then 8 new, euphoric and then raw.
 
 Open for milestone 2:
-- **Vocals are 86 % speech by length.** Set `MixConfig.source_weights` so
-  singing dominates (VocalSet ×4 or so), and add ccMixter once the owner OKs its
-  terms. ccMixter's API terms say that using the API means agreeing to them.
+- **Vocals are 86 % speech by length.** Done in milestone 2: ccMixter added
+  (owner OK 2026-11-17) and the draw weights favour singing.
 - One example takes about a second to build on one core. Training will need
   several loader processes; measure before the first long run.
 
@@ -160,7 +159,13 @@ no AVX2), 62 GB RAM.
 **Data.** The desktop was off, so the server fetched every source again from
 its original host into `~/stems-clean` (same layout, same ledger, each archive
 checked against its published MD5; `fetch-all.sh` there, log in `logs/`).
-ccMixter still waits for the owner's OK.
+The owner OK'd ccMixter's API terms on 2026-11-17 and it was fetched that day:
+of 1,507 CC BY / CC0 uploads tagged a cappella, 328 kept (the rest had no file
+labelled as a vocal, or were tagged non-commercial, AI-generated or remix),
+522 files, 25.7 h of real produced vocals (24.3 train / 1.4 held out), all CC
+BY 2.5/3.0 or CC0. Its file server answers 403 without a Referer (hotlink
+protection), so downloads send the upload's own page; a few old records are
+Latin-1 inside UTF-8 pages.
 
 **Model** (`ownstems/model.py`): a band-split transformer after BS-RoFormer,
 written here. STFT 2048 / hop 512; mel-spaced bands (3 bins = 64 Hz wide in the
@@ -175,9 +180,9 @@ core is small.
 **Training** (`train_stems.py`): fresh made-up songs every step from the mixer
 in worker processes, 4 s examples, batch 4; loss = L1 on the waveforms + L1 on
 STFT magnitudes at three resolutions, on level-normalised audio; AdamW, warm-up
-then cosine; averaged weights (EMA) are what is validated and kept. VocalSet
-is drawn 6× as often as its length says, so its 8 h of singing weigh about as
-much as LibriTTS-R's 48 h of speech.
+then cosine; averaged weights (EMA) are what is validated and kept. Vocals are
+drawn ~45 % from ccMixter (×10), ~28 % from VocalSet (×6), ~27 % from
+LibriTTS-R's speech (until step ~2,500: VocalSet ×6 and speech, half each).
 Validation: 32 held-out songs (split `valid`, built once, `valid.pt`): per
 stem the SDR where it plays, next to "the whole mix is this stem" (the number
 to beat), and the SDR over the generated hardstyle songs. `valid.pt` records

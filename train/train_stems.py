@@ -115,9 +115,10 @@ def main():
     ap.add_argument("--valid-seconds", type=float, default=6.0)
     ap.add_argument("--save-minutes", type=float, default=20.0)
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--vocal-weights", default="vocalset=6",
-                    help="source weights, e.g. vocalset=6: VocalSet's 8 h of singing then weigh about as "
-                         "much as LibriTTS-R's 48 h of speech")
+    ap.add_argument("--vocal-weights", default="vocalset=6,ccmixter=10",
+                    help="source weights. The default draws vocals about 45 %% from ccMixter's 24 h of real "
+                         "produced a cappellas, 28 %% from VocalSet's 8 h of singing, 27 %% from LibriTTS-R's "
+                         "48 h of speech (a clip counts its length, capped at a minute)")
     ap.add_argument("--bench", action="store_true")
     ap.add_argument("--bench-steps", type=int, default=5)
     args = ap.parse_args()
