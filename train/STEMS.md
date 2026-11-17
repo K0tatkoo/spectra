@@ -203,6 +203,12 @@ Slakh download running, so between runs the server sat at 140 W and fans at
 The chosen layout is half of the threads on half of the cores. Its 40,000-step
 schedule is about a week; `~/stems-clean/train.env` changes the layout.
 
+Run v0 itself started 2026-11-17 01:10 UTC, once the download and indexing had
+finished (51,154 CC BY files, 180 GB, no failures). With ARK awake and nothing
+else running it measures 16.6 s a step, 168 W, fans ~6,400 RPM, CPUs 61 °C.
+Loading data takes 0.01–0.16 s of each step, so the three workers keep up.
+Estimated time: ~185 hours, ending around 2026-11-24/25.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
@@ -262,8 +268,8 @@ HS-TasNet code (Phil Wang, MIT) may be reused for the live model.
    `tools/stems_data.py` runs it: `fetch`, `index`, `check`, `report`,
    `credits`, `render` (example mixes to listen to). The code is `ownstems/`,
    and its tests are `tests/test_ownstems.py`.
-2. **File model v0.** Started 2026-11-16 on the home server's CPUs at about half
-   load, for days (see "Milestone 2" above); the desktop GPU (RTX 4060 Ti
+2. **File model v0.** Training since 2026-11-17 on the home server's CPUs at about half
+   load, for about a week (see "Milestone 2" above); the desktop GPU (RTX 4060 Ti
    16 GB) runs the same script when it is free.
    - Held-out clean scores per stem.
    - Renders of the owner's hardstyle songs next to StemgenRT's, judged by ear,
