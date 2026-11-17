@@ -338,6 +338,15 @@ def test_ccmixter_download_sends_the_page_as_referer(tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*.part")) and not (tmp_path / "gone.mp3").exists()
 
 
+def test_ccmixter_reads_a_page_with_stray_latin1_bytes():
+    import json
+
+    from ownstems.sources import ccmixter as cc
+
+    body = '[{"user_name": "Caf'.encode() + b"\xe9" + '", "upload_name": "Été"}]'.encode()
+    assert json.loads(cc.text_of(body)) == [{"user_name": "Café", "upload_name": "Été"}]
+
+
 def test_valid_signature_changes_with_new_held_out_data_or_weights():
     from types import SimpleNamespace as NS
 

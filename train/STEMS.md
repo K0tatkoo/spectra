@@ -180,7 +180,11 @@ is drawn 6× as often as its length says, so its 8 h of singing weigh about as
 much as LibriTTS-R's 48 h of speech.
 Validation: 32 held-out songs (split `valid`, built once, `valid.pt`): per
 stem the SDR where it plays, next to "the whole mix is this stem" (the number
-to beat), and the SDR over the generated hardstyle songs.
+to beat), and the SDR over the generated hardstyle songs. `valid.pt` records
+what it was drawn from (clips per source, draw weights). When that changes (a
+new source, new weights), the next start keeps the old set and its best weights
+as `valid-until-<step>.pt` / `best-until-<step>.pt`, builds a new set, scores
+it at once, and "best" starts over on it.
 `tools/stems-train.sh start|status|pause|resume|stop` runs it for days:
 pinned CPUs, nice 19, idle I/O, restart from the last checkpoint after a crash,
 `@reboot` in the user's crontab. `tools/separate.py` renders real songs into

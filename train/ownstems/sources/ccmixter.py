@@ -27,6 +27,7 @@ Stem: vocals. Group = the artist, so one voice stays on one side of the split.
 
 from __future__ import annotations
 
+import codecs
 import json
 import os
 import re
@@ -60,6 +61,20 @@ WHOLE_SONG = re.compile(r"\bmix(ed)?\b|\bsong\b|\bfull\b|master", re.IGNORECASE)
 STRICT_VOCAL = re.compile(r"acap|a cap|pella|vocal|vox", re.IGNORECASE)
 
 
+def _as_cp1252(e: UnicodeDecodeError):
+    return e.object[e.start:e.end].decode("cp1252", errors="replace"), e.end
+
+
+codecs.register_error("ccmixter-cp1252", _as_cp1252)
+
+
+def text_of(body: bytes) -> str:
+    """UTF-8, with any byte that is not valid UTF-8 read as Windows-1252: a few old
+    ccMixter records are Latin-1 inside an otherwise UTF-8 page (offset ~1395 of the
+    CC BY a cappellas, 2026-11-17), and json.loads on the bytes gives up on the page."""
+    return body.decode("utf-8", "ccmixter-cp1252")
+
+
 def _get(params: dict) -> list:
     url = API + "?" + urllib.parse.urlencode({"f": "json", **params})
     for attempt in range(5):
@@ -67,7 +82,7 @@ def _get(params: dict) -> list:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=60) as r:
                 body = r.read()
-            return json.loads(body) if body.strip() else []
+            return json.loads(text_of(body)) if body.strip() else []
         except (OSError, json.JSONDecodeError):
             time.sleep(5 * (attempt + 1))
     raise RuntimeError(f"ccMixter API kept failing: {url}")
@@ -177,12 +192,14 @@ def _fetch_pages(d: Path, log, limit, kept: int, skipped: int, seen: set[int]) -
                 got = []
                 for f in files:
                     dest = ud / Path(f["file_name"]).name
-                    err = None if dest.exists() else download_file(f["download_url"], dest, u.get("file_page_url", ""))
+                    err = None
+                    if not dest.exists():
+                        err = download_file(f["download_url"], dest, u.get("file_page_url", ""))
+                        time.sleep(1)
                     if err:
                         log.write(f"file {uid}/{dest.name}: {err}\n")
                     else:
                         got.append(dest.name)
-                    time.sleep(1)
                 if not got:
                     skipped += 1
                     log.write(f"skip {uid}: no file could be downloaded\n")
