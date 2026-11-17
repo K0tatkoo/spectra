@@ -39,7 +39,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ownstems.mixer import MixConfig  # noqa: E402
 from ownstems.model import ModelConfig, StemsNet  # noqa: E402
-from ownstems.training import MixStream, fixed_set, stems_loss, validate, worker_init  # noqa: E402
+from ownstems.ledger import Catalog, Ledger  # noqa: E402
+from ownstems.training import MixStream, fixed_set, stems_loss, valid_signature, validate, worker_init  # noqa: E402
 
 RATE = 44100
 
@@ -157,16 +158,26 @@ def main():
         weights[k.strip()] = float(v)
     mix_cfg = MixConfig(seconds=args.seconds, split="train", source_weights=weights)
 
+    valid_cfg = MixConfig(seconds=args.valid_seconds, split="valid", source_weights=weights)
     valid_path = out / "valid.pt"
-    if valid_path.exists():
-        valid = torch.load(valid_path, weights_only=False)
-    else:
+    valid = torch.load(valid_path, weights_only=False) if valid_path.exists() else None
+    new_set = None
+    if valid is not None:
+        now = valid_signature(Catalog(args.root, Ledger(args.root)), valid_cfg)
+        if valid.get("signature") != now:
+            # New held-out data or new weights: the old set no longer tests what training sees.
+            # Both it and the best weights chosen on it are kept, renamed; "best" starts over.
+            os.replace(valid_path, out / f"valid-until-{step}.pt")
+            if (out / "best.pt").exists():
+                os.replace(out / "best.pt", out / f"best-until-{step}.pt")
+            new_set = {"was": valid.get("signature"), "now": now}
+            valid, best = None, -1e9
+    if valid is None:
         t0 = time.time()
-        valid = fixed_set(args.root, MixConfig(seconds=args.valid_seconds, split="valid", source_weights=weights),
-                          args.valid_examples, seed=12345)
+        valid = fixed_set(args.root, valid_cfg, args.valid_examples, seed=12345)
         atomic_save(valid, valid_path)
         print(f"held-out set: {len(valid['mix'])} songs ({int(valid['hardstyle'].sum())} hardstyle) "
-              f"in {time.time() - t0:.0f} s", flush=True)
+              f"in {time.time() - t0:.0f} s, from {valid['signature']['clips']}", flush=True)
 
     # A new seed per start, so a resumed run hears new songs rather than the first ones again.
     stream = MixStream(args.root, mix_cfg, seed=args.seed * 1_000_003 + step)
@@ -193,6 +204,22 @@ def main():
         metrics.write(json.dumps(row) + "\n")
         metrics.flush()
         print(json.dumps(row), flush=True)
+
+    def run_valid():
+        nonlocal best
+        t0 = time.time()
+        row = {"step": step, "valid": validate(ema, valid), "valid_seconds": round(time.time() - t0)}
+        log(row)
+        if row["valid"]["mean_sdr"] > best:
+            best = row["valid"]["mean_sdr"]
+            atomic_save({"step": step, "config": dataclasses.asdict(cfg), "ema": ema.state_dict(),
+                         "valid": row["valid"], "seconds": args.seconds}, out / "best.pt")
+        save()
+
+    if new_set and step > 0:
+        # A score on the new set now, so its curve starts where the training is, not 1000 steps on.
+        log({"step": step, "event": "new held-out set", **new_set})
+        run_valid()
 
     net.train()
     last_save = time.time()
@@ -259,13 +286,7 @@ def main():
 
         if step % args.valid_every == 0 or step == args.steps:
             t0 = time.time()
-            row = {"step": step, "valid": validate(ema, valid), "valid_seconds": round(time.time() - t0)}
-            log(row)
-            if row["valid"]["mean_sdr"] > best:
-                best = row["valid"]["mean_sdr"]
-                atomic_save({"step": step, "config": dataclasses.asdict(cfg), "ema": ema.state_dict(),
-                             "valid": row["valid"], "seconds": args.seconds}, out / "best.pt")
-            save()
+            run_valid()
             last_save = time.time()
             t_report += time.time() - t0  # validation time is not training speed
 

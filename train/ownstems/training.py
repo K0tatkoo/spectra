@@ -44,11 +44,24 @@ def worker_init(_):
     torch.set_num_threads(1)
 
 
+def valid_signature(catalog, cfg: MixConfig) -> dict:
+    """What a held-out set is drawn from: clips per source in its split, and the draw weights.
+
+    A kept held-out set whose signature no longer matches (a source added, or the
+    weights changed) no longer tests what training sees, so the trainer rebuilds it."""
+    counts: dict[str, int] = {}
+    for c in catalog.clips:
+        if c.split == cfg.split:
+            counts[c.source] = counts.get(c.source, 0) + 1
+    return {"clips": dict(sorted(counts.items())), "weights": dict(sorted(cfg.source_weights.items()))}
+
+
 def fixed_set(root, cfg: MixConfig, count: int, seed: int) -> dict:
     """A held-out set built once (split=valid) and kept, so every validation scores the same songs."""
     from .audio import Library
 
-    mixer = Mixer(Library(root), cfg)
+    lib = Library(root)
+    mixer = Mixer(lib, cfg)
     rng = np.random.default_rng(seed)
     mixes, stems, hardstyle = [], [], []
     for _ in range(count):
@@ -56,7 +69,8 @@ def fixed_set(root, cfg: MixConfig, count: int, seed: int) -> dict:
         mixes.append(torch.from_numpy(ex.mix))
         stems.append(torch.from_numpy(ex.stems))
         hardstyle.append(bool(ex.info.get("generated")))
-    return {"mix": torch.stack(mixes), "stems": torch.stack(stems), "hardstyle": torch.tensor(hardstyle)}
+    return {"mix": torch.stack(mixes), "stems": torch.stack(stems), "hardstyle": torch.tensor(hardstyle),
+            "signature": valid_signature(lib.catalog, cfg)}
 
 
 def _mag(x: torch.Tensor, n_fft: int, hop: int) -> torch.Tensor:

@@ -338,6 +338,21 @@ def test_ccmixter_download_sends_the_page_as_referer(tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*.part")) and not (tmp_path / "gone.mp3").exists()
 
 
+def test_valid_signature_changes_with_new_held_out_data_or_weights():
+    from types import SimpleNamespace as NS
+
+    from ownstems.training import valid_signature
+
+    clips = [NS(source="librittsr", split="valid"), NS(source="vocalset", split="valid"),
+             NS(source="vocalset", split="train")]
+    cfg = MixConfig(split="valid", source_weights={"vocalset": 6.0})
+    before = valid_signature(NS(clips=clips), cfg)
+    assert before == {"clips": {"librittsr": 1, "vocalset": 1}, "weights": {"vocalset": 6.0}}
+    assert valid_signature(NS(clips=clips + [NS(source="ccmixter", split="train")]), cfg) == before
+    assert valid_signature(NS(clips=clips + [NS(source="ccmixter", split="valid")]), cfg) != before
+    assert valid_signature(NS(clips=clips), MixConfig(split="valid", source_weights={"vocalset": 4.0})) != before
+
+
 def test_mixer_never_returns_a_silent_example(tmp_path):
     mixer = Mixer(_tone_library(tmp_path), MixConfig(seconds=1.0, absent={s: 0.9 for s in STEMS}))
     rng = np.random.default_rng(7)
