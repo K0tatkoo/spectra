@@ -31,6 +31,7 @@ import json
 import os
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -70,6 +71,38 @@ def _get(params: dict) -> list:
         except (OSError, json.JSONDecodeError):
             time.sleep(5 * (attempt + 1))
     raise RuntimeError(f"ccMixter API kept failing: {url}")
+
+
+def download_file(url: str, dest: Path, referer: str) -> str | None:
+    """Downloads one file; returns why it failed, or None.
+
+    ccMixter's /content/ files answer 403 without a Referer (hotlink protection),
+    so the upload's own page is sent as one, as a browser on that page would.
+    A page that is HTML is an error page, not audio. A refusal (403/404/410) is
+    not retried; anything else is retried three times."""
+    part = dest.with_name(dest.name + ".part")
+    why = "not tried"
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": referer})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                if r.headers.get_content_type() == "text/html":
+                    why = "an HTML page instead of audio"
+                    break
+                with open(part, "wb") as out:
+                    while chunk := r.read(1 << 20):
+                        out.write(chunk)
+            os.replace(part, dest)
+            return None
+        except urllib.error.HTTPError as e:
+            why = f"HTTP {e.code}"
+            if e.code in (403, 404, 410):
+                break
+        except OSError as e:
+            why = f"{type(e).__name__}: {e}"
+        time.sleep(5 * (attempt + 1))
+    part.unlink(missing_ok=True)
+    return why
 
 
 def tags_of(u: dict) -> set[str]:
@@ -141,19 +174,22 @@ def _fetch_pages(d: Path, log, limit, kept: int, skipped: int, seen: set[int]) -
                     continue
                 ud = d / str(uid)
                 ud.mkdir(exist_ok=True)
+                got = []
                 for f in files:
                     dest = ud / Path(f["file_name"]).name
-                    if dest.exists():
-                        continue
-                    part = dest.with_name(dest.name + ".part")
-                    req = urllib.request.Request(f["download_url"], headers={"User-Agent": UA})
-                    with urllib.request.urlopen(req, timeout=120) as r, open(part, "wb") as out:
-                        while chunk := r.read(1 << 20):
-                            out.write(chunk)
-                    os.replace(part, dest)
+                    err = None if dest.exists() else download_file(f["download_url"], dest, u.get("file_page_url", ""))
+                    if err:
+                        log.write(f"file {uid}/{dest.name}: {err}\n")
+                    else:
+                        got.append(dest.name)
                     time.sleep(1)
-                (ud / "upload.json").write_text(json.dumps({**u, "_licence": why, "_kept_files":
-                                                            [Path(f["file_name"]).name for f in files],
+                if not got:
+                    skipped += 1
+                    log.write(f"skip {uid}: no file could be downloaded\n")
+                    if not any(ud.iterdir()):
+                        ud.rmdir()
+                    continue
+                (ud / "upload.json").write_text(json.dumps({**u, "_licence": why, "_kept_files": got,
                                                             "_fetched": today()}, ensure_ascii=False))
                 kept += 1
                 if limit and kept >= limit:

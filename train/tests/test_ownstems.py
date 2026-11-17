@@ -297,6 +297,47 @@ def test_ccmixter_upload_rules(lic, tags, keep):
     assert cc.keep_upload(_upload(lic=lic, tags=tags))[0] is keep
 
 
+def test_ccmixter_download_sends_the_page_as_referer(tmp_path, monkeypatch):
+    import email.message
+    import io
+    import urllib.error
+
+    from ownstems.sources import ccmixter as cc
+
+    monkeypatch.setattr(cc.time, "sleep", lambda s: None)
+    seen = []
+
+    class Reply(io.BytesIO):
+        def __init__(self, body, ctype):
+            super().__init__(body)
+            self.headers = email.message.Message()
+            self.headers["Content-Type"] = ctype
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.close()
+
+    def urlopen(req, timeout):
+        seen.append(req.get_header("Referer"))
+        if req.full_url.endswith("gone.mp3"):
+            raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+        if req.full_url.endswith("page.mp3"):
+            return Reply(b"<html>", "text/html")
+        return Reply(b"ID3audio", "audio/mpeg")
+
+    monkeypatch.setattr(cc.urllib.request, "urlopen", urlopen)
+    page = "https://ccmixter.org/files/Artist/1"
+    assert cc.download_file("https://x/a.mp3", tmp_path / "a.mp3", page) is None
+    assert (tmp_path / "a.mp3").read_bytes() == b"ID3audio"
+    assert seen == [page]
+    assert cc.download_file("https://x/gone.mp3", tmp_path / "gone.mp3", page) == "HTTP 403"
+    assert len(seen) == 2  # a refusal is not retried
+    assert cc.download_file("https://x/page.mp3", tmp_path / "page.mp3", page) == "an HTML page instead of audio"
+    assert not list(tmp_path.glob("*.part")) and not (tmp_path / "gone.mp3").exists()
+
+
 def test_mixer_never_returns_a_silent_example(tmp_path):
     mixer = Mixer(_tone_library(tmp_path), MixConfig(seconds=1.0, absent={s: 0.9 for s in STEMS}))
     rng = np.random.default_rng(7)
