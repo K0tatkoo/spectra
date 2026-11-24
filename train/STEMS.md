@@ -1,7 +1,7 @@
 # Spectra's own stem model: the plan
 
-**Status: milestone 1 (data) done on 2026-11-04. Milestone 2 (the file model)
-training on the home server since 2026-11-16.** Until
+**Status: milestone 1 (data) done on 2026-11-04. Milestone 2 (the file model):
+v0 trained 2026-11-17 → 24 (held-out mean 4.87 dB); listening test next.** Until
 this model wins, the Stems page keeps StemgenRT v0.6.1, in free builds only.
 
 ## Why
@@ -218,6 +218,26 @@ else running it measures 16.6 s a step, 168 W, fans ~6,400 RPM, CPUs 61 °C.
 Loading data takes 0.01–0.16 s of each step, so the three workers keep up.
 Estimated time: ~185 hours, ending around 2026-11-24/25.
 
+**Run v0 finished 2026-11-24 09:04 UTC** (40,000 steps, 15.8 s a step on
+average, no skipped steps, no crashes; one planned restart at step 2,388 to
+add ccMixter). Held-out SDR in dB on the set rebuilt at 2,388 (the averaged
+weights; "mix" = the whole mix taken as the stem, the number to beat):
+
+| Step | Mean | Vocals | Synth | Other | Bass | Drums | Hardstyle songs |
+|---|---|---|---|---|---|---|---|
+| 2,388 | 1.97 | 1.45 | 2.16 | 0.40 | 2.33 | 3.50 | 2.32 |
+| 8,000 | 3.46 | 3.59 | 3.71 | 0.83 | 3.52 | 5.66 | 3.47 |
+| 16,000 | 4.21 | 4.36 | 4.17 | 1.43 | 4.40 | 6.71 | 4.26 |
+| 24,000 | 4.58 | 4.86 | 4.45 | 1.51 | 4.97 | 7.11 | 4.62 |
+| 32,000 | 4.79 | 5.14 | 4.72 | 1.55 | 5.23 | 7.33 | 4.93 |
+| **39,000 (best.pt)** | **4.87** | 5.26 | 4.77 | 1.65 | 5.31 | 7.34 | 5.03 |
+| mix | | -4.83 | -4.39 | -8.20 | -4.67 | -2.61 | |
+
+It flattened over the last ~8,000 steps as the learning rate fell, so more
+steps of the same small model would add little; a bigger model (GPU) is the
+lever. These scores are on assembled clean mixes, not real songs: the verdict
+is the listening test against StemgenRT.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
@@ -277,8 +297,8 @@ HS-TasNet code (Phil Wang, MIT) may be reused for the live model.
    `tools/stems_data.py` runs it: `fetch`, `index`, `check`, `report`,
    `credits`, `render` (example mixes to listen to). The code is `ownstems/`,
    and its tests are `tests/test_ownstems.py`.
-2. **File model v0.** Training since 2026-11-17 on the home server's CPUs at about half
-   load, for about a week (see "Milestone 2" above); the desktop GPU (RTX 4060 Ti
+2. **File model v0.** Trained 2026-11-17 → 24 on the home server's CPUs at about half
+   load (best held-out mean 4.87 dB) (see "Milestone 2" above); the desktop GPU (RTX 4060 Ti
    16 GB) runs the same script when it is free.
    - Held-out clean scores per stem.
    - Renders of the owner's hardstyle songs next to StemgenRT's, judged by ear,
