@@ -112,10 +112,12 @@ def validate(net, data: dict, batch: int = 4) -> dict:
     what "all of the mix is this stem" would score (the number to beat). Also the mean over the
     generated hardstyle songs alone."""
     net.eval()
+    dev = next(net.parameters()).device
     sdr, base = [], []
     for i in range(0, len(data["mix"]), batch):
         mix, stems = data["mix"][i:i + batch], data["stems"][i:i + batch]
-        est = net(mix)
+        with torch.no_grad():
+            est = net(mix.to(dev)).cpu()
         sdr.append(floored_sdr(est, stems, mix))
         base.append(floored_sdr(mix.unsqueeze(1).expand_as(stems), stems, mix))
     sdr, base = torch.cat(sdr), torch.cat(base)

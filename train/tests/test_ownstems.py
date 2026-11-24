@@ -260,6 +260,29 @@ def test_hardstyle_bass_out_splits_the_old_sum():
     assert np.max(np.abs(new + bass - old)) < 1e-5
 
 
+def test_hardstyle_kick_tail_is_bass_and_hats_are_drums():
+    """The owner's convention (2026-11-24): the kick's punch is drums, its pitched tail is bass;
+    hats are drums. v0 learned the opposite from the old generator."""
+    from synthsplit import hardstyle
+
+    f = np.fft.rfftfreq(4 * RATE, 1 / RATE)
+    spec = lambda x: np.abs(np.fft.rfft(x.mean(0))) ** 2  # noqa: E731
+    hats = 0
+    for seed in range(8):
+        bass = np.zeros((2, 4 * RATE))
+        drums, _, info = hardstyle.render_drums(np.random.default_rng(seed), hardstyle.music(
+            np.random.default_rng(seed + 50), 4.5), 4 * RATE, bass_out=bass)
+        d, b = spec(drums), spec(bass)
+        low = d[f < 120].sum() + b[f < 120].sum()
+        if low > 1e-3:  # a kick played in these 4 s
+            assert b[f < 120].sum() / low > 0.7
+            assert d[(f > 40) & (f < 20000)].sum() > 0  # the punch stays in the drums
+        if info["hats"] != "none" and d[f > 6000].sum() > 1e-3:
+            hats += 1
+            assert d[f > 6000].sum() > 5 * b[f > 6000].sum()
+    assert hats >= 3
+
+
 # ── ccMixter's filter ─────────────────────────────────────────────────────
 
 def _upload(lic="http://creativecommons.org/licenses/by/3.0/", tags=",acappella,", files=()):

@@ -51,7 +51,8 @@ class MixConfig:
     layered: dict[str, float] = field(default_factory=lambda: {
         "vocals": 0.15, "synth": 0.3, "other": 0.4, "bass": 0.0, "drums": 0.2})
     # Share of examples whose synth, bass and drums come from the generators.
-    generated_song: float = 0.25
+    # 0.25 for v0; 0.35 since the owner's songs are hardstyle and v0 never learned its percussion.
+    generated_song: float = 0.35
     # Relative weight of each source when a stem is drawn from the catalog; 1 if unlisted.
     source_weights: dict[str, float] = field(default_factory=dict)
     # Each stem's loudness against -20 LUFS. Wide, so the model hears every balance, but as in
