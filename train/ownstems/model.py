@@ -178,12 +178,18 @@ def net_from_checkpoint(ckpt: dict, weights: str = "ema") -> StemsNet:
 
 
 @torch.no_grad()
+@torch.inference_mode()
 def separate(net: StemsNet, mix: torch.Tensor, chunk_s: float = 8.0, overlap: float = 0.25) -> torch.Tensor:
-    """A whole song: (C, N) -> (S, C, N), in overlapping chunks blended with a linear fade."""
+    """A whole song: (C, N) -> (S, C, N), in overlapping chunks blended with a linear fade.
+
+    The song stays on the CPU; each chunk goes to the network's device and back.
+    Inference mode: with autograd on, every chunk's activations stayed alive."""
     c, n = mix.shape
     chunk = int(chunk_s * RATE)
+    dev = next(net.parameters()).device
+    mix = mix.cpu()
     if n <= chunk:
-        return net(mix.unsqueeze(0))[0]
+        return net(mix.unsqueeze(0).to(dev))[0].cpu()
     step = int(chunk * (1 - overlap))
     fade = chunk - step
     ramp = torch.ones(chunk)
@@ -198,6 +204,6 @@ def separate(net: StemsNet, mix: torch.Tensor, chunk_s: float = 8.0, overlap: fl
             w[:fade] = 1
         if s == starts[-1]:
             w[-fade:] = 1
-        out[..., s:s + chunk] += net(mix[None, :, s:s + chunk])[0] * w
+        out[..., s:s + chunk] += net(mix[None, :, s:s + chunk].to(dev))[0].cpu() * w
         weight[s:s + chunk] += w
     return out / weight.clamp_min(1e-8)

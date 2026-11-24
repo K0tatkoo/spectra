@@ -32,11 +32,12 @@ def main():
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--seconds", type=float, help="seconds of audio from the start (default: all)")
+    ap.add_argument("--device", default="cpu", help="cpu, or cuda for a GPU")
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     torch.set_flush_denormal(True)
     ckpt = torch.load(args.ckpt, map_location="cpu", weights_only=False)
-    net = net_from_checkpoint(ckpt).eval()
+    net = net_from_checkpoint(ckpt).eval().to(args.device)
     # Chunks as long as the training examples: rotary positions beyond them were never trained.
     chunk = float(ckpt.get("seconds") or ckpt.get("args", {}).get("seconds") or 4.0)
     print(f"{args.ckpt}: step {ckpt['step']}, chunks of {chunk:g} s", flush=True)
