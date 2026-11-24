@@ -268,6 +268,27 @@ Memory, not speed, is the limit (~0.3 GB per second of audio in a batch for
 `small`). Building one 6 s example takes 0.28 s on one Ryzen core, so a few
 loader workers keep up.
 
+**v1 test run (scheduled 2026-11-24 22:30 on the desktop).** Same recipe as v0
+(`small`, batch 4 × 4 s, 40,000 steps) so only the data changed:
+- the kick's first 15-40 ms (punch, click) are drums, its pitched tail is bass
+  (a crossfade in time; drums + bass is exactly the kick);
+- each generated song gets a drum-machine kit: metallic hats in a few
+  patterns, rides, claps and snares through a room reverb, snare rolls into
+  drops, crashes on drops;
+- generated hardstyle songs are 35 % of examples (v0: 25 %).
+On 12 new generated songs, sub < 120 Hz goes 84 % to bass and > 6 kHz 87 % to
+drums, as the app's lanes split the owner's songs (82 % / 90 %).
+`train_stems.py --device cuda` (TF32). Measured there: 0.34 s a step with 6
+loader workers and no data wait, so ~4 h. Memory is the limit: on Windows
+every loader worker loads its own torch (~2 GB private); 10 workers took the
+commit charge to 49 of 50 GB with the owner's apps open, 6 take ~44.
+`tools/desktop-run-v1-test.cmd` (at `D:\stems-clean\run-v1-test.cmd`), started
+by the scheduled task "Spectra stems v1 test" (S4U: runs logged on or not, no
+window, CUDA works there): trains into `D:\stems-clean\runs\v1-test`,
+restarts from the checkpoint after a crash (10 tries), then renders the 15
+songs and builds `D:\stems-clean\listen-v1-compare\index.html`. Its held-out
+set is new (new generator), so its SDRs do not compare with v0's.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
