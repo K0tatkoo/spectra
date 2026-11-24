@@ -238,6 +238,17 @@ steps of the same small model would add little; a bigger model (GPU) is the
 lever. These scores are on assembled clean mixes, not real songs: the verdict
 is the listening test against StemgenRT.
 
+**Listening test set (2026-11-24).** The owner's 15 hardstyle songs (full mixes,
+listening only) through v0 on the desktop GPU (`tools/separate.py --device
+cuda`: 48 s for all 15, ~100× real time), paired with what the app makes of
+them today (StemgenRT + the shipped `hs-last` synth splitter) by
+`tools/compare_listen.py`: mono, one gain per song, a page that flips between
+the two at the same moment. Copies: `train/listen-v0/` on the Mac (gitignored),
+`D:\stems-clean\listen-v0-compare` on the desktop. Lane energy vs the mix,
+median of the 15 songs, app / v0: vocals -12.7 / -6.8 dB, synth -12.0 / -10.1,
+other -18.6 / -26.4, bass -4.1 / -12.6, drums -10.8 / -3.2. The two split the
+hardstyle kick differently: StemgenRT puts most of it in bass, v0 in drums.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is

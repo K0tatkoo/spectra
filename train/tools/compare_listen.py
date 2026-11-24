@@ -209,6 +209,7 @@ D.songs.forEach(s => {
   document.getElementById("songs").appendChild(card);
 });
 
+paint();
 setInterval(() => {
   const a = active(); if (!a) return;
   cur.card.querySelector(".time").textContent = `${fmt(a.currentTime)} / ${fmt(cur.s.seconds)}`;
