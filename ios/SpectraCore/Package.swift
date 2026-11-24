@@ -15,10 +15,12 @@ let package = Package(
         .library(name: "SpectraStems", targets: ["SpectraStems"]),
     ],
     dependencies: [
-        // The runtime the stem models run on. Android ships 1.26; 1.24.2 is the
-        // newest Swift package, and the stems' tests check it against the
-        // Kotlin results like everything else.
-        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager", exact: "1.24.2"),
+        // The runtime the stem models run on: Microsoft's ONNX Runtime 1.24.2,
+        // kept in ios/Vendor since their Swift package repository went away
+        // (its README says where every file came from). Android ships 1.26;
+        // the stems' tests check this one against the Kotlin results like
+        // everything else.
+        .package(path: "../Vendor/onnxruntime"),
     ],
     targets: [
         .target(name: "SpectraCore"),
@@ -29,7 +31,7 @@ let package = Package(
             name: "SpectraStems",
             dependencies: [
                 "SpectraCore",
-                .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
+                .product(name: "onnxruntime", package: "onnxruntime"),
             ]
         ),
         // Reads the Kotlin engine's reference results. Tests only; no product ships it.

@@ -13,6 +13,7 @@ ios/
 ├─ Spectra/          the app: capture, the analysis loop, the SwiftUI pages and painters
 ├─ SpectraBroadcast/ the screen-broadcast extension: iOS's only route to other apps' sound
 ├─ Shared/           the App Group ring the extension and the app share
+├─ Vendor/onnxruntime/ ONNX Runtime 1.24.2 for the stems, kept here: Microsoft's package went away
 ├─ tools/            the app icon (from tools/launcher-icon.py) and the stem-model build phase
 ├─ project.yml       XcodeGen: `cd ios && xcodegen` regenerates Spectra.xcodeproj
 └─ PORTING.md        the rules that keep the Swift engine and the Kotlin one in step
