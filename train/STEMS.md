@@ -249,6 +249,25 @@ median of the 15 songs, app / v0: vocals -12.7 / -6.8 dB, synth -12.0 / -10.1,
 other -18.6 / -26.4, bass -4.1 / -12.6, drums -10.8 / -3.2. The two split the
 hardstyle kick differently: StemgenRT puts most of it in bass, v0 in drums.
 
+**The owner's verdict on v0 (2026-11-24):** drums carry what should be bass /
+808 and no real drums; bass is silent; synth is fair but drops out for no
+reason; vocals let through far more background than today; other lets less
+through. Measured over the 15 songs, share of each band's energy per lane
+(app / v0): sub < 120 Hz to drums 18 / 88 %, to bass 82 / 9 %; > 6 kHz (hats)
+to drums 90 / 3 %, to vocals 4 / 50 %, to synth 6 / 47 %; 2-6 kHz to vocals
+12 / 64 %. Cause: our generated hardstyle songs label the whole kick, pitched
+tail included, as drums (only the offbeat reverse bass is bass, in half the
+songs), and their hats and claps are plain filtered-noise hits, so real
+layered hardstyle percussion was never taught as drums.
+
+**The desktop GPU, measured (RTX 4060 Ti 16 GB, fp32 + TF32):** `small` batch
+4 × 4 s 0.32 s a step (49× the server), 4.8 GB; batch 8 × 4 s 0.66 s, 9.6 GB;
+`base` 4 × 4 s 0.62 s, 8.8 GB; `base` 6 × 6 s spills past 16 GB (52 s a
+step); a ~25 M model does not fit without bf16 / activation checkpointing.
+Memory, not speed, is the limit (~0.3 GB per second of audio in a batch for
+`small`). Building one 6 s example takes 0.28 s on one Ryzen core, so a few
+loader workers keep up.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
