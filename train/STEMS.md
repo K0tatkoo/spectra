@@ -289,6 +289,32 @@ restarts from the checkpoint after a crash (10 tries), then renders the 15
 songs and builds `D:\stems-clean\listen-v1-compare\index.html`. Its held-out
 set is new (new generator), so its SDRs do not compare with v0's.
 
+**v1 result (2026-11-25).** Ran 22:30 → 02:18 without a crash (0.34 s a step,
+no data wait), renders done 02:22. Best = the last step, 40,000: mean 4.93 dB
+(vocals 4.27, synth 4.18, other 1.67, bass 7.32, drums 7.20, hardstyle songs
+5.94), still rising slowly. On the owner's 15 songs (share of each band's
+energy per lane, app / v0 / v1; median lane level in dB vs the mix):
+
+| | app | v0 | v1 |
+|---|---|---|---|
+| sub < 120 Hz → bass | 82 % | 9 % | 70 % |
+| sub < 120 Hz → drums | 18 % | 88 % | 19 % |
+| > 6 kHz → drums | 90 % | 3 % | 3 % |
+| > 6 kHz → vocals / synth | 4 / 6 % | 50 / 47 % | 62 / 35 % |
+| 2–6 kHz → drums / vocals | 45 / 12 % | 4 / 64 % | 4 / 62 % |
+| bass level | -4.1 | -12.6 | -4.5 |
+| drums level | -10.8 | -3.2 | -11.4 |
+| vocals level | -12.7 | -6.8 | -6.2 |
+| other level | -18.6 | -26.4 | -33.6 |
+
+The kick split worked: the 808 tail is bass and the drums lane holds the
+punch, at the app's levels. The new drum-machine kit did **not** carry over:
+the real songs' hats and claps still go to vocals and synth, so the vocals
+lane still carries the bright background. The generator's own hats separate
+(87 % to drums), so the gap is between its hats and real, sampled, mastered
+percussion. Next is to find out what in the training mixes teaches "bright =
+vocals".
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
