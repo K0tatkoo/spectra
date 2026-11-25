@@ -17,6 +17,13 @@ One example = five stereo stems of `seconds` each, and their sum, the mix:
 - Each stem gets its own colour: random EQ, a pan or width, polarity, and for
   vocals a production chain (doubling, delay, reverb, saturation), since free
   singing data is dry exercises and real vocals never are.
+- No stem owns a frequency range. The free sources differ in their top end
+  (E-GMD and Slakh drums reach 20 kHz; ccMixter's MP3s stop near 15, VocalSet
+  near 12, LibriTTS-R at 11, Slakh's synths near 9), and v1 learned "sound
+  above 16 kHz is drums" from that alone (train/STEMS.md). So whole examples
+  are band-limited as MP3s and streams are, single stems are band-limited at
+  random, dark catalog synths and "other" parts are driven bright now and
+  then, and drums, synth and "other" get a reverb as vocals do.
 - A master bus: compression and limiting to a random loudness, as released
   music has (hardstyle masters run near -6 dB RMS). The gain is worked out on
   the mix and applied to every stem alike, so the stems still sum to the mix
@@ -72,6 +79,15 @@ class MixConfig:
         "other": (-16.0, -8.0)})
     song_catalog: dict[str, float] = field(default_factory=lambda: {"vocals": 0.5, "other": 0.15})
     song_loudness_db: tuple[float, float] = (-10.0, -6.0)
+    # The top end (v2): share of examples low-passed as a whole, where the cut-off falls, the
+    # chance each stem is low-passed on its own, and, for catalog stems only, the chance a
+    # synth or "other" part is driven bright and that drums, synth or "other" get a reverb.
+    band_limit: float = 0.5
+    band_limit_hz: tuple[float, float] = (11000.0, 20000.0)
+    stem_band_limit: dict[str, float] = field(default_factory=lambda: {
+        "vocals": 0.0, "synth": 0.15, "other": 0.15, "bass": 0.0, "drums": 0.35})
+    bright: dict[str, float] = field(default_factory=lambda: {"synth": 0.35, "other": 0.25})
+    stem_reverb: dict[str, float] = field(default_factory=lambda: {"synth": 0.3, "other": 0.3, "drums": 0.3})
 
 
 def _db(x: float) -> float:
@@ -126,6 +142,26 @@ def random_eq(x: np.ndarray, rng) -> np.ndarray:
     for _ in range(int(rng.integers(0, 3))):
         sos.append(_peaking(rng.uniform(150, 8000), rng.uniform(-6, 6), rng.uniform(0.5, 3.0)))
     return signal.sosfilt(np.stack(sos), x, axis=-1)
+
+
+def lowpass_sos(rng, hz: float) -> np.ndarray:
+    """A steep low-pass at `hz`, as an MP3 encoder or a stream leaves the top end: an elliptic
+    filter of order 6-10 with 50-90 dB of stop band."""
+    hz = min(hz, 0.95 * RATE / 2)
+    return signal.ellip(int(rng.integers(6, 11)), 0.1, rng.uniform(50, 90), hz, "lowpass", fs=RATE, output="sos")
+
+
+def brighten(x: np.ndarray, rng) -> np.ndarray:
+    """A dark part driven and opened up, the way hardstyle leads are: a tanh drive of 3-20 at twice
+    the rate (so its new overtones do not fold back), then a 6-15 dB high shelf. A Slakh synth
+    low-passed at 3 kHz goes from ~0.003 % of its energy above 6 kHz to ~0.3-3 %, where a
+    supersaw lead sits. Level is set later."""
+    peak = float(np.max(np.abs(x))) + 1e-9
+    up = signal.resample_poly(x / peak, 2, 1, axis=-1)
+    drive = 10 ** rng.uniform(math.log10(3.0), math.log10(20.0))
+    y = signal.resample_poly(np.tanh(drive * up), 1, 2, axis=-1)[..., :x.shape[-1]]
+    shelf = _shelf(rng.uniform(2000, 6000), rng.uniform(6.0, 15.0), high=True)[None]
+    return signal.sosfilt(shelf, y, axis=-1) * peak
 
 
 def _reverb(x: np.ndarray, rng, wet: tuple[float, float] = (0.1, 0.45)) -> np.ndarray:
@@ -326,7 +362,7 @@ class Mixer:
                 if x is None or rms_db(x) <= cfg.min_rms_db:
                     continue
                 info["made"].append(stem)
-                stems[i] = self._colour(x, stem, rng, cfg.song_gain_db[stem], eq=False)
+                stems[i] = self._colour(x, stem, rng, cfg.song_gain_db[stem], catalog=False)
             elif rng.random() < cfg.song_catalog.get(stem, 0.0):
                 x = self._catalog_audio(stem, rng, n, used, info)
                 if x is not None:
@@ -344,12 +380,23 @@ class Mixer:
         info["clips"].setdefault(stem, []).append(f"{clip.artifact}{'#' + clip.member if clip.member else ''}")
         return x
 
-    def _colour(self, x: np.ndarray, stem: str, rng, gain_db: tuple[float, float], eq: bool = True) -> np.ndarray:
-        """The stem's own processing, then its level: `gain_db` against -20 LUFS."""
-        if eq:  # the generators already vary their own sound; EQ would thin a kick
+    def _colour(self, x: np.ndarray, stem: str, rng, gain_db: tuple[float, float],
+                catalog: bool = True) -> np.ndarray:
+        """The stem's own processing, then its level: `gain_db` against -20 LUFS.
+
+        A generated stem (catalog=False) already varies its own sound, reverb and brightness
+        (EQ would thin a kick), so it only gets the random top end and the polarity."""
+        cfg = self.cfg
+        if catalog:
             x = random_eq(x, rng)
-        if stem == "vocals":
-            x = vocal_chain(x, rng)
+            if rng.random() < cfg.bright.get(stem, 0.0):
+                x = brighten(x, rng)
+            if stem == "vocals":
+                x = vocal_chain(x, rng)
+            elif rng.random() < cfg.stem_reverb.get(stem, 0.0):
+                x = _reverb(x, rng)
+        if rng.random() < cfg.stem_band_limit.get(stem, 0.0):
+            x = signal.sosfilt(lowpass_sos(rng, rng.uniform(*cfg.band_limit_hz)), x, axis=-1)
         if rng.random() < 0.5:
             x = -x
         loud = lufs(x)
@@ -359,6 +406,8 @@ class Mixer:
 
     def _finish(self, stems: np.ndarray, info: dict, rng, master: float,
                 loudness_db: tuple[float, float]) -> Example:
+        if rng.random() < self.cfg.band_limit:  # one filter on every stem, so they still sum to the mix
+            stems = signal.sosfilt(lowpass_sos(rng, rng.uniform(*self.cfg.band_limit_hz)), stems, axis=-1)
         mix = stems.sum(axis=0)
         r = rms_db(mix)
         if r > -150:

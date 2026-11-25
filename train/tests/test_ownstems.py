@@ -12,7 +12,7 @@ from ownstems import RATE, STEMS
 from ownstems.audio import Library
 from ownstems.ledger import Artifact, Catalog, Clip, Ledger, RefusedError, split_for, today
 from ownstems.licences import normalize
-from ownstems.mixer import Mixer, MixConfig, master_gain
+from ownstems.mixer import Mixer, MixConfig, brighten, master_gain
 
 
 # ── licences ──────────────────────────────────────────────────────────────
@@ -196,6 +196,48 @@ def test_mixer_generated_song_is_one_hardstyle_song(tmp_path):
         assert np.max(np.abs(ex.stems.sum(0) - ex.mix)) < 1e-5
 
 
+
+def _share_above(x: np.ndarray, hz: float) -> float:
+    spec = np.abs(np.fft.rfft(np.asarray(x, dtype=np.float64).reshape(-1, x.shape[-1]), axis=-1)) ** 2
+    f = np.fft.rfftfreq(x.shape[-1], 1 / RATE)
+    return float(spec[:, f >= hz].sum() / (spec.sum() + 1e-30))
+
+
+def test_band_limited_example_has_no_top_end_and_still_sums(tmp_path):
+    # v1 found drums by the top octave alone; a band-limited example takes it from every stem
+    cfg = MixConfig(seconds=2.0, generated_song=0.0, band_limit=1.0, band_limit_hz=(12000.0, 12000.0),
+                    stem_band_limit={}, bright={}, stem_reverb={})
+    mixer = Mixer(_tone_library(tmp_path), cfg)
+    rng = np.random.default_rng(3)
+    for _ in range(6):
+        ex = mixer.example(rng)
+        assert np.max(np.abs(ex.stems.sum(axis=0) - ex.mix)) < 1e-6
+        assert np.max(np.abs(ex.mix)) <= 0.99 + 1e-6
+        for i, s in enumerate(STEMS):
+            if np.any(ex.stems[i]):
+                assert _share_above(ex.stems[i], 13500) < 1e-4, s
+
+
+def test_drums_can_lose_their_top_end_on_their_own(tmp_path):
+    cfg = MixConfig(seconds=2.0, generated_song=0.0, band_limit=0.0, band_limit_hz=(12000.0, 12000.0),
+                    stem_band_limit={"drums": 1.0}, bright={}, stem_reverb={}, absent={s: 0.0 for s in STEMS})
+    mixer = Mixer(_tone_library(tmp_path), cfg)
+    ex = mixer.example(np.random.default_rng(4))
+    assert _share_above(ex.stems[STEMS.index("drums")], 13500) < 1e-4
+    assert _share_above(ex.stems[STEMS.index("synth")], 13500) > 1e-3  # a square wave keeps its overtones
+
+
+def test_brighten_gives_a_dark_part_a_top_end():
+    from scipy import signal
+
+    t = np.arange(RATE) / RATE
+    saw = 2 * ((110 * t) % 1) - 1  # a saw low-passed at 3 kHz, as dark as a Slakh synth
+    dark = np.stack([signal.sosfilt(signal.butter(4, 3000, fs=RATE, output="sos"), saw)] * 2) * 0.5
+    for seed in range(4):
+        out = brighten(dark, np.random.default_rng(seed))
+        assert out.shape == dark.shape and np.all(np.isfinite(out))
+        assert _share_above(dark, 6000) < 1e-4 and _share_above(out, 6000) > 2e-3
+
 def test_loudness_meter_reads_a_reference_sine():
     from ownstems.loudness import lufs
 
@@ -215,7 +257,7 @@ def test_stems_are_levelled_by_loudness_not_rms(tmp_path):
     t = np.arange(2 * RATE) / RATE
     bright = np.stack([np.sign(np.sin(2 * np.pi * 3000 * t))] * 2) * 0.3
     deep = np.stack([np.sin(2 * np.pi * 45 * t)] * 2) * 0.3
-    got = [lufs(mixer._colour(x, "other", np.random.default_rng(1), (0.0, 0.0), eq=False)) for x in (bright, deep)]
+    got = [lufs(mixer._colour(x, "other", np.random.default_rng(1), (0.0, 0.0), catalog=False)) for x in (bright, deep)]
     assert all(abs(g + 20.0) < 0.1 for g in got)
 
 
