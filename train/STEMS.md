@@ -315,6 +315,32 @@ lane still carries the bright background. The generator's own hats separate
 percussion. Next is to find out what in the training mixes teaches "bright =
 vocals".
 
+**Why real hats miss the drums lane (diagnosed 2026-11-25).** Not the label
+balance: in 400 training examples drums carry 78 % of all > 6 kHz energy
+(vocals 9 %, synth 13 %), and 80 % of its percussive part. The model finds
+drums by the top octave instead:
+- Clean E-GMD drums fed to v1 alone go 100 % to drums (also mono, also
+  saturated). Low-passed at 16 kHz, 50 % of their > 2 kHz energy goes to
+  vocals; after an MP3 round trip, 59 %. Generated hardstyle drums: 91 % and
+  81 %. Reverb moves 20 % of E-GMD's energy (mostly lows) to vocals.
+- The cause is in the sources: the drums are the only full-band stem. 99.9 %
+  of the > 2 kHz energy lies under 20.6 kHz for E-GMD and 20.0 for Slakh
+  drums, but under 14.7 kHz for ccMixter (mostly MP3), 11.7 for VocalSet,
+  11.2 for LibriTTS-R (24 kHz files), 9.1 for Slakh synth and 9.9 for Slakh
+  "other". In catalog examples, sound above ~16 kHz means drums.
+- The owner's songs do have a top octave (2.4 % of the > 2 kHz energy is above
+  16.5 kHz, more than E-GMD's 1.5 %), but there it comes from bright synths
+  and reverb, and v1 gives it 89 % to synth, 10 % to vocals, 1 % to drums.
+  Every band above 2 kHz gets ≤ 4 % drums. Without the cue, bright transient
+  sound falls to vocals (2–14 kHz: ~60 %) and synth.
+(A first probe fed the app's lanes from the listening page's MP3s; those are
+band-limited by the encoder, so that probe partly measured the shortcut too.)
+
+The fix is in the data, so no stem owns a frequency range: random steep
+low-passes (11–20 kHz) on whole examples and on single stems, so drums often
+lack the top octave; bright, saturated synth and "other" stems, so they often
+have it; and reverb on drums, synth and "other", not just vocals.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
