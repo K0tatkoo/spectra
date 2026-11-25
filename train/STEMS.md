@@ -341,6 +341,28 @@ low-passes (11–20 kHz) on whole examples and on single stems, so drums often
 lack the top octave; bright, saturated synth and "other" stems, so they often
 have it; and reverb on drums, synth and "other", not just vocals.
 
+**v2 run (scheduled 2026-11-25 22:30 on the desktop).** v1's recipe (`small`,
+4 × 4 s, 40,000 steps, same sources and weights) with that fix in the mixer
+(`MixConfig.band_limit`, `stem_band_limit`, `bright`, `stem_reverb`):
+- half the examples are low-passed as a whole, at 11–20 kHz, by an elliptic
+  filter of order 6–10 (as steep as a codec), the same filter on every stem;
+- single stems are low-passed on their own: drums 35 %, synth and "other" 15 %;
+- catalog synths (35 %) and "other" parts (25 %) are driven bright: a tanh
+  drive of 3–20 at twice the rate, then a 6–15 dB high shelf;
+- catalog drums, synths and "other" parts get the vocal chain's reverb 30 % of
+  the time.
+Drums with a top octave in training: 86 % → 51 %; building an example takes
+0.56 s (v1: 0.51). `runs\v2\valid.pt` is v1's held-out set, copied, so v1 and
+v2 score the same songs. `tools/desktop-run-v2.cmd` then renders the 15 songs
+(`D:\stems-clean\listen-stems-v2-compare\index.html`; `listen-v2` is taken by
+the synth splitter) and writes `lane_bands.txt` (`tools/lane_bands.py`: where
+each band of the songs goes, from the WAVs) and `cues.txt`
+(`tools/probe_cues.py`: clean drums low-passed, MP3'd or reverbed, fed alone).
+The same tools on v1, as the bar (`runs\v1-test\lane_bands.txt`, `cues.txt`):
+every band above 2 kHz of the songs ≤ 4 % drums; of clean drums' energy above
+2 kHz, an MP3 round trip sends 52 % (E-GMD) and 39 % (generated) to vocals, and
+the elliptic 16 kHz low-pass 8 % and 36 % (a hard FFT cut sent 50 % and 91 %).
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
