@@ -54,8 +54,13 @@ def _peaking(fc: float, gain_db: float, q: float) -> np.ndarray:
     return np.array([[b[0] / d[0], b[1] / d[0], b[2] / d[0], 1.0, d[1] / d[0], d[2] / d[0]]])
 
 
-def kick(rng, length: int, root_hz: float, raw: float) -> np.ndarray:
+def kick(rng, length: int, root_hz: float, raw: float, clean: bool = False, hold: float | None = None) -> np.ndarray:
     """One kick, `length` samples (up to the next beat). raw 0 (euphoric) .. 1 (raw).
+
+    `clean`: an 808-style kick instead, the pitched sine boom with only a little drive and a
+    click. `hold`: the punch falls to this level (0..1) and the tail holds there until the kick
+    is cut, as many real hardstyle kicks do, instead of dying away. Both are for the own-stems
+    model (v3: it took a clean held boom for drums); with neither, the draws are as before.
 
     A hardstyle kick is not an 808. An 808 is a clean sub boom; a hardstyle kick's
     tail is a distorted tone whose grit sits in the mids (the "tok"), made the way
@@ -73,7 +78,18 @@ def kick(rng, length: int, root_hz: float, raw: float) -> np.ndarray:
     body = np.sin(2 * np.pi * np.cumsum(f) / SR)
     tail = rng.uniform(0.12, 0.25) + (1 - raw) * rng.uniform(0.0, 0.25)
     env = np.minimum(t / 0.0007, 1.0) * np.exp(-t / tail)
+    if hold is not None:
+        env = np.minimum(t / 0.0007, 1.0) * (hold + (1 - hold) * np.exp(-t / 0.03))
     x = body * env
+    if clean:  # nearly undriven: v2 gave a drive of 1-3 to bass already, a pure sine boom to drums
+        g = rng.uniform(0.3, 1.5)
+        x = np.tanh(g * x) / math.tanh(g)
+        click = rng.standard_normal(length) * np.exp(-t / rng.uniform(0.001, 0.004))
+        # often no click at all: a bare sine boom is what v2 gave to drums (91 %)
+        x += rng.uniform(0.05, 0.3) * (rng.random() < 0.5) * signal.sosfilt(
+            signal.butter(2, 2000, "hp", fs=SR, output="sos"), click)
+        x = x / (np.max(np.abs(x)) + 1e-9)
+        return x * np.exp(-np.maximum(t - 0.8 * length / SR, 0) / 0.01)
     g = rng.uniform(6, 12) + raw * rng.uniform(6, 20)  # driven hard: harmonics all the way up
     x = np.tanh(g * x) / math.tanh(g)
     # Thin the driven tail's fundamental (a clean sub goes back under it), boost the tok,
@@ -179,7 +195,8 @@ def _add(bus: np.ndarray, at: int, hit: np.ndarray, gain: float, pan: float = 0.
         bus[1, at:at + m] += hit[:m] * gain * (1 + pan)
 
 
-def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, dict]:
+def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None,
+                 kick_styles: bool = False) -> tuple[np.ndarray, np.ndarray, dict]:
     """Stereo drums + bass (2, total), the kick envelope (total,) 0..1, and what was played.
 
     With `bass_out` (2, total), the bass goes there instead of into the drums (the own-stems
@@ -193,7 +210,11 @@ def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None)
     Percussion as real hardstyle has it (v0 had only filtered-noise blips and never learned
     that hats and claps are drums): metallic drum-machine hats in one of a few patterns,
     sometimes a ride, claps and snares on 2 and 4 through a room, snare rolls into the kick's
-    return after a breakdown, crashes on phrases and drops."""
+    return after a breakdown, crashes on phrases and drops.
+
+    `kick_styles` (the own-stems model, v3): three songs in ten get a clean 808-style kick and
+    about a third a held tail, so a clean held boom is heard as the bass line too. Off, the
+    draws are exactly as before (the synth splitter's data does not move)."""
     beat = int(mu.beat * SR)
     raw = float(rng.uniform(0, 1))
     key_root = _hz(36 + mu.root)  # C2..B2
@@ -225,6 +246,10 @@ def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None)
     hat_level, clap_level = rng.uniform(0.25, 0.6), rng.uniform(0.35, 0.7)
     snare_level, ride_level = rng.uniform(0.3, 0.6), rng.uniform(0.12, 0.25)
     wet = rng.uniform(0.15, 0.5)
+    clean_kick, hold = False, None
+    if kick_styles:
+        clean_kick = bool(rng.random() < 0.3)
+        hold = float(rng.uniform(0.35, 0.8)) if rng.random() < 0.35 else None
     drums = np.zeros((2, total))
     verb = np.zeros((2, total))  # claps, snares and crashes go through the room
     kenv = np.zeros(total)
@@ -243,7 +268,7 @@ def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None)
                 root /= 2
         playing = kick_bars[bar]
         if playing:
-            k = kick(rng, n, root, raw)
+            k = kick(rng, n, root, raw, clean=clean_kick, hold=hold)
             if bass_out is None:
                 drums[:, start:start + n] += k
             else:
@@ -300,6 +325,9 @@ def render_drums(rng, mu: Music, total: int, bass_out: np.ndarray | None = None)
     info = {"kick": "raw" if raw > 0.6 else "euphoric" if raw < 0.3 else "mid", "reverse_bass": rev,
             "breakdown_bars": int((~kick_bars).sum()), "tuned_to_chords": tuned_to_chords, "hats": hat_style,
             "claps": claps, "snare": snare}
+    if kick_styles:
+        info["kick_style"] = "clean" if clean_kick else info["kick"]
+        info["kick_held"] = hold is not None
     return drums.astype(np.float32), kenv.astype(np.float32), info
 
 

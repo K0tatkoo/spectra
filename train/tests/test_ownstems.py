@@ -128,8 +128,9 @@ def test_credits_list_each_credit_once(tmp_path):
 
 # ── mixer ─────────────────────────────────────────────────────────────────
 
-def _tone_library(root) -> Library:
-    """Two clips per stem, each a different made-up sound, all CC0 in a fake source."""
+def _tone_library(root, drums=None) -> Library:
+    """Two clips per stem, each a different made-up sound, all CC0 in a fake source.
+    `drums`: another maker for the drum clips (k -> 4 s of mono)."""
     rng = np.random.default_rng(0)
     t = np.arange(4 * RATE) / RATE
     sounds = {
@@ -137,7 +138,7 @@ def _tone_library(root) -> Library:
         "synth": lambda k: np.sign(np.sin(2 * np.pi * (440 + 50 * k) * t)) * 0.5,
         "other": lambda k: np.sin(2 * np.pi * (330 + 20 * k) * t) * np.exp(-((t % 0.5) * 4)),
         "bass": lambda k: np.sin(2 * np.pi * (55 + 5 * k) * t),
-        "drums": lambda k: rng.standard_normal(t.size) * np.exp(-((t % 0.25) * 30)),
+        "drums": drums or (lambda k: rng.standard_normal(t.size) * np.exp(-((t % 0.25) * 30))),
     }
     led = Ledger(root)
     arts, clips = [], []
@@ -237,6 +238,96 @@ def test_brighten_gives_a_dark_part_a_top_end():
         out = brighten(dark, np.random.default_rng(seed))
         assert out.shape == dark.shape and np.all(np.isfinite(out))
         assert _share_above(dark, 6000) < 1e-4 and _share_above(out, 6000) > 2e-3
+
+def _kicks(decay_s: float, hits_s=(0.1, 0.6, 1.1, 1.6, 2.1), seconds=3.0) -> np.ndarray:
+    """Clean sine kicks, a pitch drop into 50 Hz, decaying with time constant `decay_s`."""
+    n = int(seconds * RATE)
+    x = np.zeros(n)
+    for a in hits_s:
+        s = int(a * RATE)
+        t = np.arange(n - s) / RATE
+        f = 50 + 200 * np.exp(-t / 0.02)
+        x[s:] = np.sin(2 * np.pi * np.cumsum(f) / RATE) * np.exp(-t / decay_s) * np.minimum(t / 0.001, 1)
+    return np.stack([x, x]) * 0.5
+
+
+def _low(x: np.ndarray) -> float:
+    spec = np.abs(np.fft.rfft(np.asarray(x).reshape(-1, x.shape[-1]), axis=-1)) ** 2
+    return float(spec[:, np.fft.rfftfreq(x.shape[-1], 1 / RATE) < 120].sum())
+
+
+def test_held_boom_moves_an_808_tail_to_bass_and_keeps_the_punch():
+    """v2 gave the owner's 808 to drums: E-GMD's electronic kits taught it a clean held boom is a drum."""
+    from ownstems.mixer import held_boom
+
+    x = _kicks(0.6)
+    boom = held_boom(x, np.random.default_rng(0))
+    assert boom is not None and boom.shape == x.shape
+    rest = x - boom
+    for a in (0.6, 1.1, 1.6):  # each hit's first 10 ms stay drums; from 100 ms on, its low end is bass
+        s = int(a * RATE)
+        head, tail = slice(s, s + int(0.01 * RATE)), slice(s + int(0.1 * RATE), s + int(0.45 * RATE))
+        assert np.sum(rest[:, head] ** 2) > 0.9 * np.sum(x[:, head] ** 2)
+        assert _low(rest[:, tail]) < 0.05 * _low(x[:, tail])
+    assert _low(boom) > 0.7 * _low(x)
+
+
+@pytest.mark.parametrize("decay, hits", [
+    (0.04, (0.1, 0.6, 1.1, 1.6, 2.1)),          # acoustic kicks: gone well before 150 ms
+    (0.05, (0.1, 0.22, 0.6, 0.72, 1.1, 1.22)),  # double kicks 120 ms apart
+])
+def test_held_boom_leaves_short_kicks_alone(decay, hits):
+    from ownstems.mixer import held_boom
+
+    rng = np.random.default_rng(0)
+    assert held_boom(_kicks(decay, hits), rng) is None
+    assert rng.random() == np.random.default_rng(0).random()  # and drew nothing
+
+
+def test_mixer_hands_a_catalog_808_boom_to_bass(tmp_path):
+    hits = (0.1, 0.6, 1.1, 1.6, 2.1, 2.6, 3.1)
+    lib = _tone_library(tmp_path, drums=lambda k: _kicks(0.6 if k == 0 else 0.04, hits, seconds=4.0)[0] * 2)
+    base: dict = dict(seconds=3.0, generated_song=0.0, absent={s: 0.0 for s in STEMS}, layered={s: 0.0 for s in STEMS},
+                bright={}, stem_reverb={}, stem_band_limit={}, band_limit=0.0, master=0.0)
+    moved = 0
+    for seed in range(10):
+        on = Mixer(lib, MixConfig(**base)).example(np.random.default_rng(seed))
+        assert np.max(np.abs(on.stems.sum(axis=0) - on.mix)) < 1e-6
+        held = any("drums0" in c for c in on.info["clips"]["drums"])  # drums0 is an 808 loop, drums1 acoustic
+        assert bool(on.info.get("boom_to_bass")) == held
+        moved += held
+        off = Mixer(lib, MixConfig(**base, boom_to_bass=False)).example(np.random.default_rng(seed))
+        assert "boom_to_bass" not in off.info
+    assert moved >= 2
+
+
+def test_generated_kick_styles_are_bass_after_the_punch():
+    """v3: clean 808-style and held-tail kicks in the generated songs, tails labelled bass as before."""
+    from synthsplit import hardstyle
+
+    f = np.fft.rfftfreq(4 * RATE, 1 / RATE)
+    styles = set()
+    for seed in range(20):
+        bass = np.zeros((2, 4 * RATE))
+        drums, kenv, info = hardstyle.render_drums(np.random.default_rng(seed), hardstyle.music(
+            np.random.default_rng(seed + 50), 4.5), 4 * RATE, bass_out=bass, kick_styles=True)
+        styles.add((info["kick_style"] == "clean", info["kick_held"]))
+        d, b = np.abs(np.fft.rfft(drums.mean(0))) ** 2, np.abs(np.fft.rfft(bass.mean(0))) ** 2
+        if kenv.max() > 0:  # a kick played (4 s can sit inside a breakdown: snares only)
+            assert b[f < 120].sum() / (d[f < 120].sum() + b[f < 120].sum()) > 0.7
+    assert {s[0] for s in styles} == {True, False} and {s[1] for s in styles} == {True, False}
+    # a clean kick keeps its energy low; a held one is still there late in the beat
+    rng = lambda: np.random.default_rng(3)  # noqa: E731
+    n = int(0.4 * RATE)
+    spec = lambda x: np.abs(np.fft.rfft(x)) ** 2  # noqa: E731
+    fk = np.fft.rfftfreq(n, 1 / RATE)
+    mids = lambda x: spec(x)[(fk > 150) & (fk < 2000)].sum() / spec(x).sum()  # noqa: E731
+    assert mids(hardstyle.kick(rng(), n, 50.0, 0.5, clean=True)) < 0.5 * mids(hardstyle.kick(rng(), n, 50.0, 0.5))
+    late = slice(int(0.25 * RATE), int(0.3 * RATE))
+    # (the drive flattens any tail above the sub; the clean sub layer under it is what holds)
+    held, plain = hardstyle.kick(rng(), n, 50.0, 0.8, hold=0.6), hardstyle.kick(rng(), n, 50.0, 0.8)
+    assert _low(held[late]) > 2 * _low(plain[late])
+
 
 def test_loudness_meter_reads_a_reference_sine():
     from ownstems.loudness import lufs

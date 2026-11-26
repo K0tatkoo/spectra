@@ -3,6 +3,12 @@ drums, each changed one way at a time, are fed to the model alone, and the table
 energy above 2 kHz goes. v1 sent half of it to vocals once the top octave was cut (train/STEMS.md); a
 model that hears drums by their sound keeps them in drums whatever the top end.
 
+Two more since v2 (train/STEMS.md, "Why v2's bass dims"): hardstyle kicks alone, distorted as the
+generator makes them and clean as an 808, decaying or held, with the share of their energy below
+120 Hz that lands in bass (v2 gave a clean boom 91 % to drums); and held-out ccMixter vocals dry,
+produced and driven hard, with the share of all their energy per lane (v2 gave driven vocals
+25-29 % to synth).
+
     python tools/probe_cues.py --root D:/stems-clean --ckpt runs/v2/best.pt --device cuda
 """
 
@@ -69,6 +75,11 @@ def main():
             out.append((np.abs(z) ** 2).sum(1)[f >= 2000].sum())
         return np.array(out)
 
+    def lanes_band(x: np.ndarray, lo: float, hi: float) -> np.ndarray:
+        est = separate(net, torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32))).numpy()
+        f, _, z = signal.stft(est.mean(1), RATE, nperseg=4096, noverlap=2048)
+        return (np.abs(z[:, (f >= lo) & (f < hi)]) ** 2).sum((1, 2))
+
     def level(x: np.ndarray) -> np.ndarray:
         return x / (np.sqrt(np.mean(x ** 2)) + 1e-9) * 0.1
 
@@ -99,6 +110,55 @@ def main():
             sh = acc / acc.sum() * 100
             table.setdefault(name, {})[vn] = {s: round(float(v), 1) for s, v in zip(STEMS, sh)}
             print(f"  {vn:20}" + "".join(f"{v:8.0f}" for v in sh))
+
+    beat = int(60 / 150 * RATE)
+    kicks = {"distorted, decaying (as trained)": {}, "distorted, held tail": {"hold": 0.6},
+             "clean 808, decaying": {"clean": True}, "clean 808, held": {"clean": True, "hold": 0.6},
+             "bare sine boom, held": None}
+
+    def bare_boom(r, n, root):  # the pitch drop and a held tail, no drive, no click
+        t = np.arange(n) / RATE
+        f = root + (r.uniform(250, 650) - root) * np.exp(-t / r.uniform(0.008, 0.04))
+        env = np.minimum(t / 0.0007, 1) * (0.55 + 0.45 * np.exp(-t / 0.03)) * np.clip((n / RATE - 0.03 - t) / 0.02, 0, 1)
+        return np.sin(2 * np.pi * np.cumsum(f) / RATE) * env
+    name = "kicks alone, 16 at 150 BPM, 8 kits"
+    print(f"\n{name}: % of the energy below 120 Hz in each lane")
+    print(f"  {'kick':34}" + "".join(f"{s:>8}" for s in STEMS))
+    for kn, kw in kicks.items():
+        acc = np.zeros(len(STEMS))
+        for seed in range(8):
+            r = np.random.default_rng([7, seed])
+            root, raw = r.uniform(38, 55), r.uniform(0, 1)
+            x = np.concatenate([bare_boom(r, beat, root) if kw is None else hardstyle.kick(r, beat, root, raw, **kw)
+                                for _ in range(16)])
+            acc += lanes_band(level(np.stack([x, x])), 0, 120)
+        sh = acc / acc.sum() * 100
+        table.setdefault(name, {})[kn] = {s: round(float(v), 1) for s, v in zip(STEMS, sh)}
+        print(f"  {kn:34}" + "".join(f"{v:8.0f}" for v in sh))
+
+    from ownstems.mixer import brighten, vocal_chain
+
+    def drive(x, r):
+        p = np.max(np.abs(x)) + 1e-9
+        return np.tanh(r.uniform(8, 20) * x / p) * p
+
+    pool = [c for c in lib.catalog.select(stem="vocals", split="valid", source="ccmixter") if c.seconds >= 6]
+    pick = np.random.default_rng(1).choice(len(pool), min(10, len(pool)), replace=False)
+    vox = []
+    for i in pick:
+        x = lib.open(pool[int(i)], 0.0, 6.0)
+        vox.append(np.repeat(x[:1], 2, 0) if x.shape[0] == 1 else x[:2])
+    name = "ccMixter vocals (held out)"
+    print(f"\n{name}, {len(vox)} x 6 s fed alone: % of all their energy in each lane")
+    print(f"  {'variant':34}" + "".join(f"{s:>8}" for s in STEMS))
+    for vn, fn in {"dry": lambda x, r: x, "vocal chain (as trained)": vocal_chain, "driven hard (tanh 8-20)": drive,
+                   "brighten()": brighten}.items():
+        acc = np.zeros(len(STEMS))
+        for k, x in enumerate(vox):
+            acc += lanes_band(level(fn(x.astype(np.float64), np.random.default_rng(k))), 0, RATE / 2 + 1)
+        sh = acc / acc.sum() * 100
+        table.setdefault(name, {})[vn] = {s: round(float(v), 1) for s, v in zip(STEMS, sh)}
+        print(f"  {vn:34}" + "".join(f"{v:8.0f}" for v in sh))
     if args.json:
         args.json.write_text(json.dumps(table, indent=1))
 
