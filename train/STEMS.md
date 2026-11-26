@@ -363,6 +363,41 @@ every band above 2 kHz of the songs ≤ 4 % drums; of clean drums' energy above
 2 kHz, an MP3 round trip sends 52 % (E-GMD) and 39 % (generated) to vocals, and
 the elliptic 16 kHz low-pass 8 % and 36 % (a hard FFT cut sent 50 % and 91 %).
 
+**v2 result (2026-11-26).** Ran 22:30 → 02:17 without a crash, renders and
+measurements done 02:22. Best = step 39,000: mean 4.78 dB on v1's held-out set
+(v1 4.93): vocals 3.91 (4.27), synth 4.22 (4.18), other 1.42 (1.67), bass 6.84
+(7.32), drums 7.51 (7.20), hardstyle songs 5.72 (5.94). The held-out mixes are
+not band-limited, so v2 gives up a little on clean mixes for what it learnt on
+band-limited ones; drums is the lane that gained. Both bars passed:
+- `cues.txt`: E-GMD and generated drums go 100 % to drums in every variant (as
+  is, 16 kHz, 12 kHz, MP3, reverb). The top-octave shortcut is gone.
+- `lane_bands.txt`: drums get 11 % of the songs' 2–6 kHz, 19 % of 6–10, 27 % of
+  10–14, 39 % of 14–16.5 and 63 % above 16.5 kHz (v1: 4, 4, 2, 1, 1).
+
+On the listening pages' MP3s (same measure as v1's table):
+
+| | app | v1 | v2 |
+|---|---|---|---|
+| > 6 kHz → drums | 90 % | 3 % | 22 % |
+| > 6 kHz → vocals / synth | 4 / 6 % | 62 / 35 % | 13 / 65 % |
+| 2–6 kHz → drums / vocals / synth | 45 / 12 / 38 % | 4 / 62 / 34 % | 11 / 18 / 71 % |
+| sub < 120 Hz → bass | 82 % | 70 % | 74 % |
+| bass level | -4.1 | -4.5 | -4.2 |
+| drums level | -10.8 | -11.4 | -10.4 |
+| vocals level | -12.7 | -6.2 | -9.8 |
+| synth level | -12.0 | -10.5 | -6.7 |
+| other level | -18.6 | -33.6 | -28.1 |
+
+Hits vs tone (median-filter HPSS of each mix; bins where one part is 4× the
+other): clear hits above 6 kHz go to drums 80 % (app), 16 % (v1), 57 % (v2);
+at 2–6 kHz 70 / 47 / 66 %. So clean hats and claps mostly reach the drums lane
+now, and the vocals lane no longer carries the bright background. Most of the
+songs' energy above 6 kHz is neither clearly a hit nor clearly a tone (hats
+over supersaw fizz, noise sweeps, reverb); v2 gives that to synth, the app to
+drums. Which is right there is for the ear: v2's synth lane may now hold hats,
+or the app's drums lane may hold fizz. Bass kept v1's kick split; "other" is
+still nearly empty.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
