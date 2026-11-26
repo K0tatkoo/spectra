@@ -398,6 +398,41 @@ drums. Which is right there is for the ear: v2's synth lane may now hold hats,
 or the app's drums lane may hold fizz. Bass kept v1's kick split; "other" is
 still nearly empty.
 
+**v2 by ear (the owner, 2026-11-26):** synth much better than the app's; the
+808 split and the drums "pretty much fixed"; "other" still quiet; vocals very
+good but they dim and smear now and then, less clear than the app's. The
+bass lane is the one left: distorted, cutting out, dimming at random.
+
+**Why v2's bass dims (measured the same day).** Against the app's bass lane,
+v2's sub (< 120 Hz) sits > 6 dB lower in 29 % of the frames where the app's
+bass plays (> 10 dB in 22 %). In those dips 89 % of the songs' sub is in v2's
+drums lane (6 % elsewhere): v2 hands whole passages of the 808 to drums. Half
+of the dipped time is in dips of a second or more (the longest 11 s), and they
+don't follow the kick hits. Not the 4 s chunks either: dips sit on the
+crossfades no more often than chance, and 75 % overlap or 8 s chunks leave
+them as they are. The cue is how clean the boom is:
+- Kicks fed alone: generated hardstyle kicks go 92–96 % to bass, decaying or
+  held flat; the same pitch drop as a clean sine boom with no drive goes 91 %
+  to drums.
+- In the library, 29 % of E-GMD windows (88.5 % of the drum draws) and 7 % of
+  Slakh's have a kick whose low band is still within 10 dB of its peak 150 ms
+  after the hit (electronic kits' 808s), all labelled drums. The generated
+  kicks, whose tails are labelled bass, are always driven hard.
+- So v2 learned "clean held boom = drums, distorted tail = bass". Real kicks
+  carry a clean sub layer under the distortion, and wherever the grit is
+  masked (Scrap Attack 1:57 and 6:09, Ran-D 0:45–1:05) the whole passage goes
+  to drums.
+
+**Why v2's vocals dim.** In vocal dips 79 % of the vocal band (0.3–4 kHz) goes
+to synth (52 % elsewhere). Held-out ccMixter vocals fed alone go 5 % to synth
+dry, 25 % driven hard, 29 % through `brighten()`. v2 taught "driven and
+bright = synth", and catalog vocals were never driven that hard.
+
+Proposed v3 (data only, same recipe and held-out set): a library kick's held
+low boom moves to the bass label after the punch, as the generated kick's
+tail does; generated kicks also come clean (808-style) and with held tails;
+catalog vocals are driven bright now and then, as synths are.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
