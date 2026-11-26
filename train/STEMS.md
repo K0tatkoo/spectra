@@ -428,10 +428,32 @@ to synth (52 % elsewhere). Held-out ccMixter vocals fed alone go 5 % to synth
 dry, 25 % driven hard, 29 % through `brighten()`. v2 taught "driven and
 bright = synth", and catalog vocals were never driven that hard.
 
-Proposed v3 (data only, same recipe and held-out set): a library kick's held
-low boom moves to the bass label after the punch, as the generated kick's
-tail does; generated kicks also come clean (808-style) and with held tails;
-catalog vocals are driven bright now and then, as synths are.
+**v3 run (scheduled 2026-11-27 03:00 on the desktop; the owner moved it from
+22:30).** v2's recipe and v1's held-out set, with three data changes (commit
+a7b8a01):
+- `held_boom()`: in a catalog drum window where most kicks still hold below
+  120 Hz 150 ms after the hit (within 10 dB of their peak), each such kick
+  keeps its punch (15–40 ms, then an 8–25 ms fade, as the generated split) and
+  hands the rest of its low band to bass. It fires on 26 % of E-GMD's 4 s
+  windows (moving a median 58 % of their low band) and 12 % of Slakh's. A
+  first version judged every kick on its own and fired on 52 % (a kick
+  followed by a floor tom "holds" too).
+- `kick_styles` in the generator: 3 songs in 10 get a nearly undriven 808-style
+  kick (tanh 0.3–1.5, a click half the time), about a third a held tail. With
+  it off the draws are bit-identical, so the synth splitter's data is as
+  before.
+- Catalog vocals go through `brighten()` a quarter of the time.
+In 300 training examples the sub (< 120 Hz) labelled bass goes from 49 % to
+58 % in catalog examples (drums 44 → 32 %), 87 → 89 % in generated ones;
+building an example costs the same. The held-out set still has library booms
+labelled drums, so v3's bass and drums SDRs may dip there for following the
+new rule. `tools/desktop-run-v3.cmd` also writes `dips.txt`
+(`tools/lane_dips.py`) and the longer `cues.txt` (kicks alone, driven
+vocals). v2's bar on them (`runs\v2\dips.txt`, `cues2.txt`): bass sub > 6 dB
+under the app in 29 % of frames, 89 % of it in drums during dips, longest dip
+11.2 s (Scrap Attack 6:09); vocal dips 30 %, 79 % into synth; kicks alone to
+bass: distorted 92–95 %, clean 808 66–71 %, bare sine boom 7 %; ccMixter
+vocals driven hard 27 % synth, through `brighten()` 29 %.
 
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
