@@ -501,6 +501,27 @@ took the leads (0.5–2 kHz: synth 67 % → 35 %, vocals 18 % → 51 %).
   grit above it and guesses below 120 Hz. (In The Cold 1:34, a long held sub
   note, goes 89 % to vocals, synth and "other".)
 
+**v4 run (scheduled 2026-11-28 03:00 on the desktop; the owner chose "sub =
+bass").** v2's recipe with a simpler low-end rule (commit bafe379):
+- Everything a drum stem holds below 120 Hz is labelled bass, from the hit on
+  (`MixConfig.sub_to_bass_hz`, `drum_sub()`, a zero-phase split so the labels
+  still sum to the mix); drums keep the click and punch above it. This
+  replaces v3's per-kick `held_boom()`. The cost, accepted: the drums lane has
+  no kick thump in any genre, acoustic drums included.
+- A steady sub-bass line (`hardstyle.sub_bass`: a near-sine on the chord
+  root, 30–70 Hz, held or a note per beat, often ducked by the kick) in 4
+  generated songs in 10, and v3's clean and held kicks stay.
+- Catalog vocals are no longer brightened (v2's setting).
+In training the sub is now labelled bass 90 % (catalog; v2 45 %) and 95 %
+(generated; v2 89 %), drums ≤ 1 %; the bands above 120 Hz and the cost of an
+example are unchanged. v4 builds its own held-out set (v1's labels the drums'
+sub drums), so its scores do not compare with v1–v3's; `tools/score_on.py`
+also scores it on v1's set (`old_set.txt`), where vocals, synth and "other"
+do. `lane_dips.py` now also reports the bass at each kick; v3's bar: -9.6 dB
+against the mix at the hit, -7.2 at 10 ms, -4.3 at 30 ms (app -3.6, -2.7,
+-2.5), bass dips 16 %. A steady sine sub fed alone already went 99 % to bass
+in v3; v3's kicks alone 91–97 %.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
