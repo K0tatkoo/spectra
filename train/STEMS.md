@@ -81,6 +81,46 @@ Checked and left out:
 - **Unclear, so out:** NUS-48E (an anonymous re-upload), SingStyle111, URMP,
   MusicNet, VSCO-2 CE.
 
+**Instrument sources for the "instruments" lane (checked 2026-11-27, each on
+its own page; nothing downloaded yet).** No source states an ML/AI-training
+clause. Each will be read again when its source module is written.
+- **Allowed:** VSCO-2 CE (CC0; this overturns the 4 Nov "unclear"; chamber
+  orchestra samples, ~3 GB). VCSL (CC0, samples of every family). Salamander
+  Grand Piano (CC BY 3.0, 1.2 GB; the same page has Upright Piano KW under
+  CC0). TinySOL (CC BY 4.0, 2,913 notes incl. sax, trumpet, violin, 1 GB).
+  NSynth (CC BY 4.0, 16 kHz only). Guitar-TECHS (CC BY 4.0, electric guitar DI
+  + amp mic, 5.2 h, 4.1 GB). EGFxSet (CC BY 4.0, Stratocaster notes clean and
+  through 12 real pedals incl. drives, 5.8 GB). sfzinstruments: CC0 Karoryfer
+  guitars, Bear Sax, Weresax, War Tuba, Bigcat Cello, several drum kits; CC BY
+  4.0 MTG Solo Sax, Ixox Flute, DRS / Muldjord / Naked Drums. Mutopia MIDI
+  (public-domain and CC BY pieces only). ccMixter instrument uploads, CC BY and
+  CC0 only: by tag guitar 898, piano 546, drums 1,127, violin 122, distortion
+  71, electric_guitar 67, acoustic_guitar 60, saxophone 48, cello 42, flute 42,
+  trumpet 30, jungle 22 (CC0: guitar 32, piano 14, drums 49); tags don't mean
+  isolated parts, so filter by file label as for the a cappellas, and drop
+  covers and remixes.
+- **Refused:** FiloSax (non-commercial research), Philharmonia samples (no
+  redistribution "as is"), Sonatina Symphonic Orchestra (CC Sampling Plus,
+  partly Philharmonia), MAESTRO (CC BY-NC-SA), Salamander Drumkit (CC BY-SA),
+  MTG good-sounds (its description says CC BY-NC 4.0, its rights field CC BY:
+  treated as refused).
+- **Unclear, so out for now:** URMP (no licence; ask the lab), Iowa MIS ("any
+  projects, without restrictions", no named licence; ask for a public-domain
+  statement), MusicNet (CC BY 4.0, but the recordings' own licences are not
+  listed), Musopen (mixed licences, personal-use terms), EGDB (no licence),
+  Medley-solos-DB (cut from MedleyDB), Lakh MIDI (CC BY, but scraped
+  copyrighted songs), Bach Violin (per-folder, some YouTube), Open Multitrack
+  Testbed (site down), Cambridge-MT (site blocks fetches).
+- **Coverage:** classical well covered by samples (VSCO-2, VCSL, TinySOL,
+  Salamander) with Mutopia rendered through them, but no real performed
+  stems; jazz the weakest (sax and trumpet only as notes, plus ccMixter's 48
+  and 30 uploads); pop/rock from ccMixter, GuitarSet, Guitar-TECHS, the
+  Karoryfer guitars; metal has no real distorted multitracks, so reamp the DI
+  sets through amp models and add EGFxSet's drives and ccMixter's
+  "distortion" uploads; breakcore/jungle has no free break pack (the classic
+  breaks are copyrighted records), so build breaks from the CC0/CC BY kits and
+  E-GMD, plus ccMixter drums (drums lane).
+
 A caveat: Slakh2100 and StemGMD are renders of commercial sample libraries. The
 datasets are published as CC BY, and that is what we rely on. Whether the
 sample vendors' terms reach rendered audio is the publishers' question, and it
