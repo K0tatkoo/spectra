@@ -501,8 +501,9 @@ took the leads (0.5–2 kHz: synth 67 % → 35 %, vocals 18 % → 51 %).
   grit above it and guesses below 120 Hz. (In The Cold 1:34, a long held sub
   note, goes 89 % to vocals, synth and "other".)
 
-**v4 run (scheduled 2026-11-28 03:00 on the desktop; the owner chose "sub =
-bass").** v2's recipe with a simpler low-end rule (commit bafe379):
+**v4 run (started 2026-11-27 10:47 on the desktop: the owner chose "sub =
+bass", then freed the desktop for the weekend, so it ran at once instead of
+at 03:00).** v2's recipe with a simpler low-end rule (commit bafe379):
 - Everything a drum stem holds below 120 Hz is labelled bass, from the hit on
   (`MixConfig.sub_to_bass_hz`, `drum_sub()`, a zero-phase split so the labels
   still sum to the mix); drums keep the click and punch above it. This
