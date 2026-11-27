@@ -553,6 +553,25 @@ Vocals, synth and the highs are back near v2's, as meant:
 - Vocal dips against the app: 33 % of frames, 78 % of the missing sound in
   synth (v2 30 % / 79 %): v2's vocal dimming is still there.
 
+**v4 by ear (the owner, 2026-11-27):** bass better, "technically better" than
+the app's (the app's lets through much more background), though in some parts
+it still doesn't feel quite like the app's; drums much better than the app's
+now that no bass bleeds into them; synth much better than the app's in places
+(song 3 at 0:40); vocals "kinda ok" but tinny next to the app's, at times
+leaking wholly into synth (song 2 at 0:44), and "everything leaks into
+synth". Measured at those spots (app / v4): song 2, 0:40–0:50, the vocal's
+body (0.3–4 kHz) goes 58 / 9 % to vocals and 34 / 91 % to synth while its top
+(4–12 kHz) stays in vocals (75 / 77 %): the vocals lane keeps only the
+sibilant top, which is the tinny sound. Song 3, 0:36–0:46: 4–12 kHz goes
+4 / 60 % to vocals and 76 / 24 % to drums.
+
+**The owner's idea: an "instruments" lane** (violin, sax, trumpet, piano,
+electric and acoustic guitar without bleeding into synth; bass guitar stays
+bass), for jazz, classical, pop, rock, metal and breakcore/jungle. The
+"other" lane is already trained as that: Slakh's piano, guitars (distorted
+ones too), strings, brass, reeds and organ, and GuitarSet. What it lacks is
+real recordings and those genres.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
