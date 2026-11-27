@@ -523,6 +523,36 @@ against the mix at the hit, -7.2 at 10 ms, -4.3 at 30 ms (app -3.6, -2.7,
 -2.5), bass dips 16 %. A steady sine sub fed alone already went 99 % to bass
 in v3; v3's kicks alone 91–97 %.
 
+**v4 result (2026-11-27).** Ran 10:47 → 14:31 without a crash (0.33 s a step,
+no data wait), measurements done 14:37. Best = the last step, 40,000. On its
+own held-out set: mean 5.28 dB (vocals 4.28, synth 5.02, other 1.30, bass
+9.25, drums 6.57, hardstyle songs 6.96), not comparable with earlier runs. On
+v1's set (`old_set.txt`): vocals 4.08 (v2 3.91, v3 3.84), synth 4.28 (v2
+4.22, v3 4.49), other 1.47 (v2 1.42, v3 1.60); bass 5.90 and drums 4.60 there
+only show that set labels the drums' sub drums.
+
+The bass is fixed by every measure:
+- Bass sub > 6 dB under the app in 0.7 % of frames (v3 16 %, v2 29 %); no dip
+  lasts over a second (the longest, In The Cold 1:39, 1.0 s).
+- At each kick the bass lane holds the sub from the hit: -0.5 dB against the
+  mix at the hit, -0.1 dB from 30 ms on (v3 -9.6 and -4.3; the app -3.6 and
+  -2.5: its drums keep a little).
+- The sub goes 99 % to bass; bass level -2.6 dB against the mix (app -4.1);
+  every kick and sub tone fed alone 99–100 % to bass.
+- The drums lane is quieter without the thump: -15.0 dB against the mix
+  (app -10.8, v2 -10.3).
+
+Vocals, synth and the highs are back near v2's, as meant:
+- 0.5–2 kHz: synth 66 %, vocals 19 % (v2 67 / 18, v3 35 / 51); synth level
+  -7.0 dB (v2 -6.8); vocals level -12.2 dB, about the app's (-12.7; v2 -9.8,
+  v3 -7.8).
+- Above 6 kHz: drums 26 %, vocals 22 %, synth 52 % (v2 22 / 13 / 65, v3
+  12 / 62 / 26, app 90 / 4 / 6). Clear hits above 6 kHz to drums 53 % (v2 57 %,
+  v3 35 %, app 80 %).
+- Driven vocals fed alone: 18 % to synth (v2 27 %, v3 9 %).
+- Vocal dips against the app: 33 % of frames, 78 % of the missing sound in
+  synth (v2 30 % / 79 %): v2's vocal dimming is still there.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
