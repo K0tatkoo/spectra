@@ -481,6 +481,26 @@ The vocal fix overshot:
   taught "hissy and bright = vocals" as v2's synth-only brightening taught
   "= synth". A milder vocal drive (no big shelf) is the likely middle.
 
+**v3 by ear (the owner, 2026-11-27):** overall worse than v2; synth "completely
+broken"; vocals the same or worse; bass somewhat better but still dims and
+cuts off too much. The synth matches the numbers: driven vocals in training
+taught "driven = vocals", and hardstyle leads are driven, so the vocals lane
+took the leads (0.5–2 kHz: synth 67 % → 35 %, vocals 18 % → 51 %).
+
+**Why v3's bass still cuts off (measured the same day):**
+- At every kick: in the first 20–30 ms after the hit v3's bass lane sits
+  ~6 dB under the app's (sub -9.5 dB against the mix at the hit, app -3.6),
+  then catches up. That is our rule (the kick's first 15–40 ms is drums, sub
+  included); the app keeps the sub in bass from the hit, its drums lane
+  holds almost none (-12.7 dB).
+- The long dips (Scrap Attack 1:58, Taste The Blade 1:18): fast kick
+  patterns whose clean 48 Hz sub holds from kick to kick. Fed to v3 alone,
+  the app's bass lane there still goes 98–100 % to drums; its sub alone
+  (< 120 Hz) 30–64 % to bass; the sub flattened to a steady tone 50 %. So
+  v3 never learned that a steady low tone is bass: it decides by the mid-range
+  grit above it and guesses below 120 Hz. (In The Cold 1:34, a long held sub
+  note, goes 89 % to vocals, synth and "other".)
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
