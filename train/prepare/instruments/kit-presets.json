@@ -1,0 +1,152 @@
+[
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.big-rusty-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.big-rusty-drums\\karoryfer.big-rusty-drums-main.zip",
+  "member": "karoryfer.big-rusty-drums-main/Programs/01-full.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.big-rusty-drums/01-full"
+ },
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.big-rusty-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.big-rusty-drums\\karoryfer.big-rusty-drums-main.zip",
+  "member": "karoryfer.big-rusty-drums-main/Programs/02-basic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.big-rusty-drums/02-basic"
+ },
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.swirly-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.swirly-drums\\karoryfer.swirly-drums-main.zip",
+  "member": "karoryfer.swirly-drums-main/Programs/Basic_kit.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.swirly-drums/Basic_kit"
+ },
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.swirly-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.swirly-drums\\karoryfer.swirly-drums-main.zip",
+  "member": "karoryfer.swirly-drums-main/Programs/Full_kit.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.swirly-drums/Full_kit"
+ },
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.unruly-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.unruly-drums\\karoryfer.unruly-drums-main.zip",
+  "member": "karoryfer.unruly-drums-main/Programs/01-kit-sticks.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.unruly-drums/01-kit-sticks"
+ },
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.unruly-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.unruly-drums\\karoryfer.unruly-drums-main.zip",
+  "member": "karoryfer.unruly-drums-main/Programs/02-kit-brushes.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.unruly-drums/02-kit-brushes"
+ },
+ {
+  "kind": "sfz",
+  "lib": "karoryfer.unruly-drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\karoryfer.unruly-drums\\karoryfer.unruly-drums-main.zip",
+  "member": "karoryfer.unruly-drums-main/Programs/03-kit-complete.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "karoryfer.unruly-drums/03-kit-complete"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/01-basic-kit.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/01-basic-kit"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/02-full-kit.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/02-full-kit"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/03-kick-mic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/03-kick-mic"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/04-snare-mic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/04-snare-mic"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/05-oh-mic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/05-oh-mic"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/06-mid-mic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/06-mid-mic"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/07-room-mic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/07-room-mic"
+ },
+ {
+  "kind": "sfz",
+  "lib": "virtuosity_drums",
+  "src": "D:\\stems-clean\\sources\\instruments-raw\\drum-kits\\virtuosity_drums\\virtuosity_drums-master.zip",
+  "member": "virtuosity_drums-master/Programs/08-vintage-mic.sfz",
+  "family": "drums",
+  "role": "kit",
+  "short": false,
+  "name": "virtuosity_drums/08-vintage-mic"
+ }
+]

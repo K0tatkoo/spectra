@@ -145,6 +145,66 @@ ledger or catalog: each source module will read its licence again when written.
 The downloads ran at low priority beside v5 without slowing it (data wait
 averaged 0.0005 s over its first 11,500 steps).
 
+**Indexed and rendered (2026-11-27, the owner asked).** Two new real sources,
+indexed by dry run (written to the ledger and catalog only once v5 is done, so
+a crash-restart of v5 can't see a changed catalog):
+- `ccmixter-parts`: the 1,019 ccMixter files as clips, licence re-read from
+  each upload's URL, the uploader as the group (split like their a
+  cappellas): instruments ("other") 30.1 h, drums 11.7 h, bass 7.6 h. Three
+  uploads are excluded by hand because their own text says they use someone
+  else's recording (a 1928 record, two TV programmes); found by reading the
+  82 picks whose title, labels, tags or description mention chops, records,
+  years, TV, film, covers or other artists.
+- `guitar-techs`: the micamp and DI takes (not single notes), 204 clips, 9.4 h,
+  "other".
+
+The renderer (all new; tests in tests/test_instruments.py):
+- `ownstems/midi.py`: a standard MIDI file reader (format 0/1, tempo map,
+  running status, the sustain pedal holding notes).
+- `ownstems/sampler.py`: a sample player. SFZ read inside the zips with
+  #define / #include anywhere in a line, inheritance, round robins, keyswitches,
+  controller defaults (set_cc, set_hdcc, players' 7/10/11 defaults),
+  amplitude_onccN mic mixes, loops, envelopes, choke groups; libraries that
+  only name their samples (VSCO-2, VCSL); EGFxSet's string-and-fret notes;
+  TinySOL's table. YIN pitch (no octave errors on weak fundamentals) checks
+  every program: `octave_error` fixes a library's naming (VCSL and VSCO-2 name
+  an octave low, +12; the 4' organ stop +24, right since it sounds an octave
+  up) and `quality` renders five notes across the range, which must sound at
+  the asked pitch (4 of 5 within 0.7 semitone; mallets only need to sound) and
+  not be silent.
+- `ownstems/presets.py` + `tools/instrument_presets.py`: 309 programs checked,
+  221 kept (`presets.json`): brass 28, guitar 46, harp 3, harpsichord 7,
+  mallets 19, organ 5, piano 14, plucked 14, reeds 12, sax 16, strings 28,
+  winds 29. Rejected (with the reason, `presets-rejected.json`): programs that
+  need ARIA's controller tricks (the Black & Green guitars, the Bigcat cello),
+  some with samples libsndfile can't read, bend articulations whose pitch never
+  settles. 15 drum-kit programs pass `breaks.kit_ok` (kick, snare and hat sound).
+- `ownstems/parts.py`: parts by genre (jazz 90–240 BPM swung ii-V-I with 7ths,
+  pop, rock, metal with drop tunings and palm mutes, breakcore 160–200) and
+  role: keys comp / block chords / arpeggios, mono lines (chord tones on
+  strong beats, steps, jazz approach notes, breaths), section pads, guitar
+  strums (strings a few ms apart), fingerpicking, power-chord riffs and
+  gallops, leads, plucked arpeggios and tremolo; human timing and velocity;
+  a few bars of rest now and then.
+- `ownstems/amp.py`: amp and 4x12 cabinet (4x oversampled asymmetric drive,
+  tone stack, cab resonance, low-mid dip, presence, steep top; metal: tight
+  lows, mid push, noise gate) for clean guitars in rock and metal and for
+  Guitar-TECHS's DI takes.
+- `ownstems/breaks.py`: Amen-, Think-, two-step- and funk-style patterns with
+  ghost notes on the kits, or a real E-GMD groove, sped up to 160–200 BPM and
+  chopped into sixteenths (swaps, stutters, reverses, pitched slices, drops,
+  rolls; breakcore more and faster).
+- `ownstems/render.py` + `tools/render_instruments.py`: offline, 5 processes
+  at low priority: made-up parts (a third of them 2–3 instruments on one
+  song), Mutopia excerpts (tempo ×0.85–1.15, a program per staff by its GM
+  program or the score's instrument, one program per family in a piece),
+  re-amped DI takes, breaks. Mono FLAC (the mixer gives width and pan); each
+  render's licence from its components (CC BY when any is, with every credit,
+  else CC0). `ownstems/sources/rendered_instruments.py` indexes them, the
+  first program as the group, so held-out songs are played on programs
+  training never heard. A 32-clip listening page: `train/listen-instruments/`
+  (gitignored), launch entry `instrument-renders`.
+
 A caveat: Slakh2100 and StemGMD are renders of commercial sample libraries. The
 datasets are published as CC BY, and that is what we rely on. Whether the
 sample vendors' terms reach rendered audio is the publishers' question, and it

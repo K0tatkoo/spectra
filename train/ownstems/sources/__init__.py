@@ -63,7 +63,9 @@ def artifacts_for(ledger: Ledger, mod, files: list[Path], ids: list[str], worker
 
 
 def registry() -> dict:
-    from . import ccmixter, egmd, generated, guitarset, librittsr, slakh, vocalset
+    from . import (ccmixter, ccmixter_parts, egmd, generated, guitar_techs, guitarset, librittsr,
+                   rendered_instruments, slakh, vocalset)
 
-    mods = (slakh, egmd, vocalset, guitarset, librittsr, ccmixter, generated)
+    mods = (slakh, egmd, vocalset, guitarset, librittsr, ccmixter, generated, ccmixter_parts, guitar_techs,
+            rendered_instruments)
     return {m.NAME: m for m in mods}
