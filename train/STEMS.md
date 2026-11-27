@@ -205,6 +205,23 @@ The renderer (all new; tests in tests/test_instruments.py):
   training never heard. A 32-clip listening page: `train/listen-instruments/`
   (gitignored), launch entry `instrument-renders`.
 
+**Rendered (2026-11-27):** 3,960 clips of 40 s, 44.0 h, 5.6 GB, none failed, in
+~6 minutes of wall time at low priority beside v5 (which never waited for
+data). Made-up parts 5.6 h for each of jazz, pop, rock, metal and breakcore;
+Mutopia 8.0 h; breaks 3.0 h jungle + 3.0 h breakcore (drums lane); re-amped
+Guitar-TECHS DI 2.0 h. By family (ensembles count once per family): guitar
+14.6 h, piano 10.5, strings 5.4, brass 3.5, organ 3.1, sax 2.9, winds 2.8,
+mallets 1.9, harpsichord 1.6, plucked 1.4, reeds 0.9, harp 0.7; drums 6.0.
+Licences: CC0 2,111, CC BY 4.0 1,661, CC BY 3.0 186, CC BY 2.5 2. The first
+full render was stopped at 1,786 and resumed (jobs are seeded by number): its
+break jobs would have loaded the whole catalog in every worker (~0.4 GB each)
+with the commit charge at 46 of 50 GB beside v5, so E-GMD is now read from its
+own catalog and ledger rows only. D: has 23.9 GB free.
+
+Before v6: index `ccmixter-parts`, `guitar-techs` and `rendered-instruments`
+once v5 is done; rename "other" to "instruments" (code and the app's lane
+label); set the mixer's source weights for the new pools.
+
 A caveat: Slakh2100 and StemGMD are renders of commercial sample libraries. The
 datasets are published as CC BY, and that is what we rely on. Whether the
 sample vendors' terms reach rendered audio is the publishers' question, and it
