@@ -122,6 +122,38 @@ def reverse_bass(rng, length: int, root_hz: float) -> np.ndarray:
     return signal.sosfilt(signal.butter(2, rng.uniform(800, 3000), "lp", fs=SR, output="sos"), x)
 
 
+def sub_bass(rng, mu: Music, total: int, kenv: np.ndarray | None = None) -> tuple[np.ndarray, str]:
+    """A sub-bass line (2, total) and its style: a near-sine on each bar's chord root, 30-70 Hz,
+    gliding between notes. Held through the bar (a drone, as under a breakdown) or a note per beat,
+    and often ducked by the kick envelope `kenv` so it fills the gaps between kicks, as hardstyle's
+    sub layers do. For the own-stems model (v4), which had never learned that a steady low tone is
+    bass (train/STEMS.md); the synth splitter does not use it."""
+    bar = int(4 * mu.beat * SR)
+    f = np.zeros(total)
+    for i in range(int(math.ceil(total / bar))):
+        hz = _hz(mu.pitch(mu.chord_degree[min(i, mu.bars - 1)], 36))
+        while hz > 70:
+            hz /= 2
+        f[i * bar:(i + 1) * bar] = hz
+    k = int(rng.uniform(0.005, 0.06) * SR)  # the glide from note to note
+    f = np.convolve(np.pad(f, (k // 2, k - k // 2 - 1), mode="edge"), np.ones(k) / k, mode="valid")[:total]
+    x = np.sin(2 * np.pi * np.cumsum(f) / SR + rng.uniform(0, 2 * np.pi))
+    drive = rng.uniform(0.3, 2.0)  # from a pure sine to a little warmth
+    x = np.tanh(drive * x) / math.tanh(drive)
+    style = "beats" if rng.random() < 0.35 else "held"
+    env = np.ones(total)
+    if style == "beats":  # a note per beat, dying away before the next
+        beat = int(mu.beat * SR)
+        t = np.arange(beat) / SR
+        one = np.minimum(t / 0.005, 1.0) * np.exp(-t / rng.uniform(0.15, 0.5))
+        env = np.tile(one, total // beat + 1)[:total]
+    if kenv is not None and rng.random() < 0.6:  # ducked under each kick
+        env = env * (1 - rng.uniform(0.5, 1.0) * kenv[:total])
+        style += "+ducked"
+    x = x * env * rng.uniform(0.3, 0.9)
+    return np.stack([x, x]), style
+
+
 def noise_hit(rng, length: int, band: tuple[float, float], decay: float) -> np.ndarray:
     t = np.arange(length) / SR
     lo, hi = band

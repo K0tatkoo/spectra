@@ -5,7 +5,8 @@ model that hears drums by their sound keeps them in drums whatever the top end.
 
 Two more since v2 (train/STEMS.md, "Why v2's bass dims"): hardstyle kicks alone, distorted as the
 generator makes them and clean as an 808, decaying or held, with the share of their energy below
-120 Hz that lands in bass (v2 gave a clean boom 91 % to drums); and held-out ccMixter vocals dry,
+120 Hz that lands in bass (v2 gave a clean boom 91 % to drums; v4 labels all drum sub bass), and a
+steady sine sub; and held-out ccMixter vocals dry,
 produced and driven hard, with the share of all their energy per lane (v2 gave driven vocals
 25-29 % to synth).
 
@@ -114,14 +115,14 @@ def main():
     beat = int(60 / 150 * RATE)
     kicks = {"distorted, decaying (as trained)": {}, "distorted, held tail": {"hold": 0.6},
              "clean 808, decaying": {"clean": True}, "clean 808, held": {"clean": True, "hold": 0.6},
-             "bare sine boom, held": None}
+             "bare sine boom, held": None, "steady sine sub, no beat": "steady"}
 
     def bare_boom(r, n, root):  # the pitch drop and a held tail, no drive, no click
         t = np.arange(n) / RATE
         f = root + (r.uniform(250, 650) - root) * np.exp(-t / r.uniform(0.008, 0.04))
         env = np.minimum(t / 0.0007, 1) * (0.55 + 0.45 * np.exp(-t / 0.03)) * np.clip((n / RATE - 0.03 - t) / 0.02, 0, 1)
         return np.sin(2 * np.pi * np.cumsum(f) / RATE) * env
-    name = "kicks alone, 16 at 150 BPM, 8 kits"
+    name = "kicks and sub tones alone, 16 beats at 150 BPM, 8 kits"
     print(f"\n{name}: % of the energy below 120 Hz in each lane")
     print(f"  {'kick':34}" + "".join(f"{s:>8}" for s in STEMS))
     for kn, kw in kicks.items():
@@ -129,8 +130,12 @@ def main():
         for seed in range(8):
             r = np.random.default_rng([7, seed])
             root, raw = r.uniform(38, 55), r.uniform(0, 1)
-            x = np.concatenate([bare_boom(r, beat, root) if kw is None else hardstyle.kick(r, beat, root, raw, **kw)
-                                for _ in range(16)])
+            if kw == "steady":  # v3 split a flattened 48 Hz sub 50/50 between bass and drums
+                t = np.arange(16 * beat) / RATE
+                x = np.sin(2 * np.pi * root * t) * np.minimum(t / 0.01, 1)
+            else:
+                x = np.concatenate([bare_boom(r, beat, root) if kw is None else hardstyle.kick(r, beat, root, raw, **kw)
+                                    for _ in range(16)])
             acc += lanes_band(level(np.stack([x, x])), 0, 120)
         sh = acc / acc.sum() * 100
         table.setdefault(name, {})[kn] = {s: round(float(v), 1) for s, v in zip(STEMS, sh)}

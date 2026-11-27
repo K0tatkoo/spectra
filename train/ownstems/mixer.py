@@ -24,13 +24,12 @@ One example = five stereo stems of `seconds` each, and their sum, the mix:
   are band-limited as MP3s and streams are, single stems are band-limited at
   random, dark catalog synths and "other" parts are driven bright now and
   then, and drums, synth and "other" get a reverb as vocals do.
-- An 808's held boom is bass. A generated kick hands its tail to bass after the
-  punch; a catalog kick whose low end still holds 150 ms after the hit (E-GMD's
-  electronic kits) does the same below 120 Hz (held_boom), and generated songs
-  also get clean 808-style and held-tail kicks. v2 learned "clean boom = drums"
-  and gave whole passages of the owner's 808 to the drums lane.
-- Catalog vocals are driven bright now and then, as synths are, so "driven" is
-  not a synth-only cue (v2 handed distorted vocals to synth).
+- A drum's sub is bass. Everything a drum stem holds below 120 Hz goes to the
+  bass label, from the hit on, and drums keep what is above it (the app's lanes
+  split the owner's hardstyle so: its drums hold almost no sub). v3 judged each
+  kick "held 808 or short kick" and flipped whole passages of the owner's songs
+  to drums; it had also never learned that a steady low tone is bass, so
+  generated songs get a sub-bass line now and then, and clean and held kicks.
 - A master bus: compression and limiting to a random loudness, as released
   music has (hardstyle masters run near -6 dB RMS). The gain is worked out on
   the mix and applied to every stem alike, so the stems still sum to the mix
@@ -93,13 +92,13 @@ class MixConfig:
     band_limit_hz: tuple[float, float] = (11000.0, 20000.0)
     stem_band_limit: dict[str, float] = field(default_factory=lambda: {
         "vocals": 0.0, "synth": 0.15, "other": 0.15, "bass": 0.0, "drums": 0.35})
-    # v3: catalog vocals are driven bright too (v2 learned "driven = synth" and handed the owner's
-    # processed vocals to synth).
-    bright: dict[str, float] = field(default_factory=lambda: {"synth": 0.35, "other": 0.25, "vocals": 0.25})
+    bright: dict[str, float] = field(default_factory=lambda: {"synth": 0.35, "other": 0.25})
     stem_reverb: dict[str, float] = field(default_factory=lambda: {"synth": 0.3, "other": 0.3, "drums": 0.3})
-    # v3: a catalog kick's held low boom (an 808) is bass after its punch, as a generated kick's
-    # tail is (v2 learned "clean boom = drums" from E-GMD's electronic kits). See held_boom().
-    boom_to_bass: bool = True
+    # v4: everything a drum stem holds below this goes to the bass label, from the hit on (0 = off).
+    # (v3 brightened catalog vocals too, and the vocals lane took the owner's driven leads.)
+    sub_to_bass_hz: float = 120.0
+    # v4: share of generated songs with a sub-bass line under the kicks (hardstyle.sub_bass).
+    sub_bass: float = 0.4
     # v3: generated songs also get clean 808-style kicks and kicks with a held tail.
     kick_styles: bool = True
 
@@ -178,60 +177,9 @@ def brighten(x: np.ndarray, rng) -> np.ndarray:
     return signal.sosfilt(shelf, y, axis=-1) * peak
 
 
-_BOOM_LP = signal.butter(4, 120.0, "lowpass", fs=RATE, output="sos")
-
-
-def held_boom(x: np.ndarray, rng, hold_db: float = -10.0) -> np.ndarray | None:
-    """The part of a drum stem a listener hears as bass: an 808-style kick's held low boom.
-
-    Below 120 Hz, each kick whose low band is still within `hold_db` of its peak 150 ms after
-    the hit keeps its punch (15-40 ms, then an 8-25 ms fade, as a generated kick's split) and
-    hands the rest of its low band, up to the next hit, to bass. A short acoustic kick has
-    fallen ~17 dB by then (E-GMD's median) and stays drums whole, as do hits that come too
-    close together to tell; and a window moves nothing unless most of its kicks hold (an
-    acoustic kick followed by a floor tom holds too, now and then: E-GMD fires on 26 % of 4 s
-    windows, about the share whose kicks hold). Returns (2, n) to move from the drums label to
-    the bass label, or None; the mix is unchanged either way. Draws from `rng` only when it
-    moves something."""
-    lo = signal.sosfiltfilt(_BOOM_LP, x, axis=-1)
-    m = lo.mean(axis=0)
-    h = int(0.005 * RATE)
-    k = len(m) // h
-    if k < 40:
-        return None
-    env = np.sqrt(np.mean(m[:k * h].reshape(k, h) ** 2, axis=1))
-    if env.max() < 1e-5:
-        return None
-    edb = 20 * np.log10(env + 1e-9)
-    top = edb.max()
-    rises = np.where((edb[2:] - edb[:-2] > 10) & (edb[2:] > top - 20))[0] + 2
-    hits: list[int] = []
-    for i in rises:
-        if not hits or i - hits[-1] >= 10:  # a new hit at least 50 ms after the last
-            hits.append(int(i))
-    # Hits whose next hit (or the end) comes 160 ms on or later can be judged; the kit is an 808
-    # when most of those hold. An acoustic kick followed by a floor tom holds too, now and then.
-    judged = [(j, i) for j, i in enumerate(hits) if (hits[j + 1] if j + 1 < len(hits) else k) - i >= 32]
-    held = [(j, i) for j, i in judged if edb[i + 30] - edb[i:i + 8].max() > hold_db]
-    if not held or len(held) < 0.5 * len(judged):
-        return None
-    w = np.ones(len(m))  # the share of the low band that stays drums
-    punch = fade = None
-    for j, i in held:
-        nxt = hits[j + 1] if j + 1 < len(hits) else None
-        if punch is None:
-            punch, fade = rng.uniform(0.015, 0.04), rng.uniform(0.008, 0.025)
-        s = (i - 2) * h  # the rise is seen up to two frames after the hit starts
-        e = (nxt - 2) * h if nxt is not None else len(m)
-        t = np.arange(e - s) / RATE
-        ww = np.clip(1 - (t - punch) / fade, 0, 1)
-        ww = 0.5 - 0.5 * np.cos(np.pi * ww)  # 1 through the punch, then a smooth fade to 0
-        if nxt is not None:  # and back to 1 over the 5 ms before the next hit
-            ww = np.maximum(ww, np.clip(1 - (e - s - np.arange(e - s)) / h, 0, 1))
-        w[s:e] = ww
-    if punch is None:
-        return None
-    return lo * (1 - w)[None]
+def drum_sub(x: np.ndarray, hz: float) -> np.ndarray:
+    """What a drum stem (2, n) holds below `hz`, zero-phase, so the rest is x minus it exactly."""
+    return signal.sosfiltfilt(signal.butter(4, hz, "lowpass", fs=RATE, output="sos"), x, axis=-1)
 
 
 def _reverb(x: np.ndarray, rng, wet: tuple[float, float] = (0.1, 0.45)) -> np.ndarray:
@@ -378,8 +326,11 @@ class Mixer:
         mu = hardstyle.music(rng, n / RATE + 0.5)
         bass = np.zeros((2, n))
         drums, kenv, drum_info = hardstyle.render_drums(rng, mu, n, bass_out=bass, kick_styles=self.cfg.kick_styles)
-        parts = {"drums": drums, "bass": bass.astype(np.float32)}
         song = {"bpm": round(mu.bpm, 1), "key": f"{mu.root} {mu.scale_name}", **drum_info}
+        if rng.random() < self.cfg.sub_bass:  # a steady sub line under (or between) the kicks
+            sub, song["sub_bass"] = hardstyle.sub_bass(rng, mu, n, kenv)
+            bass += sub
+        parts = {"drums": drums, "bass": bass.astype(np.float32)}
         if rng.random() >= 0.1:  # a tenth of the songs have no synth at all
             synth, syn_info = procsynth.render_synths(rng, n / RATE, mu, kind_p=hardstyle.KIND_P)
             if rng.random() < 0.85:
@@ -414,13 +365,6 @@ class Mixer:
                     layers.append(x * _db(rng.uniform(-6, 0)))
             if layers:
                 stems[i] = self._colour(np.sum(layers, axis=0), stem, rng, cfg.stem_gain_db[stem])
-        d, b = STEMS.index("drums"), STEMS.index("bass")
-        if cfg.boom_to_bass and np.any(stems[d]):
-            boom = held_boom(stems[d], rng)
-            if boom is not None:  # the 808's held boom is the bass line, as the app's lanes have it
-                stems[d] -= boom
-                stems[b] += boom
-                info["boom_to_bass"] = True
         return self._finish(stems, info, rng, cfg.master, cfg.loudness_db)
 
     def _song(self, rng: np.random.Generator) -> Example:
@@ -483,6 +427,11 @@ class Mixer:
 
     def _finish(self, stems: np.ndarray, info: dict, rng, master: float,
                 loudness_db: tuple[float, float]) -> Example:
+        d, b = STEMS.index("drums"), STEMS.index("bass")
+        if self.cfg.sub_to_bass_hz > 0 and np.any(stems[d]):  # a drum's sub is the bass lane's, from the hit
+            sub = drum_sub(stems[d], self.cfg.sub_to_bass_hz)
+            stems[d] -= sub
+            stems[b] += sub
         if rng.random() < self.cfg.band_limit:  # one filter on every stem, so they still sum to the mix
             stems = signal.sosfilt(lowpass_sos(rng, rng.uniform(*self.cfg.band_limit_hz)), stems, axis=-1)
         mix = stems.sum(axis=0)

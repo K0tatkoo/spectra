@@ -256,49 +256,54 @@ def _low(x: np.ndarray) -> float:
     return float(spec[:, np.fft.rfftfreq(x.shape[-1], 1 / RATE) < 120].sum())
 
 
-def test_held_boom_moves_an_808_tail_to_bass_and_keeps_the_punch():
-    """v2 gave the owner's 808 to drums: E-GMD's electronic kits taught it a clean held boom is a drum."""
-    from ownstems.mixer import held_boom
-
-    x = _kicks(0.6)
-    boom = held_boom(x, np.random.default_rng(0))
-    assert boom is not None and boom.shape == x.shape
-    rest = x - boom
-    for a in (0.6, 1.1, 1.6):  # each hit's first 10 ms stay drums; from 100 ms on, its low end is bass
-        s = int(a * RATE)
-        head, tail = slice(s, s + int(0.01 * RATE)), slice(s + int(0.1 * RATE), s + int(0.45 * RATE))
-        assert np.sum(rest[:, head] ** 2) > 0.9 * np.sum(x[:, head] ** 2)
-        assert _low(rest[:, tail]) < 0.05 * _low(x[:, tail])
-    assert _low(boom) > 0.7 * _low(x)
-
-
-@pytest.mark.parametrize("decay, hits", [
-    (0.04, (0.1, 0.6, 1.1, 1.6, 2.1)),          # acoustic kicks: gone well before 150 ms
-    (0.05, (0.1, 0.22, 0.6, 0.72, 1.1, 1.22)),  # double kicks 120 ms apart
-])
-def test_held_boom_leaves_short_kicks_alone(decay, hits):
-    from ownstems.mixer import held_boom
-
-    rng = np.random.default_rng(0)
-    assert held_boom(_kicks(decay, hits), rng) is None
-    assert rng.random() == np.random.default_rng(0).random()  # and drew nothing
-
-
-def test_mixer_hands_a_catalog_808_boom_to_bass(tmp_path):
+def test_a_drums_sub_is_bass_from_the_hit(tmp_path):
+    """v4: everything a drum stem holds below 120 Hz is labelled bass, the kick's first moment too,
+    as the app's lanes have the owner's hardstyle. Only the labels move: the mix is the same."""
     hits = (0.1, 0.6, 1.1, 1.6, 2.1, 2.6, 3.1)
     lib = _tone_library(tmp_path, drums=lambda k: _kicks(0.6 if k == 0 else 0.04, hits, seconds=4.0)[0] * 2)
     base: dict = dict(seconds=3.0, generated_song=0.0, absent={s: 0.0 for s in STEMS}, layered={s: 0.0 for s in STEMS},
-                bright={}, stem_reverb={}, stem_band_limit={}, band_limit=0.0, master=0.0)
-    moved = 0
-    for seed in range(10):
+                      bright={}, stem_reverb={}, stem_band_limit={}, band_limit=0.0, master=0.0)
+    d, b = STEMS.index("drums"), STEMS.index("bass")
+    for seed in range(4):
         on = Mixer(lib, MixConfig(**base)).example(np.random.default_rng(seed))
+        off = Mixer(lib, MixConfig(**base, sub_to_bass_hz=0.0)).example(np.random.default_rng(seed))
+        assert np.max(np.abs(on.mix - off.mix)) < 1e-6
         assert np.max(np.abs(on.stems.sum(axis=0) - on.mix)) < 1e-6
-        held = any("drums0" in c for c in on.info["clips"]["drums"])  # drums0 is an 808 loop, drums1 acoustic
-        assert bool(on.info.get("boom_to_bass")) == held
-        moved += held
-        off = Mixer(lib, MixConfig(**base, boom_to_bass=False)).example(np.random.default_rng(seed))
-        assert "boom_to_bass" not in off.info
-    assert moved >= 2
+        f = np.fft.rfftfreq(on.stems.shape[-1], 1 / RATE)
+        spec = lambda x: np.abs(np.fft.rfft(x.mean(0))) ** 2  # noqa: E731
+        low = f < 80
+        assert spec(on.stems[d])[low].sum() < 0.01 * spec(off.stems[d])[low].sum()
+        assert spec(on.stems[b])[low].sum() > spec(off.stems[b])[low].sum()
+        hi = (f > 1000) & (f < 8000)  # the click stays drums
+        assert spec(on.stems[d])[hi].sum() > 0.95 * spec(off.stems[d])[hi].sum()
+
+
+def test_generated_song_drums_hold_no_sub(tmp_path):
+    mixer = Mixer(_tone_library(tmp_path), MixConfig(seconds=3.0, generated_song=1.0, sub_bass=1.0))
+    d, b = STEMS.index("drums"), STEMS.index("bass")
+    styles = set()
+    for seed in range(6):
+        ex = mixer.example(np.random.default_rng(seed))
+        styles.add(ex.info["song"].get("sub_bass"))
+        if np.any(ex.stems[d]) and np.any(ex.stems[b]):
+            assert _low(ex.stems[d]) < 0.02 * _low(ex.stems[b])
+    assert None not in styles
+
+
+def test_sub_bass_is_a_steady_low_tone():
+    from synthsplit import hardstyle
+
+    n = 4 * RATE
+    for seed in range(6):
+        mu = hardstyle.music(np.random.default_rng(seed), 4.5)
+        kenv = np.zeros(n)
+        kenv[::int(mu.beat * RATE)] = 1.0
+        x, style = hardstyle.sub_bass(np.random.default_rng(seed), mu, n, kenv)
+        assert x.shape == (2, n) and np.all(np.isfinite(x)) and np.sqrt(np.mean(x ** 2)) > 0.01
+        spec = np.abs(np.fft.rfft(x[0])) ** 2
+        f = np.fft.rfftfreq(n, 1 / RATE)
+        assert spec[f < 150].sum() > 0.95 * spec.sum()
+        assert 25 < f[np.argmax(spec)] < 75
 
 
 def test_generated_kick_styles_are_bass_after_the_punch():

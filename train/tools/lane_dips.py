@@ -7,7 +7,9 @@ its vocals dimmed into synth (train/STEMS.md, "Why v2's bass dims").
 --ours is tools/separate.py's output (<song>/{mix,vocals,...}.wav); --app is tools/render_many.py's,
 paired as tools/compare_listen.py pairs them. A frame (23 ms, smoothed over ~93 ms) counts where the
 app's lane plays (within 15 dB of its loud end); a dip is where ours sits > 6 dB under the app's,
-after the song's median offset between the two.
+after the song's median offset between the two. Then the bass lane at each kick: its sub level
+against the mix's just after the hit and 100-300 ms on, ours and the app's (v3's ducked ~6 dB at
+every hit, where the app's holds).
 """
 
 from __future__ import annotations
@@ -82,7 +84,38 @@ def main():
                     i = j
                 else:
                     i += 1
+    hit = {"ours": [], "app": []}
+    for d in songs:  # the bass lane at each kick, from the mix's sub onsets (5.8 ms frames)
+        sos = signal.butter(4, 120, "lowpass", fs=RATE, output="sos")
+
+        def sub_db(x):
+            lo = signal.sosfiltfilt(sos, x)
+            k = len(lo) // 256
+            return 10 * np.log10(np.mean(lo[:k * 256].reshape(k, 256) ** 2, axis=1) + 1e-12)
+
+        em = sub_db(sf.read(d / "mix.wav", dtype="float32", always_2d=True)[0].mean(1))
+        rise = em[3:] - em[:-3]
+        on: list[int] = []
+        for i in np.where((rise > 9) & (em[3:] > np.percentile(em, 95) - 25))[0] + 3:
+            if (not on or i - on[-1] > 43) and 10 < i < len(em) - 70:
+                on.append(int(i))
+        if not on:
+            continue
+        app = app_files(args.app / safe(d.name), args.splitter)["bass"]
+        for who, path in (("ours", d / "bass.wav"), ("app", app)):
+            eb = sub_db(sf.read(path, dtype="float32", always_2d=True)[0].mean(1))
+            m = min(len(eb), len(em))
+            rows = [eb[i - 4:i + 66] - em[i - 4:i + 66] for i in on if i + 66 < m]
+            hit[who].append(np.median(np.stack(rows), axis=0))
     out: dict = {}
+    if hit["ours"]:
+        ours_p, app_p = np.median(np.stack(hit["ours"]), 0), np.median(np.stack(hit["app"]), 0)
+        at = lambda p, ms: float(p[4 + int(ms / 1000 * RATE / 256)])  # noqa: E731
+        out["bass_at_kicks_db"] = {who: {f"{ms}ms": round(at(pp, ms), 1) for ms in (0, 10, 20, 30, 60, 150, 300)}
+                                   for who, pp in (("ours", ours_p), ("app", app_p))}
+        print("bass lane's sub against the mix's at each kick (dB), ms after the hit:   0    10    20    30    60   150   300")
+        for who, pp in (("ours", ours_p), ("app", app_p)):
+            print(f"  {who:4}{'':64}" + "".join(f"{at(pp, ms):6.1f}" for ms in (0, 10, 20, 30, 60, 150, 300)))
     for lane, (lo, hi, went) in PROBES.items():
         st = stats[lane]
         runs = np.array(st["runs"]) if st["runs"] else np.zeros(1)
