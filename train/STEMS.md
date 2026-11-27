@@ -455,6 +455,32 @@ under the app in 29 % of frames, 89 % of it in drums during dips, longest dip
 bass: distorted 92–95 %, clean 808 66–71 %, bare sine boom 7 %; ccMixter
 vocals driven hard 27 % synth, through `brighten()` 29 %.
 
+**v3 result (2026-11-27).** Ran 03:00 → 06:42 without a crash (0.33 s a step,
+no data wait), measurements done 06:48. Best = the last step, 40,000: mean
+4.81 dB on v1's held-out set (v2 4.78, v1 4.93): vocals 3.84 (3.91), synth
+4.49 (4.22), other 1.60 (1.42), bass 6.54 (6.84), drums 7.58 (7.51),
+hardstyle songs 5.57 (5.72). Bass fell as expected, since that set still
+labels library booms drums.
+
+The 808 fix worked:
+- Bass sub > 6 dB under the app in 16 % of frames (v2 29 %), > 10 dB in 10.5 %
+  (21.6 %); the sub goes 85 % to bass (v2 75 %, app 82 %); bass level -3.8 dB
+  vs the mix (app -4.1). Where it still dips the sub is in drums (88 %); the
+  longest are Scrap Attack 1:58 (10.4 s) and In The Cold 1:34 (8.1 s).
+- Kicks alone go 91–97 % to bass, the bare sine boom included (v2 7 %).
+
+The vocal fix overshot:
+- Driven vocals stay vocals (9 % to synth, v2 27 %; `brighten()` 6 %, v2 29 %)
+  and vocal dips are fewer (23 %, v2 30 %; 58 % into synth, v2 79 %).
+- But the vocals lane takes the bright background again, as v1's did: 62 % of
+  the songs' energy above 6 kHz (v2 13 %, app 4 %) and 65 % of 2–6 kHz (v2 18 %);
+  vocals level -7.8 dB vs the mix (v2 -9.8, app -12.7). Of the clear hits above
+  6 kHz (hats, claps) drums get 35 % (v2 57 %, app 80 %), vocals 52 % (v2 23 %).
+  Synth is lighter: -10.5 dB (v2 -6.7, app -12.0), 26 % of 2–6 kHz (v2 71 %).
+- So `brighten()` on vocals (a tanh drive of 3–20 and a 6–15 dB high shelf)
+  taught "hissy and bright = vocals" as v2's synth-only brightening taught
+  "= synth". A milder vocal drive (no big shelf) is the likely middle.
+
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
 the finished one. The same script runs on CUDA unchanged when the desktop is
