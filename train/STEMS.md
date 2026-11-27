@@ -121,6 +121,30 @@ clause. Each will be read again when its source module is written.
   breaks are copyrighted records), so build breaks from the CC0/CC BY kits and
   E-GMD, plus ccMixter drums (drums lane).
 
+**Fetched 2026-11-27** (the owner said yes; `prepare/instruments/`), raw into
+`D:\stems-clean\sources\instruments-raw\` with `manifest.jsonl` (URL, licence,
+where it was read, size, SHA-256 per file; 1,777 files, 31.7 GB). Not yet in the
+ledger or catalog: each source module will read its licence again when written.
+- 54 library and guitar-set files, 27.3 GB: VSCO-2 CE, VCSL, the sfzinstruments
+  CC0/CC BY libraries (Headroom, Osiris and Scarypiano pianos; Black & Green,
+  Emily and Shiny guitars; Bear Sax, Weresax, MTG Solo Sax; Ixox flute; Bigcat
+  cello; War Tuba; erhu, Hungarian zither, cithara, String Cyborgs, ganjo; and
+  eight drum kits for building breaks), Salamander, Upright Piano KW, TinySOL,
+  Guitar-TECHS, EGFxSet (all 14 pedal sets). Licences from each source's API
+  (Zenodo licence field, GitHub licence detection) or page (freepats); Zenodo
+  MD5s checked.
+- ccMixter, 1,019 parts, 6.6 GB, from 1,727 CC BY/CC0 sample uploads tagged with
+  an instrument (222 remixes and 1 cover dropped), each checked against the
+  SHA-1 ccMixter publishes: guitar 406, piano 126, strings 44, organ 24, winds
+  12, plucked 11, brass 11, sax 8, accordion 6, mallets 4 (instruments lane);
+  drums 224 and bass 143 (real multitrack drums and bass DI/amp, for those
+  lanes).
+- Mutopia, 704 MIDI files (626 public domain, 73 CC BY; 632 share-alike skipped;
+  two 404s): mostly piano, harpsichord, organ, guitar, violin, strings; Baroque,
+  Classical, Romantic.
+The downloads ran at low priority beside v5 without slowing it (data wait
+averaged 0.0005 s over its first 11,500 steps).
+
 A caveat: Slakh2100 and StemGMD are renders of commercial sample libraries. The
 datasets are published as CC BY, and that is what we rely on. Whether the
 sample vendors' terms reach rendered audio is the publishers' question, and it
