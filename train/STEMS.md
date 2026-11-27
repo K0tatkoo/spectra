@@ -571,6 +571,19 @@ bass), for jazz, classical, pop, rock, metal and breakcore/jungle. The
 "other" lane is already trained as that: Slakh's piano, guitars (distorted
 ones too), strings, brass, reeds and organ, and GuitarSet. What it lacks is
 real recordings and those genres.
+The owner chose (same day): rename "other" to "instruments" and widen its
+data, keeping five lanes, in a later run once the data is ready.
+
+**v5 run (started 2026-11-27 16:20 on the desktop, free for the weekend).**
+v4's data recipe unchanged with the `base` model (10.6 M parameters, 56
+bands, 8 blocks; small is 6.4 M) trained three times as long (120,000 steps),
+to see how much capacity helps the tinny vocals and the leaks into synth.
+Measured: 0.62 s a step, no data wait, 10.8 GB of the GPU's 16, commit
+charge 40 of 50 GB with 6 loader workers; ~21 h, so done around 13:15 on
+2026-11-28. `runs\v5\valid.pt` is v4's held-out set, so v5's scores compare
+with v4's directly; `old_set.txt` scores it on v1's.
+`tools/desktop-run-v5.cmd`. (The trainer's `--bench` measured 5.7 s a step
+because it ran on the CPU; the run itself is on the GPU.)
 
 For scale: the desktop's RTX 4060 Ti would be very roughly 50–100× faster, so
 a week on the server is a first model that shows what the data can do, not
